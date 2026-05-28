@@ -86,13 +86,21 @@ st.markdown("""
 # Configuración de Base de Datos en el Sidebar
 st.sidebar.markdown("### ⚙️ Conexión de Base de Datos")
 
-db_user = st.sidebar.text_input("Usuario", value="admin")
-db_password = st.sidebar.text_input("Contraseña", value="admin_password_safe", type="password")
-db_host = st.sidebar.text_input("Host", value="127.0.0.1")
-db_port = st.sidebar.text_input("Puerto", value="5435")
-db_name = st.sidebar.text_input("Base de Datos", value="geoanalisis")
+# Leer variables de entorno con fallbacks locales por defecto
+default_user = os.environ.get("DB_USER", "admin")
+default_password = os.environ.get("DB_PASSWORD", "admin_password_safe")
+default_host = os.environ.get("DB_HOST", "127.0.0.1")
+default_port = os.environ.get("DB_PORT", "5435")
+default_name = os.environ.get("DB_NAME", "geoanalisis")
+
+db_user = st.sidebar.text_input("Usuario", value=default_user)
+db_password = st.sidebar.text_input("Contraseña", value=default_password, type="password")
+db_host = st.sidebar.text_input("Host", value=default_host)
+db_port = st.sidebar.text_input("Puerto", value=default_port)
+db_name = st.sidebar.text_input("Base de Datos", value=default_name)
 
 db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
 
 # Intentar conexión
 @st.cache_resource(show_spinner=False)
