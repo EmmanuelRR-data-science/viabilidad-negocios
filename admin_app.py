@@ -620,7 +620,8 @@ else:
         """)
         
         # Verificar archivos en fuentes
-        fuentes_dir = r"c:\Users\EmmanuelRamírez\OneDrive - PhiQus\Escritorio\viabilidad-hook\fuentes"
+        # Buscar en variables de entorno o resolver relativo al script de forma dinámica
+        fuentes_dir = os.environ.get("FUENTES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "fuentes"))
         shp_zip_path = os.path.join(fuentes_dir, "889463807469_s.zip")
         
         archivos_listos = True
