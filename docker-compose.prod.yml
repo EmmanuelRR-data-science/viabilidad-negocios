@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  admin-app:
+    image: 188860181822.dkr.ecr.us-east-1.amazonaws.com/geoviabilidad-backend:latest
+    container_name: viabilidad-hook-admin
+    ports:
+      - "8501:8501"
+    environment:
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
+      - DB_HOST=${DB_HOST:-127.0.0.1}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-geoanalisis}
+    volumes:
+      - ./fuentes:/app/fuentes
+    restart: always
