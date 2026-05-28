@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  admin-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: viabilidad-hook-admin
+    ports:
+      - "8501:8501"
+    environment:
+      # These can be overridden in production using standard .env file
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
+      - DB_HOST=${DB_HOST:-127.0.0.1}
+      - DB_PORT=${DB_PORT:-5435}
+      - DB_NAME=${DB_NAME:-geoanalisis}
+    volumes:
+      # Mount the sources folder so the automatic ingestion reads directly from host server files
+      - ./fuentes:/app/fuentes
+    restart: always
