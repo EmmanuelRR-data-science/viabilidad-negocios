@@ -32,12 +32,13 @@ Para sustentar la viabilidad técnica y económica de la arquitectura de costo m
 *   **🔑 [Amazon Cognito](https://aws.amazon.com/cognito/)**: Servicio descentralizado de gestión de identidades y accesos (CIAM).
     *   *Ventaja*: Remueve la complejidad de almacenar contraseñas en la base de datos local y es gratuito hasta para los primeros 50,000 Usuarios Activos Mensuales (MAU), entregando tokens JWT seguros para validar sesiones al instante.
 *   **🔒 [AWS SSM Parameter Store](https://aws.amazon.com/systems-manager/features#Parameter_Store)**: Almacén seguro para configuración y llaves criptográficas.
-    *   *Ventaja*: Permite almacenar de forma encriptada y estándar (SecureString) los secretos y API keys de Mercado Pago, Google Places y Groq de forma **completamente gratuita**, evitando el cobro fijo por secreto impuesto por AWS Secrets Manager.
+    *   *Ventaja*: Permite almacenar de forma encriptada y estándar (SecureString) los secretos de Mercado Pago y Google Places de forma **completamente gratuita**, evitando el cobro de AWS Secrets Manager. Para **Amazon Bedrock** y **Amazon S3 - Informes**, se asignará un **AWS IAM Role** de forma directa a la instancia EC2, eliminando por completo la necesidad de almacenar o inyectar llaves de acceso AWS, lo cual maximiza la ciberseguridad.
 
 ### 📧 Mensajería y APIs de Terceros
 *   **✉️ [Amazon SES (Simple Email Service)](https://aws.amazon.com/ses/)**: Infraestructura de alta entregabilidad para correos electrónicos.
     *   *Ventaja*: Envía las confirmaciones e informes PDF generados directamente al buzón del cliente utilizando la capa de uso gratuito de AWS de forma sumamente robusta.
-*   **🤖 [Groq LLM (Llama-3)](https://groq.com/)**: Motor de inferencia de IA ultra veloz.
+*   **🤖 [Amazon Bedrock (Meta Llama 3.1)](https://aws.amazon.com/bedrock/)**: Motor de inferencia de IA nativo de AWS.
+    *   *Ventaja*: Proporciona análisis cualitativos en lenguaje natural de forma extremadamente segura (cumpliendo con HIPAA y RGPD) y veloz sin exponer datos fuera del entorno de red de tu AWS.
     *   *Ventaja*: Proporciona análisis cualitativos en lenguaje natural sobre las variables demográficas en milisegundos con un costo de API mínimo en comparación con GPT-4.
 *   **🗺️ [Google Places API](https://developers.google.com/maps/documentation/places/web-service/overview)**: Base de datos comercial interactiva a nivel mundial.
     *   *Ventaja*: Permite obtener en tiempo real los competidores directos/indirectos y atractores de tráfico de la ubicación seleccionada.
@@ -54,7 +55,7 @@ Facilitar a pymes, inversionistas y emprendedores mexicanos la toma de decisione
 1.  **Democratización del Geomarketing Corporativo**: Brindar a micro y pequeñas empresas análisis comerciales detallados y diagnósticos por IA, que tradicionalmente cuestan miles de dólares, a tarifas accesibles a partir de **$99 MXN** mediante un esquema de cobro transaccional por punto con **Mercado Pago Checkout Pro**.
 2.  **Eliminación de Barreras Técnicas SIG (INEGI al Vuelo)**: Desarrollar algoritmos de intersección geoespacial (`ST_Intersects`) optimizados con índices GIST en PostGIS que digieran la compleja estructura demográfica de AGEBs de INEGI y la crucen dinámicamente con competencia local en menos de **800ms**.
 3.  **Autosuficiencia en Ingesta de Datos (Cero Placeholders)**: Diseñar e implementar un pipeline administrativo asíncrono en `/admin` para que gestores no técnicos puedan subir, reproyectar geodésicamente al datum estándar `EPSG:4326` e insertar Shapefiles estatales de INEGI en hilos de fondo en menos de **15 segundos** por bloque.
-4.  **IA Explicable para Emprendedores**: Integrar **Groq LLM** para traducir variables cuantitativas y espaciales complejas (como densidad demográfica, saturación comercial Huff e índices de atracción) en reportes FODA intuitivos e interpretables en lenguaje natural.
+4.  **IA Explicable para Emprendedores**: Integrar **Amazon Bedrock** para traducir variables cuantitativas y espaciales complejas (como densidad demográfica, saturación comercial Huff e índices de atracción) en reportes FODA intuitivos e interpretables en lenguaje natural.
 5.  **Garantía de Operación a Costo Mínimo**: Estructurar un backend unificado en un contenedor Docker ejecutándose en una instancia de **Amazon EC2** con tareas en segundo plano en memoria (`BackgroundTasks`) que elimine por completo el cobro fijo de balanceadores (ALB) y colas de mensajería (SQS), manteniendo el costo de nube AWS en **menos de $22.00 USD mensuales**.
 
 ### Non-Goals
@@ -69,7 +70,7 @@ Facilitar a pymes, inversionistas y emprendedores mexicanos la toma de decisione
 
 En México, más del 70% de las nuevas pymes cierran sus puertas antes de cumplir dos años de vida, principalmente por una mala selección del local comercial. La información geoespacial está disponible a través del Censo de Población y Vivienda del **INEGI** (a nivel AGEB y manzana), pero su acceso técnico requiere herramientas SIG muy complejas y bases de datos con soporte geoespacial costosas.
 
-Adicionalmente, realizar un cruce demográfico con la oferta de competidores en tiempo real (Google Places) y flujos dinámicos de personas (BestTime API) es prohibitivo para un pequeño emprendedor. **GeoViabilidad Hook** democratiza esta información combinando el poder del visor interactivo web de Leaflet.js, PostgreSQL/PostGIS a bajo costo y un motor de razonamiento de IA (Groq LLM) para guiar al usuario mediante un sistema comercial de micropagos adaptado a sus necesidades y presupuesto.
+Adicionalmente, realizar un cruce demográfico con la oferta de competidores en tiempo real (Google Places) y flujos dinámicos de personas (BestTime API) es prohibitivo para un pequeño emprendedor. **GeoViabilidad Hook** democratiza esta información combinando el poder del visor interactivo web de Leaflet.js, PostgreSQL/PostGIS a bajo costo y un motor de razonamiento de IA (Amazon Bedrock) para guiar al usuario mediante un sistema comercial de micropagos adaptado a sus necesidades y presupuesto.
 
 ---
 
@@ -113,7 +114,7 @@ Representa el camino desde que el cliente solicita el análisis, se procesa la t
           │
           ├───► [ Google Places / BestTime ] ───► Recupera Competencia y Afluencia Peatonal
           │
-          ├───► [ Groq LLM (IA Llama-3) ] ─────► Genera FODA Contextualizado
+          ├───► [ Amazon Bedrock (Meta Llama 3.1) ] ───► Genera FODA Contextualizado
           │
           ├───► [ ReportLab PDF Engine ] ────────► Compila PDF Ejecutivo (6, 10 o 14 páginas)
           │
@@ -164,7 +165,7 @@ sequenceDiagram
     participant API as FastAPI (Dockerized EC2 Single Instance)
     participant DB as PostgreSQL + PostGIS (RDS t4g.micro)
     participant MP as Mercado Pago (Checkout Pro)
-    participant LLM as Groq LLM (Llama-3)
+    participant LLM as Amazon Bedrock (Llama 3.1)
     participant S3 as Amazon S3 (Informes Privados)
     participant SES as Amazon SES
 
@@ -223,12 +224,12 @@ Para mantener actualizada la base de datos nacional con datos del Censo de Pobla
 ### Métricas Técnicas (Validación de Rendimiento)
 1.  **Latencia de Intersección Espacial**: Las consultas espaciales en RDS PostgreSQL (`ST_Intersects` y ponderación demográfica) deben resolverse en menos de **800 milisegundos** dentro del búfer de 5km gracias al índice GIST.
 2.  **Tiempo de Procesamiento de Ingesta**: El pipeline administrativo debe reproyectar e insertar 1,000 polígonos de AGEBs en un tiempo menor a **15 segundos** en la base de datos RDS t4g.micro.
-3.  **Tasa de Llamadas de API Optimizada**: Se medirá la tasa de aciertos de la caché de base de datos relacional para Google Places y Groq LLM, con el objetivo de lograr un ahorro superior al **50% en llamadas redundantes** en un período de 30 días.
+3.  **Tasa de Llamadas de API Optimizada**: Se medirá la tasa de aciertos de la caché de base de datos relacional para Google Places y Amazon Bedrock, con el objetivo de lograr un ahorro superior al **50% en llamadas redundantes** en un período de 30 días.
 4.  **Consumo de Recursos EC2**: Monitorear a través de CloudWatch que el uso sostenido de CPU de la instancia permanezca por debajo del **75%** y la RAM por debajo del **85%** durante picos de solicitudes transaccionales simultáneas.
 5.  **Costo de Infraestructura**: Validar a través de AWS Budgets que el gasto total de recursos se mantenga estrictamente por debajo de los **$22.00 USD mensuales** bajo una carga transaccional regular.
 
 ### Métricas de Negocio (Kpis Operacionales)
 1.  **Conversión por Tier**: Medir el porcentaje de usuarios de Vista Previa Gratuita que realizan un upgrade a los planes Básico, Pro o Premium.
-2.  **Rentabilidad por Consulta**: Calcular el costo computacional promedio de APIs externas (Google Places + BestTime + Groq) contra el ingreso por Tier para asegurar un margen operativo neto superior al **70%**.
+2.  **Rentabilidad por Consulta**: Calcular el costo computacional promedio de APIs externas (Google Places + BestTime + Bedrock) contra el ingreso por Tier para asegurar un margen operativo neto superior al **70%**.
 3.  **Tasa de Éxito de Ingesta**: Porcentaje de archivos Shapefiles comprimidos cargados por administradores que concluyen su inserción a PostGIS exitosamente en el primer intento.
 4.  **Descargas de Reportes**: Conteo dinámico de PDFs firmados generados y descargados por los usuarios según el Tier adquirido.

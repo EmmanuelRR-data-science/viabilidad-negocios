@@ -166,3 +166,7 @@ fuentes/
 *.dbf
 *.prj
 *.cpg
+
+# Local reports and emails mocks
+scratch/reports/
+scratch/emails/

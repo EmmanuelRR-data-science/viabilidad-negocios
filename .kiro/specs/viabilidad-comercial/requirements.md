@@ -33,6 +33,8 @@ El sistema ofrece una **Vista Previa Gratuita** inicial en el visor cartográfic
 *   **RF-01.4**: El mapa deberá mostrar capas dinámicas según el nivel de acceso (tier) del usuario:
     *   *Gratuito / Básico*: Búfer demográfico e indicador demográfico de calor de INEGI.
     *   *Pro / Premium*: Capa detallada de pins categorizados para competidores directos/indirectos y atractores de tráfico.
+*   **RF-01.5**: Al hacer clic sobre cualquier ubicación del mapa, el sistema deberá realizar **Geocodificación Inversa** (mediante la API de Google Geocoding) y mostrar de forma inmediata y estructurada en la interfaz la información de dirección del punto: calle, número, colonia, código postal, localidad, municipio, estado y país.
+
 
 ### RF-02: Entrada de Configuración del Negocio
 *   **RF-02.1**: El usuario podrá seleccionar la categoría del negocio a evaluar a partir de una lista precargada.
@@ -50,7 +52,7 @@ El sistema ofrece una **Vista Previa Gratuita** inicial en el visor cartográfic
 *   **RF-04.1**: El sistema deberá calcular el **Índice de Saturación Comercial (ISC)** de manera ponderada por distancia utilizando el Modelo de Huff o decaimiento exponencial (disponible para Tiers **Pro** y **Premium**).
 *   **RF-04.2**: El sistema deberá calcular el **Índice de Atracción de Tráfico (IAT)** sumando ponderadamente los POIs atractores encontrados (transporte, escuelas, bancos, etc.) y los patrones de afluencia dinámica de **BestTime API** (disponible para Tiers **Pro** y **Premium**).
 *   **RF-04.3**: El sistema deberá calcular el **Score de Viabilidad de Apertura (SVA)**, una métrica de $0$ a $100$ que sintetice la competencia, demografía y atracciones.
-*   **RF-04.4**: El sistema deberá integrar el modelo **Groq LLM** a través de una API Key configurada para interpretar las intenciones del usuario (RF-02.4) y realizar un razonamiento contextual cruzado según el Tier del usuario:
+*   **RF-04.4**: El sistema deberá integrar el servicio **Amazon Bedrock** (utilizando modelos de inferencia ultra veloz como Meta Llama 3.1) para interpretar las intenciones del usuario (RF-02.4) y realizar un razonamiento contextual cruzado según el Tier del usuario:
     *   *Básico*: Análisis demográfico y FODA general simplificado.
     *   *Pro*: FODA extendido, estimación de ticket promedio del nicho y forecast de viabilidad comercial del mercado local.
     *   *Premium*: FODA profundo, ticket recomendado de venta y estimación del Retorno de Inversión (ROI) adaptado a las intenciones específicas.
@@ -82,10 +84,10 @@ El sistema ofrece una **Vista Previa Gratuita** inicial en el visor cartográfic
 *   **Servicio de Cómputo Unificado**: En lugar de múltiples grupos de contenedores ALB y colas SQS, se consolida la API y las tareas pesadas en **un contenedor Docker ejecutándose en una instancia de Amazon EC2**. El procesamiento en segundo plano para generar reportes y llamar al LLM se gestionará asíncronamente con **FastAPI BackgroundTasks** en memoria, lo que elimina la necesidad de un Application Load Balancer (ALB) y de Amazon SQS (Costo de cómputo predecible y optimizado).
 *   **Capa de Datos de Costo Fijo Mínimo**: En lugar de RDS Aurora Serverless v2 (con alto costo base), se utilizará una instancia de base de datos **Amazon RDS PostgreSQL (db.t4g.micro o db.t3.micro)** con almacenamiento SSD GP3 de 20GB y con la extensión espacial **PostGIS** activada. *(RDS Proxy se elimina por ser un costo redundante para cargas de trabajo optimizadas)* (Costo aproximado: $\approx 12.00$ USD/mes).
 *   **Identidad y Autenticación**: **Amazon Cognito** para gestionar la base de usuarios de forma 100% gratuita para los primeros 50,000 usuarios activos mensuales (MAU).
-*   **Gestión de Parámetros Gratuita**: En lugar de AWS Secrets Manager (con costo por secreto), se utilizará **AWS Systems Manager (SSM) Parameter Store** para inyectar credenciales y API Keys (Groq, Google Places, Mercado Pago) de forma completamente **gratuita** mediante parámetros estándar.
+*   **Gestión de Parámetros Gratuita**: En lugar de AWS Secrets Manager (con costo por secreto), se utilizará **AWS Systems Manager (SSM) Parameter Store** para inyectar credenciales de forma completamente **gratuita** (Google Places, Mercado Pago) y **AWS IAM Roles** asignados a la instancia EC2 para acceder de forma segura y sin claves expuestas a **Amazon Bedrock** y **Amazon S3 - Informes**.
 *   **Almacenamiento de Informes**: **Amazon S3 - Informes** privado con cifrado SSE-KMS integrado (Costo aproximado: $<0.10$ USD/mes).
 *   **Entrega de Correos**: **Amazon SES** utilizando el nivel gratuito (Costo aproximado: $0.00$ USD/mes).
 
 ### RNF-02: Rendimiento y Optimización
 *   **RNF-02.1**: Las consultas de cruce espacial en RDS PostgreSQL deben estar optimizadas mediante **Índices Espaciales GIST** sobre las columnas geométricas (`geom`).
-*   **RNF-02.2**: Para optimizar los costos de las APIs externas, el backend FastAPI cacheará los resultados analíticos en la base de datos relacional durante 30 días para evitar llamadas redundantes a Google Places, Groq y BestTime.
+*   **RNF-02.2**: Para optimizar los costos de las APIs externas, el backend FastAPI cacheará los resultados analíticos en la base de datos relacional durante 30 días para evitar llamadas redundantes a Google Places, Amazon Bedrock y BestTime.

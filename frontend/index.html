@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoViabilidad Hook — Localización Inteligente y Geomarketing en México</title>
+    
+    <!-- Metadatos de SEO -->
+    <meta name="description" content="Plataforma premium de Location Intelligence y Geomarketing para México. Analiza la viabilidad demográfica (INEGI Censo 2020), competencia (Google Places) y afluencia (BestTime) de forma costo-eficiente.">
+    <meta name="keywords" content="geomarketing, location intelligence, inegi, mexico, postgis, viabilidad comercial, huff gravity, score sva">
+    <meta name="author" content="GeoViabilidad Hook Team">
+    
+    <!-- Google Fonts - Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CSS (Mapas Interactivos) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- Estilos de la Aplicación -->
+    <link rel="stylesheet" href="index.css">
+</head>
+<body class="dark-theme" id="body-app">
+
+    <!-- Cabecera de la Aplicación -->
+    <header class="app-header glass-card">
+        <div class="header-logo">
+            <span class="logo-icon">📍</span>
+            <div class="logo-text">
+                <h1>GeoViabilidad <span>Hook</span></h1>
+                <p>Location Intelligence & Geomarketing</p>
+            </div>
+        </div>
+        
+        <div class="header-controls">
+            <!-- Selector de Perfil Cognito Simulado -->
+            <div class="profile-selector glass-card" id="profile-container">
+                <span class="profile-icon">👤</span>
+                <select id="user-role-select" class="clean-select">
+                    <option value="user" selected>Cliente (usr_mock_123)</option>
+                    <option value="admin">Administrador (admin_root)</option>
+                </select>
+            </div>
+            
+            <!-- Alternador de Tema Dinámico (Sun/Moon Switcher) -->
+            <button id="theme-toggle-btn" class="theme-btn glass-card" title="Alternar Modo Claro / Oscuro">
+                <span id="theme-icon">☀️</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal Layout Flex/Grid -->
+    <main class="main-container">
+        
+        <!-- Panel Izquierdo: Configuración e Inputs -->
+        <section class="control-panel glass-card" id="config-panel">
+            <div class="panel-header">
+                <h2>1. Configuración del Negocio</h2>
+                <p>Ingresa las variables operativas y tus intenciones comerciales.</p>
+            </div>
+            
+            <form id="analytics-form" class="panel-form" onsubmit="event.preventDefault();">
+                <!-- Selector de Categoría (Giro Comercial) -->
+                <div class="form-group">
+                    <label for="giro-select">Giro / Rubro del Negocio</label>
+                    <div class="select-wrapper">
+                        <select id="giro-select" required>
+                            <option value="" disabled selected>Selecciona un rubro...</option>
+                            <option value="cafeteria">Cafetería o Fuente de Sodas</option>
+                            <option value="restaurante_carta">Restaurante a la Carta</option>
+                            <option value="comida_rapida">Comida Rápida (Pizza/Burgers)</option>
+                            <option value="gimnasio">Gimnasio o Fitness Center</option>
+                            <option value="abarrotes">Tienda de Abarrotes y Miscelánea</option>
+                            <option value="farmacia">Farmacia con Medicamentos</option>
+                            <option value="estetica">Estética o Salón de Belleza</option>
+                            <option value="lavanderia">Lavandería o Tintorería</option>
+                            <option value="consultorio_medico">Consultorio Médico</option>
+                            <option value="escuela">Escuela Privada (Preescolar/Primaria)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Slider de Radio de Búfer -->
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="radio-slider">Radio de Influencia (Búfer)</label>
+                        <span id="radio-val" class="badge">1,000 m</span>
+                    </div>
+                    <input type="range" id="radio-slider" min="500" max="5000" step="500" value="1000" class="slider">
+                    <div class="slider-labels">
+                        <span>500m</span>
+                        <span>2.5km</span>
+                        <span>5.0km</span>
+                    </div>
+                </div>
+                
+                <!-- Textarea de Intenciones en Lenguaje Natural -->
+                <div class="form-group">
+                    <label for="intenciones-textarea">Intenciones Específicas del Negocio</label>
+                    <textarea id="intenciones-textarea" rows="4" placeholder="Ej: Quiero abrir una cafetería gourmet con zona infantil, enfocada a familias de clase media-alta, que ofrezca servicio rápido y café veracruzano de especialidad..."></textarea>
+                    <span class="helper-text">La IA de Bedrock cruzará tus intenciones con los datos demográficos y la competencia para darte una recomendación explicable.</span>
+                </div>
+                
+                <!-- Coordenadas Capturadas (Feedback Cartográfico) -->
+                <div class="coords-box glass-card" id="coords-display">
+                    <span class="coords-icon">🎯</span>
+                    <div class="coords-text">
+                        <p class="coords-title">Coordenadas Seleccionadas</p>
+                        <p id="lat-lng-text" class="coords-values">Haz clic en el mapa para marcar tu punto...</p>
+                    </div>
+                </div>
+                
+                <!-- Botón de Ejecutar Análisis -->
+                <button type="button" id="analyze-btn" class="btn-primary" disabled>
+                    <span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN
+                </button>
+            </form>
+        </section>
+        
+        <!-- Panel Derecho: Visor Cartográfico e Banner -->
+        <section class="map-panel glass-card" id="map-container">
+            
+            <!-- Banner de Dirección Física Resuelta (Geocodificación Inversa) -->
+            <div id="address-banner" class="address-banner glass-card hidden">
+                <span class="address-pin">📍</span>
+                <div class="address-content">
+                    <p class="address-label">Dirección Postal Detectada (México)</p>
+                    <p id="address-text" class="address-val">Cargando ubicación...</p>
+                </div>
+            </div>
+            
+            <!-- Div del Mapa de Leaflet -->
+            <div id="map" class="map-canvas"></div>
+            
+            <!-- Instrucción flotante -->
+            <div class="map-instruction glass-card">
+                <span>🖱️ Haz clic en cualquier parte de México para situar tu pin y trazar el círculo.</span>
+            </div>
+        </section>
+    </main>
+
+    <!-- Sección del Dashboard de Resultados (Oculto hasta que se corra la Previa) -->
+    <section id="results-dashboard" class="results-dashboard container hidden">
+        
+        <!-- Cabecera de Reporte -->
+        <div class="dashboard-header glass-card">
+            <div class="title-block">
+                <span class="badge" id="tier-badge">VISTA PREVIA GRATUITA</span>
+                <h2>Dashboard de Viabilidad de Localización</h2>
+                <p id="dashboard-subtitle">Diagnóstico espacial y geomarketing del punto comercial.</p>
+            </div>
+            <div class="action-block" id="dashboard-actions">
+                <button id="buy-basico-btn" class="btn-secondary">🔒 COMPRAR BÁSICO ($99)</button>
+                <button id="buy-pro-btn" class="btn-secondary font-glow">🔒 COMPRAR PRO ($249)</button>
+                <button id="buy-premium-btn" class="btn-primary font-glow">🔒 COMPRAR PREMIUM ($499)</button>
+            </div>
+        </div>
+        
+        <!-- Fila 1: KPIs Sintéticos -->
+        <div class="kpis-grid">
+            <!-- Card 1: Score SVA -->
+            <div class="kpi-card glass-card" id="kpi-sva-card">
+                <div class="kpi-icon">📊</div>
+                <div class="kpi-info">
+                    <h3>Score Viabilidad SVA</h3>
+                    <p class="kpi-value" id="kpi-sva">--</p>
+                    <p class="kpi-desc" id="kpi-sva-desc">Ponderación de demanda y competencia.</p>
+                </div>
+            </div>
+            
+            <!-- Card 2: Demografía Ponderada -->
+            <div class="kpi-card glass-card" id="kpi-demog-card">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-info">
+                    <h3>Demanda Residente</h3>
+                    <p class="kpi-value" id="kpi-poblacion">--</p>
+                    <p class="kpi-desc" id="kpi-pob-desc">Población residente estimada en el búfer.</p>
+                </div>
+            </div>
+            
+            <!-- Card 3: Competencia Directa -->
+            <div class="kpi-card glass-card" id="kpi-comp-card">
+                <div class="kpi-icon">🏬</div>
+                <div class="kpi-info">
+                    <h3>Competidores Locales</h3>
+                    <p class="kpi-value" id="kpi-competidores">--</p>
+                    <p class="kpi-desc" id="kpi-comp-desc">Establecimientos del mismo giro en la zona.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fila 2: Gráficos de Datos e Inferencia (Chart.js) -->
+        <div class="charts-grid" id="advanced-charts-section">
+            
+            <!-- Gráfico Competencia -->
+            <div class="chart-card glass-card" id="competitor-chart-card">
+                <h3>Distribución de Competidores por Rating</h3>
+                <p class="chart-helper-text" id="comp-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver las calificaciones de competidores locales.</p>
+                <div class="canvas-wrapper">
+                    <canvas id="competitors-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Gráfico Atractores / POIs -->
+            <div class="chart-card glass-card" id="poi-chart-card">
+                <h3>Atractores de Tráfico y Aliados</h3>
+                <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver la distribución de POIs aliados en la zona.</p>
+                <div class="canvas-wrapper">
+                    <canvas id="poi-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fila 3: Diagnóstico Estratégico FODA de la IA (Amazon Bedrock) -->
+        <div class="foda-section glass-card" id="foda-container">
+            <div class="section-title-foda">
+                <h3>⚡ Diagnóstico Estratégico Inteligente (AWS Bedrock)</h3>
+                <p id="foda-locked-msg">💡 Desbloquea un reporte de pago para obtener las recomendaciones, ROI y FODA cruzado con Llama 3.</p>
+            </div>
+            
+            <div class="foda-grid" id="foda-cards-grid">
+                <!-- Fortalezas -->
+                <div class="foda-card glass-card fortalezas" id="foda-f">
+                    <h4>💪 Fortalezas (F)</h4>
+                    <p id="foda-f-text">--</p>
+                </div>
+                
+                <!-- Oportunidades -->
+                <div class="foda-card glass-card oportunidades" id="foda-o">
+                    <h4>🚀 Oportunidades (O)</h4>
+                    <p id="foda-o-text">--</p>
+                </div>
+                
+                <!-- Debilidades -->
+                <div class="foda-card glass-card debilidades" id="foda-d">
+                    <h4>⚠️ Debilidades (D)</h4>
+                    <p id="foda-d-text">--</p>
+                </div>
+                
+                <!-- Amenazas -->
+                <div class="foda-card glass-card amenazas" id="foda-a">
+                    <h4>🔥 Amenazas (A)</h4>
+                    <p id="foda-a-text">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fila 4: Recomendación de ROI, Precios e Informe Descargable -->
+        <div class="premium-financial-section glass-card hidden" id="financial-section">
+            <h3>📈 Proyecciones de Retorno de Inversión (ROI) y Precios</h3>
+            
+            <div class="financial-grid">
+                <div class="financial-card glass-card">
+                    <h5>Ticket Promedio Sugerido</h5>
+                    <p class="financial-value" id="financial-ticket">--</p>
+                    <p class="helper-text">Rango recomendado según nivel socioeconómico de la zona.</p>
+                </div>
+                
+                <div class="financial-card glass-card">
+                    <h5>Período de Recuperación (Payback)</h5>
+                    <p class="financial-value" id="financial-roi">--</p>
+                    <p class="helper-text">Tiempo estimado de recuperación de inversión del punto.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Descarga de Informe ReportLab -->
+        <div class="report-download-section glass-card hidden" id="download-section">
+            <div class="download-info">
+                <h4>📄 Tu reporte ejecutivo ReportLab está listo para descarga</h4>
+                <p id="download-p-desc">El reporte privado e encriptado se ha guardado en Amazon S3. Puedes descargar la versión de alta definición en PDF ahora.</p>
+            </div>
+            <button id="download-pdf-btn" class="btn-primary font-glow">
+                ⬇️ DESCARGAR REPORTE EN PDF
+            </button>
+        </div>
+    </section>
+
+    <!-- Modal de Pasarela de Pago Simulado (Mercado Pago Mock) -->
+    <div id="payment-modal" class="payment-modal-overlay hidden">
+        <div class="payment-modal-content glass-card">
+            <div class="modal-header">
+                <h3>💳 Pasarela de Pago Seguro (Mercado Pago Checkout Pro)</h3>
+                <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="billing-summary">
+                    <p class="billing-desc">Estás por adquirir un análisis de geomarketing premium de GeoViabilidad Hook:</p>
+                    <div class="billing-item glass-card">
+                        <span id="billing-title">Reporte BÁSICO</span>
+                        <strong id="billing-price">$99.00 MXN</strong>
+                    </div>
+                </div>
+                
+                <div class="payment-options">
+                    <p class="section-title">Elige tu forma de pago simulada:</p>
+                    <button class="pay-option-btn glass-card active" data-status="approved">
+                        🟢 Aprobado al instante (Tarjeta de Crédito Simulada)
+                    </button>
+                    <button class="pay-option-btn glass-card" data-status="pending">
+                        🟡 Pendiente de Acreditación (OXXO Simulado)
+                    </button>
+                    <button class="pay-option-btn glass-card" data-status="rejected">
+                        🔴 Rechazado / Fondos Insuficientes
+                    </button>
+                </div>
+                
+                <!-- Barra de Progreso de Compilación PDF asíncrono -->
+                <div id="compilation-progress-container" class="compilation-progress hidden">
+                    <p id="compilation-status-text">Procesando pago seguro...</p>
+                    <div class="progress-bar-wrapper">
+                        <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                    <p class="helper-text">FastAPI BackgroundTasks está generando el PDF con ReportLab de 6, 10 o 14 páginas y subiéndolo cifrado con SSE-KMS a Amazon S3...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-payment-btn" class="btn-secondary">Cancelar</button>
+                <button id="confirm-payment-btn" class="btn-primary">CONFIRMAR PAGO SIMULADO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer de la Aplicación -->
+    <footer class="app-footer glass-card">
+        <p>&copy; 2026 GeoViabilidad Hook &mdash; Location Intelligence en México. Todos los derechos reservados.</p>
+        <p class="footer-meta">Infraestructura 100% Optimizada en AWS (S3, RDS PostGIS, Bedrock, SES & EC2). Costo mensual < $22.00 USD.</p>
+    </footer>
+
+    <!-- Leaflet.js JS (Mapas) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js (Gráficos) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lógica de la Aplicación -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -5,7 +5,7 @@ FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /app
 
-# Install system tools for compiling wheel binary dependencies
+# Install system tools for compiling wheel binary dependencies (Fiona, Shapely, PyProj)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
@@ -22,7 +22,7 @@ FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies for PostGIS/GDAL connection and geospatial parsing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     gdal-bin \
@@ -33,14 +33,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application files
+# Copy application files (Unified Fullstack Deployment)
 COPY admin_app.py .
 COPY ingest_all_states.py .
 COPY .kiro/ .kiro/
+COPY app/ app/
+COPY frontend/ frontend/
 
-# Expose port for Streamlit
+# Expose ports for Streamlit and FastAPI
 EXPOSE 8501
+EXPOSE 8000
 
-# Run the Streamlit admin dashboard
+# Run the Streamlit admin dashboard by default (can be overridden by entrypoint)
 ENTRYPOINT ["streamlit", "run", "admin_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-

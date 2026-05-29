@@ -37,7 +37,7 @@ graph TD
     subgraph APIs Externas (Consumo según Tier)
         ECS_API -->|Afluencia| BestTime[BestTime API]
         ECS_API -->|Comercios| Google[Google Places API]
-        ECS_API -->|Razonamiento IA| Groq[Groq LLM]
+        ECS_API -->|Razonamiento IA| Bedrock[AWS Bedrock - Llama 3.1]
     end
     
     subgraph Servicios Transversales Gratuitos o de Bajo Costo
@@ -134,7 +134,7 @@ CREATE TABLE cache_analisis_api (
     longitud NUMERIC(9, 6) NOT NULL,
     radio_metros INTEGER NOT NULL,
     rubro VARCHAR(50) NOT NULL,
-    servicio_tipo VARCHAR(20) NOT NULL, -- 'places', 'besttime', 'groq'
+    servicio_tipo VARCHAR(20) NOT NULL, -- 'places', 'besttime', 'bedrock'
     payload_respuesta JSONB NOT NULL,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -168,7 +168,7 @@ El motor analítico adapta los cálculos espaciales y llamadas a APIs según el 
         │                                │                                │
   - Intersección PostGIS           - Todo lo del Básico            - Todo lo del Pro
     (Demografía INEGI)             - API Google Places             - API BestTime
-  - Groq LLM (FODA                 - Groq LLM (FODA extendido      - Groq LLM (FODA profundo,
+  - Bedrock LLM (FODA              - Bedrock LLM (FODA extendido   - Bedrock LLM (FODA profundo,
     General Simplificado)            + Ticket promedio +              Ticket recomendado
   - PDF 6 páginas                    Forecast de Mercado)             + Estimación de ROI)
                                    - PDF 10 páginas                - PDF 14 páginas +
@@ -188,10 +188,17 @@ $$\text{ISC} = \sum_{k \in \text{Competencia Directa}} \frac{C_{\text{Directa}}}
 ### C. Índice de Atracción de Tráfico y Afluencia (IAT - Tiers Pro y Premium)
 Suma de POIs atractores. En el **Tier Premium**, se añade la afluencia de peatones dinámica e histórica obtenida de la **API de BestTime**.
 
-### D. Algoritmos de ROI y Ticket Recomendado (Tier Premium)
-*   **Ticket Recomendado ($TR$)**: El LLM y el motor analizan la media de tickets estimada y proponen un precio de venta optimizado basado en el nivel socioeconómico de la demografía cruzada.
-*   **Estimación de ROI ($ROI$)**: Se calcula a partir del volumen de afluencia (IAT), ticket recomendado y costos fijos estimados:
-    $$ROI = \frac{\text{Ingresos Estimados (Tráfico } \times \text{ Conversión } \times TR) - \text{Costos Operativos}}{\text{Inversión Inicial Estimada}} \times 100$$
+### E. Geocodificación Inversa (API de Google Geocoding - Todos los Tiers)
+*   **Propósito**: Al hacer clic en el mapa, el sistema consume la API de Google Geocoding (`/maps/api/geocode/json?latlng=lat,lng`) para obtener y mostrar en la UI de forma inmediata la dirección postal completa estructurada.
+*   **Mapeo de Atributos**:
+    *   `route` -> calle
+    *   `street_number` -> número
+    *   `sublocality_level_1` o `political` -> colonia
+    *   `postal_code` -> código postal
+    *   `locality` -> localidad (ciudad/población)
+    *   `administrative_area_level_2` -> municipio o alcaldía
+    *   `administrative_area_level_1` -> estado (entidad federativa)
+    *   `country` -> país
 
 ---
 
@@ -200,7 +207,7 @@ Suma de POIs atractores. En el **Tier Premium**, se añade la afluencia de peato
 El generador de PDF compila el reporte ejecutivo variando su extensión y profundidad de datos:
 *   **Básico (6 páginas)**: Portada, resumen de viabilidad general, reporte demográfico detallado del INEGI, Score final, mapa de ubicación estático.
 *   **Pro (10 páginas)**: Todo lo del básico + mapa detallado de competidores, tabla de competidores directos con distancias y forecast de mercado.
-*   **Premium (14 páginas)**: Todo lo del Pro + análisis comparativo sectorial, estimaciones de ROI detalladas, ticket de venta recomendado y el diagnóstico estratégico profundo del Groq LLM.
+*   **Premium (14 páginas)**: Todo lo del Pro + análisis comparativo sectorial, estimaciones de ROI detalladas, ticket de venta recomendado y el diagnóstico estratégico profundo de Amazon Bedrock.
 
 El archivo se sube a **Amazon S3 - Informes** cifrado. Para descargarlo, la API genera una **URL firmada temporal (Presigned URL)** de $10$ minutos que expone el PDF de forma segura al cliente.
 
@@ -224,7 +231,7 @@ De acuerdo con las directrices de ciberseguridad y usabilidad, queda prohibido e
 
 | Excepción Interna | Causa Técnica | Mensaje en Logs | Mensaje Amigable en la UI | Acción Propuesta |
 | :--- | :--- | :--- | :--- | :--- |
-| `GroqAPIError` / `GroqTimeout` | Falla del modelo de IA, sobrecupo de tokens o caída de Groq API. | `CRITICAL: Groq LLM API returned 503 Service Unavailable or Rate Limit.` | "Estamos experimentando una alta demanda en nuestro motor de análisis estratégico inteligente." | "Tu reporte cuantitativo e INEGI está a salvo. Puedes intentar regenerar el análisis estratégico en unos minutos sin costo adicional." |
+| `BedrockAPIError` / `BedrockTimeout` | Falla del modelo de IA o caída de AWS Bedrock. | `CRITICAL: AWS Bedrock API returned error or timeout.` | "Estamos experimentando una alta demanda en nuestro motor de análisis estratégico inteligente." | "Tu reporte cuantitativo e INEGI está a salvo. Puedes intentar regenerar el análisis estratégico en unos minutos sin costo adicional." |
 | `GoogleAPIQuotaError` | Clave bloqueada, sin saldo o cuota de Places superada. | `ERROR: Google Places API: Over Query Limit or API Key invalid.` | "El mapa de competidores locales no se pudo cargar temporalmente debido a una sincronización de mapas pendiente." | "El resto de la viabilidad de población y demografía está listo. Intenta consultar el mapa detallado en breve." |
 | `PostgisSpatialError` | Coordenadas fuera de México o geometría inválida. | `ERROR: PostGIS ST_Intersects failed: Coordinate is invalid or out of bounds.` | "No pudimos trazar el círculo de análisis correctamente en esta coordenada exacta." | "Asegúrate de que la ubicación se encuentra dentro del territorio mexicano y prueba moviendo un poco el pin en el mapa." |
 | `WebhookIntegrityError` | Firma inválida del webhook de Mercado Pago o cobro repetido. | `WARNING: Webhook signature check failed. Possible spoofing attempt or duplicate webhook.` | "No logramos verificar la firma de tu transacción segura." | "No te preocupes; si tu cobro fue aprobado, nuestro soporte procesará tu reporte manualmente al instante. Contáctanos." |
@@ -240,6 +247,6 @@ En caso de cualquier fallo no controlado, el middleware interceptará la excepci
   "status": "error",
   "friendly_message": "Estamos experimentando una alta demanda en nuestro motor de análisis estratégico inteligente.",
   "suggested_action": "Tu reporte cuantitativo e INEGI está a salvo. Puedes intentar regenerar el análisis estratégico en unos minutos sin costo adicional.",
-  "transaction_id": "err_groq_01j8f92a"
+  "transaction_id": "err_bedrock_01j8f92a"
 }
 ```

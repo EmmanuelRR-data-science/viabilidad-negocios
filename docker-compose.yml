@@ -9,13 +9,50 @@ services:
     ports:
       - "8501:8501"
     environment:
-      # These can be overridden in production using standard .env file
       - DB_USER=${DB_USER:-admin}
       - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
       - DB_HOST=${DB_HOST:-127.0.0.1}
       - DB_PORT=${DB_PORT:-5435}
       - DB_NAME=${DB_NAME:-geoanalisis}
     volumes:
-      # Mount the sources folder so the automatic ingestion reads directly from host server files
+      # Mount the local fuentes directory to read raw state shapefiles for demography ingestion
       - ./fuentes:/app/fuentes
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - geo-network
     restart: always
+
+  web-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: viabilidad-hook-api
+    entrypoint: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
+      - DB_HOST=${DB_HOST:-127.0.0.1}
+      - DB_PORT=${DB_PORT:-5435}
+      - DB_NAME=${DB_NAME:-geoanalisis}
+      - DEV_MODE=${DEV_MODE:-True}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_REPORTS_BUCKET=${S3_REPORTS_BUCKET:-viabilidad-hook-informes}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-meta.llama3-70b-instruct-v1:0}
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}
+      - BESTTIME_API_KEY=${BESTTIME_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - geo-network
+    restart: always
+
+networks:
+  geo-network:
+    name: geoanalisis-sdd_geo-network
+    external: true

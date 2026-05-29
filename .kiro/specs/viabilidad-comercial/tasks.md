@@ -5,20 +5,20 @@ Este es el checklist atómico e incremental para guiar el desarrollo de **GeoVia
 ---
 
 ## 🛠️ Fase 1: Entorno de Desarrollo y Base de Datos (PostGIS)
-*   [ ] **Tarea 1.1**: Inicializar el entorno virtual de Python utilizando **uv** y configurar el linter/formateador **Ruff** en el workspace.
-*   [ ] **Tarea 1.2**: Configurar y levantar una base de datos **PostgreSQL + PostGIS** local mediante Docker para emular el entorno de RDS PostgreSQL (db.t4g.micro) de AWS.
-*   [ ] **Tarea 1.3**: Diseñar y ejecutar la migración inicial de base de datos para crear la tabla geodemográfica (`agebs_demografia`) con su respectivo índice espacial GIST.
-*   [ ] **Tarea 1.4**: Crear la tabla transaccional (`ordenes_pagos`) para gestionar los estados de cobro y derechos adquiridos (*Entitlements*), así como la tabla `categorias_cruce` con la semilla inicial SCIAN <-> Google Places.
-*   [ ] **Tarea 1.5**: Diseñar y ejecutar la migración para crear las tablas auxiliares `ingesta_tareas` (para el control del progreso de carga asíncrona estatal) y `cache_analisis_api` (para la persistencia y caché de peticiones a APIs externas y Groq).
+*   [x] **Tarea 1.1**: Inicializar el entorno virtual de Python utilizando **uv** y configurar el linter/formateador **Ruff** en el workspace.
+*   [x] **Tarea 1.2**: Configurar y levantar una base de datos **PostgreSQL + PostGIS** local mediante Docker para emular el entorno de RDS PostgreSQL (db.t4g.micro) de AWS.
+*   [x] **Tarea 1.3**: Diseñar y ejecutar la migración inicial de base de datos para crear la tabla geodemográfica (`agebs_demografia`) con su respectivo índice espacial GIST.
+*   [x] **Tarea 1.4**: Crear la tabla transaccional (`ordenes_pagos`) para gestionar los estados de cobro y derechos adquiridos (*Entitlements*), así como la tabla `categorias_cruce` con la semilla inicial SCIAN <-> Google Places.
+*   [x] **Tarea 1.5**: Diseñar y ejecutar la migración para crear las tablas auxiliares `ingesta_tareas` (para el control del progreso de carga asíncrona estatal) y `cache_analisis_api` (para la persistencia y caché de peticiones a APIs externas y Bedrock).
 
 ---
 
 ## 🔑 Fase 2: Panel de Administración e Ingesta Geoespacial (INEGI)
-*   [ ] **Tarea 2.1**: Desarrollar el endpoint administrativo `POST /api/admin/ingestar` en la API de FastAPI que reciba archivos multipart.
-*   [ ] **Tarea 2.2**: Programar el pipeline de procesamiento asíncrono en Python utilizando **GeoPandas** y **Fiona** de forma fragmentada (chunking por iterador). Deberá descomprimir temporalmente los archivos Shapefile de AGEBs estatales y censos CSV, reproyectar las coordenadas al CRS EPSG:4326 (WGS84), e insertar por lotes de 1,000 en `agebs_demografia` liberando memoria de forma agresiva para evitar OOM en la base de datos db.t4g.micro y la EC2.
-*   [ ] **Tarea 2.3**: Desarrollar los endpoints de monitoreo administrativo `/api/admin/ingestar/estado/{id}` (para reportar el avance en tiempo real) y `/api/admin/coberturas` (para listado e indexación / borrado).
-*   [ ] **Tarea 2.4**: Maquetar la interfaz dedicada `/admin` con diseño premium Dark Glassmorphism, incorporando una dropzone de carga de archivos y consolas de texto con logs detallados.
-*   [ ] **Tarea 2.5**: Escribir la lógica en Vanilla JS para realizar el envío multipart, consultar el estado del procesamiento por polling y renderizar el catálogo de coberturas cargadas.
+*   [x] **Tarea 2.1**: Desarrollar el endpoint administrativo `POST /api/admin/ingestar` en la API de FastAPI que reciba archivos multipart.
+*   [x] **Tarea 2.2**: Programar el pipeline de procesamiento asíncrono en Python utilizando **GeoPandas** y **Fiona** de forma fragmentada (chunking por iterador). Deberá descomprimir temporalmente los archivos Shapefile de AGEBs estatales y censos CSV, reproyectar las coordenadas al CRS EPSG:4326 (WGS84), e insertar por lotes de 1,000 en `agebs_demografia` liberando memoria de forma agresiva para evitar OOM en la base de datos db.t4g.micro y la EC2.
+*   [x] **Tarea 2.3**: Desarrollar los endpoints de monitoreo administrativo `/api/admin/ingestar/estado/{id}` (para reportar el avance en tiempo real) y `/api/admin/coberturas` (para listado e indexación / borrado).
+*   [x] **Tarea 2.4**: Maquetar la interfaz dedicada `/admin` con diseño premium Dark Glassmorphism, incorporando una dropzone de carga de archivos y consolas de texto con logs detallados.
+*   [x] **Tarea 2.5**: Escribir la lógica en Vanilla JS para realizar el envío multipart, consultar el estado del procesamiento por polling y renderizar el catálogo de coberturas cargadas.
 
 ---
 
@@ -26,16 +26,16 @@ Este es el checklist atómico e incremental para guiar el desarrollo de **GeoVia
 *   [ ] **Tarea 3.1**: Configurar el middleware de FastAPI para validar y decodificar los tokens JWT de **Amazon Cognito**, protegiendo los endpoints transaccionales y de administración.
 *   [ ] **Tarea 3.2**: Desarrollar los endpoints de integración con **Mercado Pago** (`POST /api/pagos/preferencia` para generar el link de Checkout Pro y `POST /api/pagos/webhook` para acreditar el pago e iniciar el flujo de generación).
 *   [ ] **Tarea 3.3**: Configurar el cliente SDK de AWS (`boto3`) para la persistencia en Amazon S3 y programar el despachador de tareas asíncronas utilizando **FastAPI BackgroundTasks** al confirmarse el webhook de pago.
-*   [ ] **Tarea 3.4**: Desarrollar e implementar el middleware global de excepciones (`UserFriendlyExceptionMiddleware`) que intercepte cualquier fallo del backend (caídas de Groq, errores de PostGIS, timeout de Google Places) y responda payloads JSON sanitizados con mensajes amigables y acciones sugeridas para la UI, registrando el traceback técnico real en logs internos.
+*   [ ] **Tarea 3.4**: Desarrollar e implementar el middleware global de excepciones (`UserFriendlyExceptionMiddleware`) que intercepte cualquier fallo del backend (caídas de Bedrock, errores de PostGIS, timeout de Google Places) y responda payloads JSON sanitizados con mensajes amigables y acciones sugeridas para la UI, registrando el traceback técnico real en logs internos.
 
 ---
 
-## 🧠 Fase 4: Motor Analítico y APIs (Google Places, BestTime & Groq LLM)
+## 🧠 Fase 4: Motor Analítico y APIs (Google Places, BestTime & Amazon Bedrock)
 *   [ ] **Tarea 4.1**: Programar la función de cálculo de **Demografía Ponderada** mediante intersección geoespacial matemática en PostGIS (RDS Aurora) intersectando el búfer del marcador con los polígonos de AGEBs.
 *   [ ] **Tarea 4.2**: Desarrollar la integración con **Google Places API** para mapear comercios competidores directos/indirectos y atractores de tráfico peatonal en el radio seleccionado.
 *   [ ] **Tarea 4.3**: Programar la integración con **BestTime API** para obtener e incorporar patrones dinámicos de afluencia peatonal horaria en la zona del proyecto.
-*   [ ] **Tarea 4.4**: Implementar la lógica de la tarea asíncrona en FastAPI que se ejecuta en segundo plano, calcule el Score SVA y estructure el prompt geoespacial detallado.
-*   [ ] **Tarea 4.5**: Programar la integración con **Groq LLM** para realizar el análisis cualitativo profundo cruzando datos demográficos, competencia directa e intenciones del usuario, devolviendo un JSON con la recomendación explicable (FODA).
+*   [ ] **Tarea 4.5**: Programar la integración con **Amazon Bedrock** para realizar el análisis cualitativo profundo cruzando datos demográficos, competencia directa e intenciones del usuario, devolviendo un JSON con la recomendación explicable (FODA).
+*   [ ] **Tarea 4.6**: Desarrollar la integración con la **API de Google Geocoding** (Geocodificación Inversa) para obtener la dirección postal estructurada (calle, número, colonia, código postal, localidad, municipio, estado, país) al hacer clic en el mapa y exponer el endpoint `GET /api/analizar/geocodificar`.
 
 ---
 
