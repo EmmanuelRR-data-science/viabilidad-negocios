@@ -47,16 +47,18 @@ def obtener_demografia_ponderada(db: Session, lat: float, lng: float, radio: int
     try:
         result = db.execute(query, {"lat": lat, "lng": lng, "radio": radio}).fetchone()
 
-        # Si la base de datos está vacía, retornamos valores nulos/cero simulados pero consistentes
+        # Si no hay intersección real con AGEBs (zona rural, lago, sin cartografía urbana)
+        # devolvemos 0 honestamente — el reporte mostrará lo que realmente hay
         if not result or (result[0] == 0 and result[1] == 0):
             logger.warning(
-                "No se encontraron intersecciones de AGEBs en PostGIS. Retornando valores demográficos por defecto."
+                "No se encontraron intersecciones de AGEBs en PostGIS para las coordenadas dadas. "
+                "Retornando 0 para reflejar la ausencia real de datos censales en la zona."
             )
             return {
-                "poblacion_ponderada": 12500,
-                "viviendas_ponderada": 3500,
-                "poblacion_masculina": 6100,
-                "poblacion_femenina": 6400,
+                "poblacion_ponderada": 0,
+                "viviendas_ponderada": 0,
+                "poblacion_masculina": 0,
+                "poblacion_femenina": 0,
             }
 
         return {
@@ -67,12 +69,12 @@ def obtener_demografia_ponderada(db: Session, lat: float, lng: float, radio: int
         }
     except Exception as e:
         logger.error(f"Falla al ejecutar consulta demográfica espacial: {e}")
-        # Retorno de contingencia si no hay PostGIS activo en desarrollo
+        # En caso de error de conexión, devolvemos 0 — nunca valores inventados
         return {
-            "poblacion_ponderada": 12500,
-            "viviendas_ponderada": 3500,
-            "poblacion_masculina": 6100,
-            "poblacion_femenina": 6400,
+            "poblacion_ponderada": 0,
+            "viviendas_ponderada": 0,
+            "poblacion_masculina": 0,
+            "poblacion_femenina": 0,
         }
 
 
@@ -132,6 +134,14 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
     isc = 0.0
     distancia_mas_cercana = float("inf")
 
+    bancos_conteo = 0
+    escuelas_conteo = 0
+    transporte_conteo = 0
+    # Listas reales de aliados para el reporte — se consolidan en aliados_listado
+    bancos_list: list = []
+    escuelas_list: list = []
+    transporte_list: list = []
+
     if tier in ["pro", "premium"]:
         competidores = buscar_competidores(lat, lng, float(radio), google_type)
         logger.info(f"Competidores detectados en el radio por Places: {len(competidores)}")
@@ -145,6 +155,32 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
             # Capping a 10 metros para evitar infinitos en la fórmula de gravedad
             dist_cap = max(dist, 10.0)
             isc += 1.0 / (dist_cap**2)
+
+        if tier == "premium":
+            # Buscar atractores urbanos reales — si falla la API el conteo queda en 0, nunca inventado
+            try:
+                logger.info("Buscando bancos cercanos para la viabilidad de tráficos...")
+                bancos_list = buscar_competidores(lat, lng, float(radio), "bank")
+                bancos_conteo = len(bancos_list)
+            except Exception as bank_err:
+                logger.error(f"Falla al buscar bancos en Places: {bank_err}. Conteo = 0.")
+                bancos_conteo = 0
+
+            try:
+                logger.info("Buscando escuelas cercanas para la viabilidad de tráficos...")
+                escuelas_list = buscar_competidores(lat, lng, float(radio), "school")
+                escuelas_conteo = len(escuelas_list)
+            except Exception as school_err:
+                logger.error(f"Falla al buscar escuelas en Places: {school_err}. Conteo = 0.")
+                escuelas_conteo = 0
+
+            try:
+                logger.info("Buscando paradas de transporte público cercanas...")
+                transporte_list = buscar_competidores(lat, lng, float(radio), "transit_station")
+                transporte_conteo = len(transporte_list)
+            except Exception as trans_err:
+                logger.error(f"Falla al buscar paradas de transporte: {trans_err}. Conteo = 0.")
+                transporte_conteo = 0
 
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
@@ -187,6 +223,23 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
     # Ajustes finales a la distancia más cercana
     distancia_cercana_res = int(round(distancia_mas_cercana)) if distancia_mas_cercana != float("inf") else -1
 
+    # Consolidar aliados reales: bancos + escuelas + transporte detectados por Places
+    # Cada aliado lleva nombre, tipo semántico, rating y reseñas para mostrarse en el reporte
+    def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
+        return {
+            "nombre": item.get("nombre", "Establecimiento sin nombre"),
+            "tipo": tipo_semantico,
+            "rating": item.get("rating", 0.0),
+            "user_ratings_total": item.get("user_ratings_total", 0),
+            "direccion": item.get("direccion", ""),
+        }
+
+    aliados_listado = (
+        [_enriquecer_aliado(b, "Institución Bancaria / Financiera") for b in bancos_list[:3]]
+        + [_enriquecer_aliado(e, "Centro Educativo") for e in escuelas_list[:3]]
+        + [_enriquecer_aliado(t, "Transporte Público") for t in transporte_list[:3]]
+    )
+
     return {
         "poblacion_ponderada": pob_total,
         "vivtot_ponderada": demog["viviendas_ponderada"],
@@ -194,6 +247,7 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
         "pobfem_ponderada": demog["poblacion_femenina"],
         "google_type": google_type,
         "categoria": categoria,
+        "rubro": rubro,
         "competidores_conteo": len(competidores),
         "competidores_listado": competidores,
         "distancia_competidor_cercano": distancia_cercana_res,
@@ -203,4 +257,8 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
         "score_competencia": round(score_competencia, 1),
         "score_trafico": round(score_trafico, 1),
         "sva": sva_final,
+        "bancos_conteo": bancos_conteo,
+        "escuelas_conteo": escuelas_conteo,
+        "transporte_conteo": transporte_conteo,
+        "aliados_listado": aliados_listado,
     }
