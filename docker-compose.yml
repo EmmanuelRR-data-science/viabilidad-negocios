@@ -11,8 +11,8 @@ services:
     environment:
       - DB_USER=${DB_USER:-admin}
       - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
-      - DB_HOST=${DB_HOST:-127.0.0.1}
-      - DB_PORT=${DB_PORT:-5435}
+      - DB_HOST=geo-analisis-db
+      - DB_PORT=5432
       - DB_NAME=${DB_NAME:-geoanalisis}
     volumes:
       # Mount the local fuentes directory to read raw state shapefiles for demography ingestion
@@ -35,8 +35,8 @@ services:
     environment:
       - DB_USER=${DB_USER:-admin}
       - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
-      - DB_HOST=${DB_HOST:-127.0.0.1}
-      - DB_PORT=${DB_PORT:-5435}
+      - DB_HOST=geo-analisis-db
+      - DB_PORT=5432
       - DB_NAME=${DB_NAME:-geoanalisis}
       - DEV_MODE=${DEV_MODE:-True}
       - AWS_REGION=${AWS_REGION:-us-east-1}
@@ -44,7 +44,9 @@ services:
       - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-meta.llama3-70b-instruct-v1:0}
       - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}
-      - BESTTIME_API_KEY=${BESTTIME_API_KEY:-}
+      - BESTTIME_API_KEY=${BEST_TIME_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_MODEL=${GROQ_MODEL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

@@ -141,6 +141,10 @@ async def recibir_notificacion_pago(request: Request, background_tasks: Backgrou
             if DEV_MODE or (action == "payment.created" or payload.get("type") == "payment"):
                 logger.info(f"Pago acreditado vía Webhook para Orden ID: {orden.id}. Lanzando BackgroundTask...")
 
+                # Aprobación inmediata en base de datos para desbloquear la vista web del Dashboard al instante
+                orden.estado_pago = "approved"
+                db.commit()
+
                 # Agendar tarea en segundo plano nativa en memoria (Sin SQS/Fargate redundantes)
                 background_tasks.add_task(generar_informe_task, orden.id)
                 return {"status": "processing", "detail": "Payment accepted. Processing report in background."}
@@ -175,6 +179,11 @@ def disparar_webhook_simulado(
 
     if payload.estado_pago.lower() == "approved":
         logger.info(f"[WEBHOOK MOCK] Aprobación forzada para Orden ID: {orden.id}. Lanzando tarea asíncrona...")
+
+        # Aprobación inmediata en base de datos para desbloquear la vista web del Dashboard al instante
+        orden.estado_pago = "approved"
+        db.commit()
+
         background_tasks.add_task(generar_informe_task, orden.id)
         return {
             "status": "success",

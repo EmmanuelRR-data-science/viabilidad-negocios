@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import os
 
@@ -8,7 +7,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy.orm import Session
 
 from app.analytics import procesar_calculo_analitico
-from app.config import AWS_REGION, BEDROCK_MODEL_ID, DEV_MODE, S3_REPORTS_BUCKET, SES_SENDER_EMAIL
+from app.config import AWS_REGION, DEV_MODE, S3_REPORTS_BUCKET, SES_SENDER_EMAIL
 from app.database import SessionLocal
 from app.models import OrdenPago
 from app.reports import ReportLabGenerator
@@ -74,66 +73,27 @@ def generar_informe_task(orden_id: int):
         competidores_conteo = resultado["competidores_conteo"]
         sva = resultado["sva"]
 
-        # 2. Invocar el LLM (Amazon Bedrock con Llama 3 70B)
-        logger.info("[TASK] Construyendo prompt estratégico y conectando a Amazon Bedrock...")
-        prompt = (
-            f"Actúa como un experto en geomarketing y analiza la viabilidad comercial de un negocio del giro: "
-            f"'{orden.rubro}' en México, ubicado en las coordenadas ({orden.latitud}, {orden.longitud}) "
-            f"con un radio de {orden.radio_metros} metros.\n"
-            f"Datos del entorno:\n"
-            f"- Población residente estimada: {poblacion_estimada} personas\n"
-            f"- Competencia directa en la zona: {competidores_conteo} comercios\n"
-            f"- Score de viabilidad general SVA: {sva}/100\n"
-            f"Intenciones del usuario: {orden.intenciones or 'Ninguna proporcionada'}\n\n"
-            f"Genera un análisis estratégico FODA profesional enfocado en el mercado mexicano. "
-            f"Sé específico con las Fortalezas, Oportunidades, Debilidades y Amenazas basadas en los datos proporcionados."
-        )
+        # 2. Invocar el LLM (Amazon Bedrock / Groq) mediante el módulo centralizado de Bedrock
+        logger.info("[TASK] Invocando el motor cognitivo de IA (Bedrock/Groq)...")
+        from app.bedrock import generar_analisis_foda
 
-        analysis_result = ""
-        if DEV_MODE:
-            # Modo Desarrollo: Simular la respuesta de la IA
-            logger.info("[TASK] Modo Desarrollo: Evitando llamada a AWS Bedrock. Generando FODA simulado.")
-            analysis_result = (
-                f"### ANÁLISIS ESTRATÉGICO SIMULADO (BEDROCK MOCK)\n\n"
-                f"Fortalezas: Excelente densidad de población residente ({poblacion_estimada:,} habitantes) dentro del búfer de radio.\n"
-                f"Oportunidades: El giro comercial '{orden.rubro}' tiene alta demanda en corredores mixtos de este perfil.\n"
-                f"Debilidades: Presencia directa de {competidores_conteo} comercios consolidados en la zona. Requiere diferenciación competitiva.\n"
-                f"Amenazas: Riesgo moderado de saturación de mercado a mediano plazo y costos fijos viales elevados en el pin seleccionado.\n\n"
-                f"Recomendación de ROI: Viabilidad del punto moderada-alta. Se proyecta un retorno saludable sobre la inversión a 18 meses."
-            )
-        else:
-            # Modo Producción: Invocar Bedrock de forma real usando boto3
-            try:
-                bedrock_client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
-
-                # Payload para Meta Llama 3 en Bedrock
-                body_json = {
-                    "prompt": f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
-                    "max_gen_len": 1024,
-                    "temperature": 0.5,
-                    "top_p": 0.9,
-                }
-
-                logger.info(f"[TASK] Invocando modelo Bedrock: {BEDROCK_MODEL_ID}...")
-                response = bedrock_client.invoke_model(
-                    modelId=BEDROCK_MODEL_ID,
-                    contentType="application/json",
-                    accept="application/json",
-                    body=json.dumps(body_json),
-                )
-
-                response_body = json.loads(response.get("body").read())
-                analysis_result = response_body.get("generation", "")
-                logger.info("[TASK] Respuesta exitosa obtenida de Amazon Bedrock.")
-            except (BotoCoreError, ClientError) as aws_err:
-                logger.error(f"[TASK] Error al invocar AWS Bedrock: {aws_err}")
-                analysis_result = (
-                    "### DIAGNÓSTICO ESTRATÉGICO DE EMERGENCIA\n\n"
-                    "Fortalezas: La densidad residencial en el radio del estudio es favorable para el volumen de consumo.\n"
-                    "Oportunidades: Implementar ventajas logísticas como entrega rápida a domicilio en la colonia.\n"
-                    "Debilidades: Alta competencia en el giro en el cuadrante geográfico analizado.\n"
-                    "Amenazas: Márgenes operativos presionados por competidores locales preexistentes."
-                )
+        try:
+            analysis_result = generar_analisis_foda(resultado, orden.intenciones)
+            logger.info("[TASK] Diagnóstico estratégico de IA generado exitosamente.")
+        except Exception as foda_err:
+            logger.error(f"[TASK] Error al generar diagnóstico estratégico de IA: {foda_err}")
+            analysis_result = {
+                "fortalezas": [
+                    "La densidad residencial en el radio del estudio es favorable para el volumen de consumo."
+                ],
+                "oportunidades": ["Implementar ventajas logísticas como entrega rápida a domicilio en la colonia."],
+                "debilidades": ["Alta competencia en el giro en el cuadrante geográfico analizado."],
+                "amenazas": ["Márgenes operativos presionados por competidores locales preexistentes."],
+                "conclusion": "Análisis de emergencia debido a un error de red con el LLM.",
+                "recomendacion_roi": "Monitorear costos y ticket promedio recomendado en la zona.",
+                "ticket_recomendado": "$180 - $250 MXN",
+                "roi_estimado": "14 a 18 Meses",
+            }
 
         # 3. Compilar el PDF real con ReportLab
         logger.info("[TASK] Compilando reporte PDF ejecutivo real mediante ReportLab...")

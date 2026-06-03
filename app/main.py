@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 
 from app.config import DEV_MODE
-from app.middleware import UserFriendlyExceptionMiddleware
+from app.middleware import LLMRateLimitMiddleware, UserFriendlyExceptionMiddleware
 from app.payments import router as payments_router
 from app.routes_analytics import router as analytics_router
 
@@ -38,7 +38,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. Registrar el Middleware de Excepciones Amigables (User-Centric)
+# 2. Rate limiting deslizante por IP para endpoints que invocan el LLM
+# (Se registra antes del middleware de excepciones para bloquearlo sin costo de procesamiento)
+app.add_middleware(LLMRateLimitMiddleware)
+
+# 3. Registrar el Middleware de Excepciones Amigables (User-Centric)
 app.add_middleware(UserFriendlyExceptionMiddleware)
 
 # Enrutador base de API

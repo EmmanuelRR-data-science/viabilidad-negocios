@@ -730,7 +730,9 @@ class ReportLabGenerator:
                 "GeoViabilidad Hook provee análisis analíticos de geointeligencia y geomarketing "
                 "basados en aproximaciones estadísticas y fuentes oficiales de terceros. Este estudio constituye una "
                 "herramienta complementaria de soporte empresarial y no garantiza el éxito del negocio, ganancias "
-                "financieras específicas o idoneidad regulatoria y de uso de suelo.",
+                "financieras específicas o idoneidad regulatoria y de uso de suelo. Este análisis se realizó con Inteligencia Artificial (IA) "
+                "y, si desea obtener asesoría profesional personalizada, le sugerimos contactar a las expertas en Estudios de Mercado "
+                "en el sitio: <font color='#2563eb'><u>https://estudiosdemercado.phiqus.com/</u></font>.",
                 s_body,
             )
         )
@@ -857,7 +859,9 @@ class ReportLabGenerator:
 
             comp_table_data.append(
                 [
-                    Paragraph("<b>🤝 ESTABLECIMIENTOS COMPLEMENTARIOS (ALIADOS REALES DETECTADOS)</b>", s_quadrant_title),
+                    Paragraph(
+                        "<b>🤝 ESTABLECIMIENTOS COMPLEMENTARIOS (ALIADOS REALES DETECTADOS)</b>", s_quadrant_title
+                    ),
                     Paragraph("", s_body),
                     Paragraph("", s_body),
                 ]
@@ -869,7 +873,9 @@ class ReportLabGenerator:
             if aliados_reales:
                 for aliado in aliados_reales[:6]:
                     rating_str = f"⭐ {aliado['rating']} / 5.0" if aliado["rating"] > 0 else "Sin calificación"
-                    reviews_str = f"({aliado['user_ratings_total']} reseñas)" if aliado["user_ratings_total"] > 0 else ""
+                    reviews_str = (
+                        f"({aliado['user_ratings_total']} reseñas)" if aliado["user_ratings_total"] > 0 else ""
+                    )
                     comp_table_data.append(
                         [
                             Paragraph(aliado["nombre"], s_body),
@@ -902,7 +908,12 @@ class ReportLabGenerator:
                         ("SPAN", (0, 1), (2, 1)),
                         ("SPAN", (0, len(real_directs) + 2), (2, len(real_directs) + 2)),
                         ("BACKGROUND", (0, 1), (2, 1), colors.HexColor("#f1f5f9")),
-                        ("BACKGROUND", (0, len(real_directs) + 2), (2, len(real_directs) + 2), colors.HexColor("#f1f5f9")),
+                        (
+                            "BACKGROUND",
+                            (0, len(real_directs) + 2),
+                            (2, len(real_directs) + 2),
+                            colors.HexColor("#f1f5f9"),
+                        ),
                         ("PADDING", (0, 0), (-1, -1), 5),
                         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                     ]
@@ -1022,13 +1033,62 @@ class ReportLabGenerator:
                         Paragraph("% Abiertos", s_table_header),
                         Paragraph("Interpretación de Fricción", s_table_header),
                     ],
-                    [Paragraph("Lunes", s_body), Paragraph(f"{total_c}", s_body), Paragraph("0", s_body), Paragraph(f"{total_c}", s_body), Paragraph("100%", s_body), Paragraph("Alta competencia", s_body)],
-                    [Paragraph("Martes", s_body), Paragraph(f"{total_c}", s_body), Paragraph("0", s_body), Paragraph(f"{total_c}", s_body), Paragraph("100%", s_body), Paragraph("Alta competencia", s_body)],
-                    [Paragraph("Miércoles", s_body), Paragraph(f"{total_c}", s_body), Paragraph("0", s_body), Paragraph(f"{total_c}", s_body), Paragraph("100%", s_body), Paragraph("Alta competencia", s_body)],
-                    [Paragraph("Jueves", s_body), Paragraph(f"{total_c}", s_body), Paragraph("0", s_body), Paragraph(f"{total_c}", s_body), Paragraph("100%", s_body), Paragraph("Alta competencia", s_body)],
-                    [Paragraph("Viernes", s_body), Paragraph(f"{total_c}", s_body), Paragraph("0", s_body), Paragraph(f"{total_c}", s_body), Paragraph("100%", s_body), Paragraph("Alta competencia", s_body)],
-                    [Paragraph("Sábado", s_body), Paragraph(f"{max(total_c - 1, 1)}", s_body), Paragraph("1" if total_c > 1 else "0", s_body), Paragraph(f"{total_c}", s_body), Paragraph("98%" if total_c > 1 else "100%", s_body), Paragraph("Alta competencia", s_body)],
-                    [Paragraph("Domingo", s_body), Paragraph(f"{int(total_c * 0.8)}", s_body), Paragraph(f"{total_c - int(total_c * 0.8)}", s_body), Paragraph(f"{total_c}", s_body), Paragraph("80%", s_body), Paragraph("Fricción moderada (Oportunidad)", s_body)],
+                    [
+                        Paragraph("Lunes", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("0", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("100%", s_body),
+                        Paragraph("Alta competencia", s_body),
+                    ],
+                    [
+                        Paragraph("Martes", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("0", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("100%", s_body),
+                        Paragraph("Alta competencia", s_body),
+                    ],
+                    [
+                        Paragraph("Miércoles", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("0", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("100%", s_body),
+                        Paragraph("Alta competencia", s_body),
+                    ],
+                    [
+                        Paragraph("Jueves", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("0", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("100%", s_body),
+                        Paragraph("Alta competencia", s_body),
+                    ],
+                    [
+                        Paragraph("Viernes", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("0", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("100%", s_body),
+                        Paragraph("Alta competencia", s_body),
+                    ],
+                    [
+                        Paragraph("Sábado", s_body),
+                        Paragraph(f"{max(total_c - 1, 1)}", s_body),
+                        Paragraph("1" if total_c > 1 else "0", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("98%" if total_c > 1 else "100%", s_body),
+                        Paragraph("Alta competencia", s_body),
+                    ],
+                    [
+                        Paragraph("Domingo", s_body),
+                        Paragraph(f"{int(total_c * 0.8)}", s_body),
+                        Paragraph(f"{total_c - int(total_c * 0.8)}", s_body),
+                        Paragraph(f"{total_c}", s_body),
+                        Paragraph("80%", s_body),
+                        Paragraph("Fricción moderada (Oportunidad)", s_body),
+                    ],
                 ]
 
                 horarios_table = Table(horarios_data, colWidths=[90, 70, 70, 60, 80, 144])
@@ -1214,10 +1274,26 @@ class ReportLabGenerator:
                         Paragraph("Intensidad Peatonal (%)", s_table_header),
                         Paragraph("Diagnóstico de Flujo", s_table_header),
                     ],
-                    [Paragraph("Mañana (08:00 - 12:00)", s_body), Paragraph(f"{int_manana}%", s_body), Paragraph("Flujo de tránsito y escuelas", s_body)],
-                    [Paragraph("Mediodía (12:00 - 16:00)", s_body), Paragraph(f"{int_mediodia}%", s_body), Paragraph("Hora pico de almuerzo y comercio", s_body)],
-                    [Paragraph("Tarde (16:00 - 20:00)", s_body), Paragraph(f"{int_tarde}%", s_body), Paragraph("Salida laboral, máxima afluencia", s_body)],
-                    [Paragraph("Noche (20:00 - 24:00)", s_body), Paragraph(f"{int_noche}%", s_body), Paragraph("Descenso y cierre comercial", s_body)],
+                    [
+                        Paragraph("Mañana (08:00 - 12:00)", s_body),
+                        Paragraph(f"{int_manana}%", s_body),
+                        Paragraph("Flujo de tránsito y escuelas", s_body),
+                    ],
+                    [
+                        Paragraph("Mediodía (12:00 - 16:00)", s_body),
+                        Paragraph(f"{int_mediodia}%", s_body),
+                        Paragraph("Hora pico de almuerzo y comercio", s_body),
+                    ],
+                    [
+                        Paragraph("Tarde (16:00 - 20:00)", s_body),
+                        Paragraph(f"{int_tarde}%", s_body),
+                        Paragraph("Salida laboral, máxima afluencia", s_body),
+                    ],
+                    [
+                        Paragraph("Noche (20:00 - 24:00)", s_body),
+                        Paragraph(f"{int_noche}%", s_body),
+                        Paragraph("Descenso y cierre comercial", s_body),
+                    ],
                 ]
                 afluencia_table = Table(afluencia_table_data, colWidths=[150, 150, 204])
                 afluencia_table.setStyle(
@@ -1243,13 +1319,48 @@ class ReportLabGenerator:
                         Paragraph("Horas Tranquilas", s_table_header),
                         Paragraph("Interpretación de Flujo", s_table_header),
                     ],
-                    [Paragraph("Lunes", s_body), Paragraph("12:00, 11:00, 16:00", s_body), Paragraph("04:00, 20:00", s_body), Paragraph("Afluencia moderada", s_body)],
-                    [Paragraph("Martes", s_body), Paragraph("15:00, 14:00, 12:00", s_body), Paragraph("07:00, 21:00", s_body), Paragraph("Afluencia moderada", s_body)],
-                    [Paragraph("Miércoles", s_body), Paragraph("11:00, 12:00, 10:00", s_body), Paragraph("23:00, 00:00", s_body), Paragraph("Afluencia alta", s_body)],
-                    [Paragraph("Jueves", s_body), Paragraph("17:00, 12:00, 15:00", s_body), Paragraph("07:00, 21:00", s_body), Paragraph("Afluencia moderada", s_body)],
-                    [Paragraph("Viernes", s_body), Paragraph("16:00, 17:00, 11:00", s_body), Paragraph("06:00, 20:00", s_body), Paragraph("Afluencia alta", s_body)],
-                    [Paragraph("Sábado", s_body), Paragraph("17:00, 15:00, 16:00", s_body), Paragraph("22:00, 23:00", s_body), Paragraph("Afluencia alta", s_body)],
-                    [Paragraph("Domingo", s_body), Paragraph("12:00, 15:00, 14:00", s_body), Paragraph("22:00, 21:00", s_body), Paragraph("Baja afluencia", s_body)],
+                    [
+                        Paragraph("Lunes", s_body),
+                        Paragraph("12:00, 11:00, 16:00", s_body),
+                        Paragraph("04:00, 20:00", s_body),
+                        Paragraph("Afluencia moderada", s_body),
+                    ],
+                    [
+                        Paragraph("Martes", s_body),
+                        Paragraph("15:00, 14:00, 12:00", s_body),
+                        Paragraph("07:00, 21:00", s_body),
+                        Paragraph("Afluencia moderada", s_body),
+                    ],
+                    [
+                        Paragraph("Miércoles", s_body),
+                        Paragraph("11:00, 12:00, 10:00", s_body),
+                        Paragraph("23:00, 00:00", s_body),
+                        Paragraph("Afluencia alta", s_body),
+                    ],
+                    [
+                        Paragraph("Jueves", s_body),
+                        Paragraph("17:00, 12:00, 15:00", s_body),
+                        Paragraph("07:00, 21:00", s_body),
+                        Paragraph("Afluencia moderada", s_body),
+                    ],
+                    [
+                        Paragraph("Viernes", s_body),
+                        Paragraph("16:00, 17:00, 11:00", s_body),
+                        Paragraph("06:00, 20:00", s_body),
+                        Paragraph("Afluencia alta", s_body),
+                    ],
+                    [
+                        Paragraph("Sábado", s_body),
+                        Paragraph("17:00, 15:00, 16:00", s_body),
+                        Paragraph("22:00, 23:00", s_body),
+                        Paragraph("Afluencia alta", s_body),
+                    ],
+                    [
+                        Paragraph("Domingo", s_body),
+                        Paragraph("12:00, 15:00, 14:00", s_body),
+                        Paragraph("22:00, 21:00", s_body),
+                        Paragraph("Baja afluencia", s_body),
+                    ],
                 ]
                 horas_table = Table(horas_data, colWidths=[80, 160, 130, 134])
                 horas_table.setStyle(
@@ -1400,9 +1511,7 @@ class ReportLabGenerator:
             story.append(Paragraph("<b>Estrategia de Penetración Recomendada:</b>", s_h2))
             story.append(
                 Paragraph(
-                    foda_dict.get(
-                        "estrategia_precios", "Se recomienda precios competitivos y penetración gradual."
-                    ),
+                    foda_dict.get("estrategia_precios", "Se recomienda precios competitivos y penetración gradual."),
                     s_body,
                 )
             )

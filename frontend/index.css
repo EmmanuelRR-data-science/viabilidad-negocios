@@ -942,3 +942,12 @@ body.light-theme .progress-bar-wrapper {
         grid-template-columns: 1fr;
     }
 }
+
+/* --- LEAFLET CUSTOM PINS OVERRIDES --- */
+.competitor-pin,
+.ally-pin,
+.custom-pin {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}

@@ -20,8 +20,8 @@ DB_HOST = os.environ.get("DB_HOST", "127.0.0.1")
 DB_PORT = int(os.environ.get("DB_PORT", "5435"))
 DB_NAME = os.environ.get("DB_NAME", "geoanalisis")
 
-# Habilitar SSL para AWS RDS si estamos en host remoto y fuera de localhost
-if DB_HOST not in ["127.0.0.1", "localhost"]:
+# Habilitar SSL para AWS RDS si estamos en producción y en host remoto fuera de localhost/docker
+if not DEV_MODE and DB_HOST not in ["127.0.0.1", "localhost", "geo-analisis-db", "host.docker.internal"]:
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=require"
 else:
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -43,5 +43,9 @@ BESTTIME_CLIENT_ID = os.environ.get("BESTTIME_CLIENT_ID", "")
 
 # --- AWS SES EMAIL SENDER ---
 SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "alertas@geoviabilidad.com")
+
+# --- GROQ API FOR LOCAL LLM DEV TESTING ---
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 logger.info(f"Configuración cargada en Modo: {'DESARROLLO (Mocks Activos)' if DEV_MODE else 'PRODUCCIÓN (AWS Activo)'}")

@@ -2,7 +2,7 @@ import logging
 
 import requests
 
-from app.config import DEV_MODE, GOOGLE_MAPS_API_KEY
+from app.config import GOOGLE_MAPS_API_KEY
 
 logger = logging.getLogger("google_places")
 
@@ -12,9 +12,9 @@ def obtener_direccion(lat: float, lng: float) -> dict:
     Realiza geocodificación inversa mediante la API de Google Geocoding para resolver
     una latitud y longitud en una dirección mexicana estructurada.
     """
-    # Si estamos en modo de desarrollo o no hay API key de Google
-    if DEV_MODE or not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu"):
-        logger.info(f"Modo Desarrollo: Devolviendo dirección mexicana simulada para ({lat}, {lng}).")
+    # Si no hay API key de Google o es una clave de prueba
+    if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
+        logger.info(f"Modo Desarrollo (Simulado): Devolviendo dirección mexicana ficticia para ({lat}, {lng}).")
         return {
             "calle": "Plaza de la Constitución",
             "numero": "S/N",
@@ -108,8 +108,8 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str) 
     Consume la API de Google Places Nearby Search para localizar los comercios
     en un radio de distancia clasificados bajo el tipo específico de Google.
     """
-    if DEV_MODE or not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu"):
-        logger.info(f"Modo Desarrollo: Retornando lista de competidores simulados para tipo: {google_type}.")
+    if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
+        logger.info(f"Modo Desarrollo (Simulado): Retornando lista de competidores simulados para tipo: {google_type}.")
         # Generar competidores ficticios y realistas
         return [
             {
@@ -166,8 +166,8 @@ def obtener_mapa_estatico(lat: float, lng: float, radio: int, competidores: list
     con marcadores de diferentes colores: Azul para la ubicación propuesta, Rojo para los competidores.
     Retorna los bytes de la imagen.
     """
-    if DEV_MODE or not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu"):
-        logger.info("Modo Desarrollo: Evitando llamada a Google Static Maps. Retornando None.")
+    if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
+        logger.info("Modo Desarrollo (Simulado): Evitando llamada a Google Static Maps. Retornando None.")
         return None
 
     url = "https://maps.googleapis.com/maps/api/staticmap"

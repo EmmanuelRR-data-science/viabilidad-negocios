@@ -1,4 +1,6 @@
+import collections
 import logging
+import time
 import uuid
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -9,6 +11,81 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger("middleware")
+
+# ---------------------------------------------------------------------------
+# Constantes de rate limiting
+# ---------------------------------------------------------------------------
+_RATE_LIMIT_WINDOW_SECS = 60          # Ventana deslizante en segundos
+_RATE_LIMIT_MAX_REQUESTS = 10         # Máx requests LLM por IP por ventana
+# Rutas a las que se aplica el rate limit del LLM (incluye el endpoint públ. de análisis)
+_RATE_LIMITED_PATHS = {
+    "/api/analisis",
+    "/api/pagos/preferencia",
+}
+
+
+class LLMRateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware de rate limiting deslizante por IP para endpoints que invocan al LLM.
+    Protege los créditos de Groq/Bedrock contra ataques de agotamiento de API.
+
+    Implementa un sliding window de {_RATE_LIMIT_MAX_REQUESTS} requests en {_RATE_LIMIT_WINDOW_SECS}s
+    por dirección IP. Las IPs privadas (127.x, 10.x, 172.x) quedan excluidas del límite
+    para no afectar entornos de desarrollo local.
+    """
+
+    def __init__(self, app):
+        super().__init__(app)
+        # Diccionario IP -> deque de timestamps de requests recientes
+        self._windows: dict[str, collections.deque] = collections.defaultdict(
+            lambda: collections.deque()
+        )
+
+    def _is_private_ip(self, ip: str) -> bool:
+        """Excluye IPs privadas/loopback del rate limiting."""
+        return ip.startswith(("127.", "10.", "172.", "192.168.", "::1"))
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        # Solo aplicar a rutas sensibles de LLM
+        if request.method == "POST" and path in _RATE_LIMITED_PATHS:
+            client_ip = request.client.host if request.client else "unknown"
+
+            if not self._is_private_ip(client_ip):
+                now = time.monotonic()
+                window = self._windows[client_ip]
+
+                # Limpiar timestamps fuera de la ventana
+                while window and now - window[0] > _RATE_LIMIT_WINDOW_SECS:
+                    window.popleft()
+
+                if len(window) >= _RATE_LIMIT_MAX_REQUESTS:
+                    logger.warning(
+                        "[RATE_LIMIT] IP %s superó el límite de %d requests LLM en %ds. Request bloqueado.",
+                        client_ip,
+                        _RATE_LIMIT_MAX_REQUESTS,
+                        _RATE_LIMIT_WINDOW_SECS,
+                    )
+                    return JSONResponse(
+                        status_code=429,
+                        content={
+                            "status": "error",
+                            "friendly_message": "Has realizado demasiadas consultas en poco tiempo.",
+                            "suggested_action": (
+                                f"Por favor espera {_RATE_LIMIT_WINDOW_SECS} segundos "
+                                "antes de realizar una nueva consulta de análisis."
+                            ),
+                            "retry_after_seconds": _RATE_LIMIT_WINDOW_SECS,
+                        },
+                        headers={"Retry-After": str(_RATE_LIMIT_WINDOW_SECS)},
+                    )
+
+                window.append(now)
+
+        return await call_next(request)
+
+
 
 
 class UserFriendlyExceptionMiddleware(BaseHTTPMiddleware):

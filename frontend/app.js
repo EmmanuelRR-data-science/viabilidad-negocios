@@ -18,7 +18,7 @@ const state = {
     
     // Perfiles y Tokens
     currentUserRole: 'user', // 'user' o 'admin'
-    currentTheme: 'dark', // 'dark' o 'light'
+    currentTheme: 'light', // 'dark' o 'light'
     
     // Capas de azulejos de Leaflet
     tileLayer: null,
@@ -73,8 +73,8 @@ function initMap() {
         attributionControl: true
     }).setView(cdmxCoords, 14);
     
-    // Registrar capa de azulejos según el tema (Oscuro por defecto)
-    state.tileLayer = L.tileLayer(state.tilesDark, {
+    // Registrar capa de azulejos según el tema (Claro por defecto)
+    state.tileLayer = L.tileLayer(state.tilesLight, {
         attribution: state.tilesAttrib,
         maxZoom: 20
     }).addTo(state.map);
@@ -84,7 +84,7 @@ function initMap() {
         handleMapClick(e.latlng.lat, e.latlng.lng);
     });
     
-    logger("Leaflet.js cargado con tema oscuro (CartoDB Dark Matter).");
+    logger("Leaflet.js cargado con tema claro (CartoDB Positron).");
 }
 
 // --- VINCULACIÓN DE EVENTOS DE CONTROLES ---
@@ -555,6 +555,11 @@ async function unlockPaidReport() {
             const tierBadge = document.getElementById("tier-badge");
             tierBadge.textContent = `REPORTE ${state.activeTier.toUpperCase()}`;
             tierBadge.className = `badge ${state.activeTier}`;
+            
+            // Actualizar KPIs de la interfaz con los datos reales del reporte pagado
+            document.getElementById("kpi-sva").textContent = `${metricas.sva}/100`;
+            document.getElementById("kpi-poblacion").textContent = metricas.poblacion_ponderada.toLocaleString();
+            document.getElementById("kpi-competidores").textContent = metricas.competidores_conteo;
             
             // Ocultar botones de compra y mostrar el botón de descarga
             document.getElementById("dashboard-actions").classList.add("hidden");

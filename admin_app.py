@@ -106,8 +106,8 @@ db_host = st.sidebar.text_input("Host", value=default_host)
 db_port = st.sidebar.text_input("Puerto", value=default_port)
 db_name = st.sidebar.text_input("Base de Datos", value=default_name)
 
-# Habilitar SSL requerido si nos conectamos a un host remoto (como AWS RDS)
-if db_host not in ["127.0.0.1", "localhost"]:
+# Habilitar SSL requerido si nos conectamos a un host remoto (como AWS RDS) fuera de localhost/docker
+if db_host not in ["127.0.0.1", "localhost", "geo-analisis-db", "host.docker.internal"]:
     db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
 else:
     db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
