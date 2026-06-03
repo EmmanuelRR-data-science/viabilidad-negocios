@@ -40,41 +40,65 @@ class NumberedCanvas(canvas.Canvas):
 
         # --- PÁGINA 1: PORTADA DARK PREMIUM ---
         if self._pageNumber == 1:
-            # Fondo de portada elegante azul marino profundo
-            self.setFillColor(colors.HexColor("#0f172a"))
+            # Fondo de portada elegante antracita oscuro de Phiqus
+            self.setFillColor(colors.HexColor("#212121"))
             self.rect(0, 0, 612, 792, fill=1, stroke=0)
 
-            # Decoración abstracta: Círculo brillante (Simula ubicación/coordenadas)
-            self.setFillColor(colors.HexColor("#1e293b"))
+            # Dibujar el logo en la portada
+            logo_path = (
+                r"C:\Users\EmmanuelRamírez\OneDrive - PhiQus\Escritorio\AEDMI-SDD\assets\logo\phiqus_logo_positivo.png"
+            )
+            import os
+
+            if os.path.exists(logo_path):
+                self.drawImage(logo_path, 54, 700, width=110, height=30, preserveAspectRatio=True, mask="auto")
+
+            # Decoración abstracta: Círculo brillante (Azul de Phiqus)
+            self.setFillColor(colors.HexColor("#0675F1"))
             self.circle(500, 700, 250, fill=1, stroke=0)
 
-            self.setFillColor(colors.HexColor("#2563eb"))  # Azul eléctrico
+            # Círculo interior (Magenta de Phiqus)
+            self.setFillColor(colors.HexColor("#F178F2"))
             self.circle(500, 700, 100, fill=1, stroke=0)
 
-            # Línea acentuadora brillante inferior
-            self.setStrokeColor(colors.HexColor("#3b82f6"))
+            # Línea acentuadora brillante inferior (Amarillo de Phiqus)
+            self.setStrokeColor(colors.HexColor("#F1F10B"))
             self.setLineWidth(3)
             self.line(54, 150, 612 - 54, 150)
 
-            self.setStrokeColor(colors.HexColor("#1e293b"))
+            self.setStrokeColor(colors.HexColor("#212121"))
             self.setLineWidth(1)
             self.line(54, 144, 612 - 54, 144)
 
         # --- PÁGINAS SUCESIVAS: CABECERA Y PIE DE PÁGINA ---
         else:
             # CABECERA
+            logo_path = (
+                r"C:\Users\EmmanuelRamírez\OneDrive - PhiQus\Escritorio\AEDMI-SDD\assets\logo\phiqus_logo_positivo.png"
+            )
+            import os
+
+            has_logo = os.path.exists(logo_path)
+
+            if has_logo:
+                # Dibujar logo a la izquierda
+                self.drawImage(logo_path, 54, 742, width=55, height=15, preserveAspectRatio=True, mask="auto")
+                text_offset = 65
+            else:
+                text_offset = 0
+
             self.setFont("Helvetica-Bold", 8)
             self.setFillColor(colors.HexColor("#0f172a"))  # Navy
-            self.drawString(54, 750, "GEOVIABILIDAD HOOK — ESTUDIO DE LOCALIZACIÓN INTELIGENTE")
+            self.drawString(54 + text_offset, 746, "GEOVIABILIDAD HOOK — ESTUDIO DE LOCALIZACIÓN INTELIGENTE")
 
             self.setFont("Helvetica", 8)
             self.setFillColor(colors.HexColor("#64748b"))  # Slate
-            self.drawRightString(612 - 54, 750, datetime.date.today().strftime("%d/%m/%Y"))
+            self.drawRightString(612 - 54, 746, datetime.date.today().strftime("%d/%m/%Y"))
 
             # Línea de cabecera sutil
             self.setStrokeColor(colors.HexColor("#cbd5e1"))
             self.setLineWidth(0.5)
-            self.line(54, 742, 612 - 54, 742)
+            self.line(54, 736, 612 - 54, 736)
 
             # PIE DE PÁGINA
             self.line(54, 55, 612 - 54, 55)
@@ -143,7 +167,7 @@ class ReportLabGenerator:
             fontName="Helvetica-Bold",
             fontSize=28,
             leading=34,
-            textColor=colors.white,
+            textColor=colors.HexColor("#37F18A"),
             spaceAfter=15,
             alignment=0,  # Izquierda
         )
@@ -153,7 +177,7 @@ class ReportLabGenerator:
             fontName="Helvetica",
             fontSize=15,
             leading=20,
-            textColor=colors.HexColor("#94a3b8"),
+            textColor=colors.white,
             spaceAfter=25,
             alignment=0,
         )
@@ -239,7 +263,7 @@ class ReportLabGenerator:
             f"<b>COORDENADAS:</b> {orden.latitud}, {orden.longitud}<br/>"
             f"<b>RADIO DE INFLUENCIA:</b> {orden.radio_metros} metros<br/>"
             f"<b>CÓDIGO DE ORDEN:</b> {orden.checkout_id}<br/>"
-            f"<b>NIVEL ADQUIRIDO:</b> <font color='#60a5fa'><b>TIER {tier_label}</b></font><br/>"
+            f"<b>NIVEL ADQUIRIDO:</b> <font color='#0675F1'><b>TIER {tier_label}</b></font><br/>"
             f"<b>FECHA DE EMISIÓN:</b> {datetime.date.today().strftime('%d de %B de %Y')}<br/>"
         )
         story.append(Paragraph(meta_html, s_meta_cover))
