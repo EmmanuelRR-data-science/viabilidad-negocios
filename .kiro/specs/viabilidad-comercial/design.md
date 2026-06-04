@@ -211,6 +211,12 @@ El generador de PDF compila el reporte ejecutivo variando su extensión y profun
 
 El archivo se sube a **Amazon S3 - Informes** cifrado. Para descargarlo, la API genera una **URL firmada temporal (Presigned URL)** de $10$ minutos que expone el PDF de forma segura al cliente.
 
+### Arquitectura de Portada (Diapositiva 14)
+La portada del PDF se ha rediseñado para emular el estándar de marca de la diapositiva 14:
+* **Fondo y Monograma:** Se dibuja un fondo oscuro `#212121` acompañado de los bloques de colores de la espiral Fibonacci (`app/assets/cover_bg.png`) y el logotipo de monograma blanco (`app/assets/cover_logo.png`).
+* **Capa y Orden de Trazado:** Para corregir el bug donde el fondo vectorial tapaba los textos del informe, se implementó el callback de primera pasada `onFirstPage=dibujar_portada_background` en la llamada a `doc.build`. Esto asegura que el canvas dibuje el fondo y las imágenes *antes* de que Platypus pinte los flowables del título, subtítulo, metadatos, el texto `<Data Science>` (monospaciado con Courier-Bold) y el pie de página de la portada.
+* **Mapeo de Coordenadas:** La diapositiva original en formato horizontal (16:9) se estira a la totalidad del lienzo vertical de tamaño Carta (`612 x 792` pt), logrando una integración visual fluida sin superposición de textos.
+
 ---
 
 ## 🔑 6. Panel de Administración y Pipeline de Carga (INEGI)

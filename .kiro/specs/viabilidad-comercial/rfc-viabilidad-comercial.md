@@ -205,6 +205,15 @@ Para mantener actualizada la base de datos nacional con datos del Censo de Pobla
 
 ---
 
+### Rediseño de Portada PDF (Estándar Visual Diapositiva 14)
+
+Con el fin de unificar el branding corporativo de Phiqus, la portada (Página 1) del PDF generado fue rediseñada para coincidir con la diapositiva 14 del estándar visual:
+*   **Fondo y Mosaico Fibonacci**: Se implementó el mosaico de colores característico en el borde derecho y el fondo oscuro `#212121` mediante el asset `app/assets/cover_bg.png`. El logotipo se actualizó al monograma y marca positivos en blanco (`app/assets/cover_logo.png`).
+*   **Mitigación del Bug de Ocultación de Texto**: Se detectó que el código anterior dibujaba un fondo gris sólido en la segunda pasada del canvas, lo que tapaba los textos de flujo. Se resolvió registrando el callback `onFirstPage=dibujar_portada_background` en `doc.build`. Esto asegura que el fondo y las imágenes se dibujen en la primera pasada, quedando por debajo de los textos y garantizando su correcta visualización.
+*   **Textos y Alineación**: Los textos de la portada se organizaron en el hito izquierdo del PDF. Se agregó el texto `<Data Science>` monospaciado mediante la fuente nativa `Courier-Bold` y se incorporó un pie de página estandarizado en la esquina inferior izquierda.
+
+---
+
 ## Consideraciones
 
 ### 🔒 Seguridad en Producción

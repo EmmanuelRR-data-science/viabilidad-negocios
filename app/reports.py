@@ -1,6 +1,7 @@
 import datetime
 import io
 import logging
+import os
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -14,8 +15,7 @@ logger = logging.getLogger("reports")
 class NumberedCanvas(canvas.Canvas):
     """
     Canvas personalizado de ReportLab de dos pasadas para:
-    1. Dibujar una portada Dark Premium (página 1) con gráficos abstractos.
-    2. Dibujar cabeceras y pies de página dinámicos ("Página X de Y") a partir de la página 2.
+    1. Dibujar cabeceras y pies de página dinámicos ("Página X de Y") a partir de la página 2.
     """
 
     def __init__(self, *args, **kwargs):
@@ -38,37 +38,9 @@ class NumberedCanvas(canvas.Canvas):
     def draw_page_decorations(self, page_count):
         self.saveState()
 
-        # --- PÁGINA 1: PORTADA DARK PREMIUM ---
+        # --- PÁGINA 1: PORTADA (Manejada por onFirstPage) ---
         if self._pageNumber == 1:
-            # Fondo de portada elegante antracita oscuro de Phiqus
-            self.setFillColor(colors.HexColor("#212121"))
-            self.rect(0, 0, 612, 792, fill=1, stroke=0)
-
-            # Dibujar el logo en la portada
-            logo_path = (
-                r"C:\Users\EmmanuelRamírez\OneDrive - PhiQus\Escritorio\AEDMI-SDD\assets\logo\phiqus_logo_positivo.png"
-            )
-            import os
-
-            if os.path.exists(logo_path):
-                self.drawImage(logo_path, 54, 700, width=110, height=30, preserveAspectRatio=True, mask="auto")
-
-            # Decoración abstracta: Círculo brillante (Azul de Phiqus)
-            self.setFillColor(colors.HexColor("#0675F1"))
-            self.circle(500, 700, 250, fill=1, stroke=0)
-
-            # Círculo interior (Magenta de Phiqus)
-            self.setFillColor(colors.HexColor("#F178F2"))
-            self.circle(500, 700, 100, fill=1, stroke=0)
-
-            # Línea acentuadora brillante inferior (Amarillo de Phiqus)
-            self.setStrokeColor(colors.HexColor("#F1F10B"))
-            self.setLineWidth(3)
-            self.line(54, 150, 612 - 54, 150)
-
-            self.setStrokeColor(colors.HexColor("#212121"))
-            self.setLineWidth(1)
-            self.line(54, 144, 612 - 54, 144)
+            pass
 
         # --- PÁGINAS SUCESIVAS: CABECERA Y PIE DE PÁGINA ---
         else:
@@ -114,6 +86,30 @@ class NumberedCanvas(canvas.Canvas):
             self.drawRightString(612 - 54, 40, page_text)
 
         self.restoreState()
+
+
+def dibujar_portada_background(canvas_obj, doc):
+    """
+    Dibuja el fondo geométrico de la portada (diapositiva 14 de Phiqus)
+    y el logo blanco antes de pintar los textos de flujo.
+    """
+    canvas_obj.saveState()
+
+    # 1. Fondo base gris oscuro
+    canvas_obj.setFillColor(colors.HexColor("#212121"))
+    canvas_obj.rect(0, 0, 612, 792, fill=1, stroke=0)
+
+    # 2. Dibujar la imagen de fondo con la espiral Fibonacci de Phiqus
+    bg_path = os.path.join(os.path.dirname(__file__), "assets", "cover_bg.png")
+    if os.path.exists(bg_path):
+        canvas_obj.drawImage(bg_path, 0, 0, width=612, height=792, mask="auto")
+
+    # 3. Dibujar el logotipo blanco en la esquina superior izquierda
+    logo_path = os.path.join(os.path.dirname(__file__), "assets", "cover_logo.png")
+    if os.path.exists(logo_path):
+        canvas_obj.drawImage(logo_path, 54, 700, width=110, height=30, preserveAspectRatio=True, mask="auto")
+
+    canvas_obj.restoreState()
 
 
 class ReportLabGenerator:
@@ -267,6 +263,34 @@ class ReportLabGenerator:
             f"<b>FECHA DE EMISIÓN:</b> {datetime.date.today().strftime('%d de %B de %Y')}<br/>"
         )
         story.append(Paragraph(meta_html, s_meta_cover))
+
+        # Elementos adicionales de la diapositiva 14
+        story.append(Spacer(1, 60))
+
+        # Monospace Data Science
+        s_data_science = ParagraphStyle(
+            "CoverDataScience",
+            fontName="Courier-Bold",
+            fontSize=11,
+            leading=14,
+            textColor=colors.white,
+            spaceAfter=20,
+        )
+        story.append(Paragraph("&lt;Data Science&gt;", s_data_science))
+
+        # Pie de página de la portada
+        s_footer_cover = ParagraphStyle(
+            "CoverFooter",
+            fontName="Helvetica",
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor("#94a3b8"),  # slate-400
+        )
+        footer_text = (
+            f"GeoViabilidad Hook | Estudio de Localización Inteligente | {datetime.date.today().strftime('%d/%m/%Y')}"
+        )
+        story.append(Paragraph(footer_text, s_footer_cover))
+
         story.append(PageBreak())
 
         # =====================================================================
@@ -1702,8 +1726,8 @@ class ReportLabGenerator:
 
             logger.info("ReportLab: Compilación Premium exitosa (14 páginas).")
 
-        # Construir el documento final usando el NumberedCanvas
-        doc.build(story, canvasmaker=NumberedCanvas)
+        # Construir el documento final usando el NumberedCanvas y el callback de portada
+        doc.build(story, canvasmaker=NumberedCanvas, onFirstPage=dibujar_portada_background)
 
         pdf_bytes = buffer.getvalue()
         buffer.close()

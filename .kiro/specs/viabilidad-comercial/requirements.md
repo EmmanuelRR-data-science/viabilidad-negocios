@@ -68,6 +68,7 @@ El sistema ofrece una **Vista Previa Gratuita** inicial en el visor cartográfic
     *   *Básico*: Desbloquea la pestaña de demografía detallada e informe PDF de 6 páginas.
     *   *Pro*: Desbloquea la pestaña de mapa de competidores interactivos, ticket promedio y descarga del PDF extendido.
     *   *Premium*: Desbloquea el dashboard interactivo de forma ilimitada para el punto, gráficos dinámicos de ROI y comparativa sectorial de venta.
+*   **RF-05.5**: El reporte PDF generado por la aplicación deberá contar con una portada premium e institucional alineada con la **diapositiva 14** del estándar de diseño corporativo (mosaico Fibonacci de colores en el borde derecho, fondo `#212121`, título en verde `#37F18A` y monograma positivo blanco). El texto y logotipo deberán renderizarse por encima del fondo, evitando cualquier superposición u ocultación.
 
 ### RF-06: Panel de Administración e Ingesta Manual (INEGI)
 *   **RF-06.1**: El sistema deberá proveer un **front-end de administración protegido** (en `/admin`) para uso exclusivo del personal de gestión de datos.

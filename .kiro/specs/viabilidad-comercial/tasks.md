@@ -62,3 +62,13 @@ Este es el checklist atómico e incremental para guiar el desarrollo de **GeoVia
 *   [x] **Tarea 7.3**: Crear el **Dockerfile** específico optimizado para compilar la imagen Docker de FastAPI con soporte de librerías nativas geoespaciales (GDAL, Fiona, Proj) e inyectar secretos mediante **AWS SSM Parameter Store** en producción.
 *   [x] **Tarea 7.4**: Crear el archivo de configuración `docker-compose.yml` y los scripts de levantamiento automático (systemd o bash) para ejecutar y mantener el contenedor Docker permanente en la instancia de **Amazon EC2**.
 *   [x] **Tarea 7.5**: Escribir y ejecutar pruebas específicas de QA para verificar que el middleware de excepciones intercepte y mitigue fallos simulados respondiendo con la estructura JSON user-centric correcta sin exponer tracebacks.
+
+---
+
+## 🎨 Fase 8: Rediseño de Portada PDF (Plantilla Corporativa Slide 14)
+*   [x] **Tarea 8.1**: Extraer y guardar los assets de diseño (`cover_bg.png` y `cover_logo.png`) en el directorio `app/assets/`.
+*   [x] **Tarea 8.2**: Crear la función de callback `dibujar_portada_background` en `app/reports.py`.
+*   [x] **Tarea 8.3**: Limpiar `NumberedCanvas.draw_page_decorations` en `app/reports.py` de decoraciones redundantes en la Página 1.
+*   [x] **Tarea 8.4**: Registrar el callback `onFirstPage` en `doc.build` en `app/reports.py`.
+*   [x] **Tarea 8.5**: Ajustar los textos y estilos de la portada (verde `#37F18A`, `<Data Science>`, pie de página) en `app/reports.py`.
+*   [x] **Tarea 8.6**: Validar la generación y verificar visualmente la primera página con `fitz` convirtiéndola a PNG.
