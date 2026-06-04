@@ -44,12 +44,7 @@ class NumberedCanvas(canvas.Canvas):
 
         # --- PÁGINAS SUCESIVAS: CABECERA Y PIE DE PÁGINA ---
         else:
-            # CABECERA
-            logo_path = (
-                r"C:\Users\EmmanuelRamírez\OneDrive - PhiQus\Escritorio\AEDMI-SDD\assets\logo\phiqus_logo_positivo.png"
-            )
-            import os
-
+            logo_path = os.path.join(os.path.dirname(__file__), "assets", "phiqus_logo_positivo.png")
             has_logo = os.path.exists(logo_path)
 
             if has_logo:
@@ -1668,39 +1663,7 @@ class ReportLabGenerator:
                     s_body,
                 )
             )
-            # Tabla de Firmas y Sello de Verificación Digital (colocada al final de la página 13)
-            story.append(Spacer(1, 15))
-            signature_data = [
-                [
-                    Paragraph(
-                        "<b>FIRMA DE AUTORIZACIÓN</b><br/><br/><br/>___________________________<br/><b>Ing. Luis Alberto Mendoza</b><br/>Director General de Geomarketing",
-                        s_card_lbl,
-                    ),
-                    Paragraph(
-                        "<b>SELLO DE VALIDEZ DIGITAL</b><br/>"
-                        "<font size='6' color='#64748b'>"
-                        "VERIFIED BY GEOVIABILIDAD HOOK SERVICES<br/>"
-                        f"ID: GVH-{orden.checkout_id[:8].upper()}-OK<br/>"
-                        f"TIMESTAMP: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br/>"
-                        "DATABASE RESOLVED: POSTGIS + GOOGLE PLACES API<br/>"
-                        "SYSTEM: SECURE COMPILATION LAYER V2.0"
-                        "</font>",
-                        s_card_lbl,
-                    ),
-                ]
-            ]
-            signature_table = Table(signature_data, colWidths=[240, 264])
-            signature_table.setStyle(
-                TableStyle(
-                    [
-                        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#ef4444")),
-                        ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#f8fafc")),
-                        ("PADDING", (0, 0), (-1, -1), 10),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-            story.append(signature_table)
+
 
             logger.info("ReportLab: Compilación Premium exitosa (13 páginas).")
 
