@@ -3,6 +3,7 @@ conftest.py para tests/security/
 Garantiza que el módulo de pruebas de seguridad sea independiente
 de la base de datos y de la inicialización de FastAPI.
 """
+
 import os
 import sys
 from pathlib import Path

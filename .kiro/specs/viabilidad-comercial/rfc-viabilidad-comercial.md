@@ -116,7 +116,7 @@ Representa el camino desde que el cliente solicita el análisis, se procesa la t
           │
           ├───► [ Amazon Bedrock (Meta Llama 3.1) ] ───► Genera FODA Contextualizado
           │
-          ├───► [ ReportLab PDF Engine ] ────────► Compila PDF Ejecutivo (6, 10 o 14 páginas)
+          ├───► [ ReportLab PDF Engine ] ────────► Compila PDF Ejecutivo (6, 10 o 13 páginas)
           │
           ├───► [ Amazon S3 KMS ] ──────────────► Persiste Reporte PDF Seguro y Cifrado
           │
@@ -181,7 +181,7 @@ sequenceDiagram
     Note over API: Inicia FastAPI BackgroundTask en segundo plano
     API->>DB: 9. Consulta demografía ponderada del INEGI mediante ST_Intersects
     API->>LLM: 10. Envía datos demográficos + intenciones del usuario para FODA
-    Note over API: Compila PDF ReportLab (según Tier de 6, 10 o 14 págs)
+    Note over API: Compila PDF ReportLab (según Tier de 6, 10 o 13 págs)
     API->>S3: 11. Guarda PDF cifrado con KMS
     API->>SES: 12. Envía email al cliente con el enlace seguro / PDF adjunto
     API->>Cliente: 13. Notifica por WebSocket o polling y habilita el visor interactivo completo

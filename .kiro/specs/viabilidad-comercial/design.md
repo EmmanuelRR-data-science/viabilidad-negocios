@@ -171,7 +171,7 @@ El motor analítico adapta los cálculos espaciales y llamadas a APIs según el 
   - Bedrock LLM (FODA              - Bedrock LLM (FODA extendido   - Bedrock LLM (FODA profundo,
     General Simplificado)            + Ticket promedio +              Ticket recomendado
   - PDF 6 páginas                    Forecast de Mercado)             + Estimación de ROI)
-                                   - PDF 10 páginas                - PDF 14 páginas +
+                                   - PDF 10 páginas                - PDF 13 páginas +
                                                                      Dashboard interactivo
 ```
 
@@ -207,7 +207,7 @@ Suma de POIs atractores. En el **Tier Premium**, se añade la afluencia de peato
 El generador de PDF compila el reporte ejecutivo variando su extensión y profundidad de datos:
 *   **Básico (6 páginas)**: Portada, resumen de viabilidad general, reporte demográfico detallado del INEGI, Score final, mapa de ubicación estático.
 *   **Pro (10 páginas)**: Todo lo del básico + mapa detallado de competidores, tabla de competidores directos con distancias y forecast de mercado.
-*   **Premium (14 páginas)**: Todo lo del Pro + análisis comparativo sectorial, estimaciones de ROI detalladas, ticket de venta recomendado y el diagnóstico estratégico profundo de Amazon Bedrock.
+*   **Premium (13 páginas)**: Todo lo del Pro + análisis comparativo sectorial, estimaciones de ROI detalladas, ticket de venta recomendado y el diagnóstico estratégico profundo de Amazon Bedrock.
 
 El archivo se sube a **Amazon S3 - Informes** cifrado. Para descargarlo, la API genera una **URL firmada temporal (Presigned URL)** de $10$ minutos que expone el PDF de forma segura al cliente.
 

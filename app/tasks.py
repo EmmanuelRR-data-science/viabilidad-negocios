@@ -153,7 +153,7 @@ def generar_informe_task(orden_id: int):
         subject = f"¡Tu Reporte de GeoViabilidad Hook para '{orden.rubro.capitalize()}' está listo!"
 
         # Determinar número de páginas según Tier
-        paginas_tier = 6 if orden.tier_adquirido == "basico" else (10 if orden.tier_adquirido == "pro" else 14)
+        paginas_tier = 6 if orden.tier_adquirido == "basico" else (10 if orden.tier_adquirido == "pro" else 13)
 
         # Cuerpo del correo en HTML Premium
         html_body = f"""

@@ -77,9 +77,7 @@ def obtener_afluencia(lat: float, lng: float, rubro: str) -> dict:
     """
     if not BESTTIME_API_KEY or BESTTIME_API_KEY.startswith("pega_tu") or "tu_token" in BESTTIME_API_KEY:
         if DEV_MODE:
-            logger.info(
-                f"[DEV_MODE] BestTime key no configurada. Retornando curvas simuladas para el rubro: {rubro}."
-            )
+            logger.info(f"[DEV_MODE] BestTime key no configurada. Retornando curvas simuladas para el rubro: {rubro}.")
             return obtener_afluencia_simulada(rubro)
         else:
             logger.warning("BestTime API key no configurada en producción. Sección de Afluencia se omitirá.")

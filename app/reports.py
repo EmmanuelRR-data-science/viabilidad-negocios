@@ -118,7 +118,7 @@ class ReportLabGenerator:
     Secciona la información con PageBreaks estrictos de acuerdo al Tier:
     - Básico: 6 Páginas
     - Pro: 10 Páginas
-    - Premium: 14 Páginas
+    - Premium: 13 Páginas
     """
 
     @staticmethod
@@ -775,12 +775,15 @@ class ReportLabGenerator:
         story.append(Paragraph("<b>Deslinde de Responsabilidad Legal:</b>", s_h2))
         story.append(
             Paragraph(
-                "GeoViabilidad Hook provee análisis analíticos de geointeligencia y geomarketing "
-                "basados en aproximaciones estadísticas y fuentes oficiales de terceros. Este estudio constituye una "
-                "herramienta complementaria de soporte empresarial y no garantiza el éxito del negocio, ganancias "
-                "financieras específicas o idoneidad regulatoria y de uso de suelo. Este análisis se realizó con Inteligencia Artificial (IA) "
-                "y, si desea obtener asesoría profesional personalizada, le sugerimos contactar a las expertas en Estudios de Mercado "
-                "en el sitio: <font color='#2563eb'><u>https://estudiosdemercado.phiqus.com/</u></font>.",
+                "GeoViabilidad Hook es una aplicación desarrollada por PhiQus que integra modelos de geointeligencia, "
+                "geomarketing y analítica avanzada basados en información estadística y fuentes oficiales gubernamentales en México. "
+                "Los resultados presentados constituyen una herramienta de apoyo para la toma de decisiones y no representan una "
+                "garantía de rentabilidad, éxito comercial, viabilidad financiera, cumplimiento normativo o aprobación de uso de suelo. "
+                "Parte de los análisis puede ser generada mediante modelos de Inteligencia Artificial (IA) y aproximaciones analíticas "
+                "automatizadas. En caso de requerir un análisis más profundo, validaciones específicas o acompañamiento estratégico "
+                "especializado, recomendamos contactar directamente los servicios de consultoría de "
+                "<font color='#2563eb'><u><a href=\"https://phiqus.com/\">PhiQus</a></u></font>, "
+                "<font color='#2563eb'><u><a href=\"https://estudiosdemercado.phiqus.com/\">Estudios de Mercado</a></u></font>.",
                 s_body,
             )
         )
@@ -790,7 +793,7 @@ class ReportLabGenerator:
             logger.info("ReportLab: Compilación Básico exitosa (6 páginas).")
 
         # =====================================================================
-        # EXPANSIÓN A TIER PRO (10 PÁGINAS) O PREMIUM (14 PÁGINAS)
+        # EXPANSIÓN A TIER PRO (10 PÁGINAS) O PREMIUM (13 PÁGINAS)
         # =====================================================================
         else:
             story.append(PageBreak())
@@ -1242,7 +1245,7 @@ class ReportLabGenerator:
                 logger.info("ReportLab: Compilación Pro exitosa (10 páginas).")
 
             # =====================================================================
-            # EXPANSIÓN A TIER PREMIUM (14 PÁGINAS)
+            # EXPANSIÓN A TIER PREMIUM (13 PÁGINAS)
             # =====================================================================
             else:
                 story.append(Spacer(1, 10))
@@ -1665,33 +1668,8 @@ class ReportLabGenerator:
                     s_body,
                 )
             )
-            story.append(PageBreak())
-
-            # PÁGINA 14: CONCLUSIÓN Y RECOMENDACIÓN DE NEGOCIO (Premium - 14 páginas en total)
-            story.append(Paragraph("13. DICTAMEN DE CONSULTORÍA SENIOR", s_h1))
-            story.append(
-                Paragraph(
-                    "<b>Dictamen Final del Consultor:</b><br/>"
-                    "En base al cruce exhaustivo del score geodésico PostGIS de 40%, competencia directa e indirecta del 30%, "
-                    "y atractores viales del 30% junto a afluencias de peatones BestTime, se emite el siguiente dictamen ejecutivo.",
-                    s_body,
-                )
-            )
-            story.append(Spacer(1, 10))
-
-            # Dictamen personalizado de IA
-            story.append(
-                Paragraph(
-                    foda_dict.get(
-                        "dictamen_final",
-                        "Se aprueba la factibilidad comercial del proyecto comercial en la ubicación propuesta.",
-                    ),
-                    s_body,
-                )
-            )
-            story.append(Spacer(1, 30))
-
-            # Tabla de Firmas y Sello de Verificación Digital
+            # Tabla de Firmas y Sello de Verificación Digital (colocada al final de la página 13)
+            story.append(Spacer(1, 15))
             signature_data = [
                 [
                     Paragraph(
@@ -1724,7 +1702,7 @@ class ReportLabGenerator:
             )
             story.append(signature_table)
 
-            logger.info("ReportLab: Compilación Premium exitosa (14 páginas).")
+            logger.info("ReportLab: Compilación Premium exitosa (13 páginas).")
 
         # Construir el documento final usando el NumberedCanvas y el callback de portada
         doc.build(story, canvasmaker=NumberedCanvas, onFirstPage=dibujar_portada_background)

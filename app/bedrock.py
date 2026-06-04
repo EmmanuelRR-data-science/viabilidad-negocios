@@ -244,6 +244,73 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
     sva = datos_entorno.get("sva", 50)
     direcc = datos_entorno.get("direccion", "Ubicación seleccionada")
 
+    if DEV_MODE:
+        logger.info("[BEDROCK] Modo Desarrollo: Devolviendo análisis FODA simulatido para el reporte.")
+        # Análisis realista basado en el rubro
+        return {
+            "fortalezas": [
+                f"Sólida base demográfica con {poblacion:,} personas residentes directas en el búfer.",
+                f"Ubicación identificada en {direcc} con excelente accesibilidad vial.",
+                "Las intenciones del emprendedor muestran una propuesta de valor enfocada y diferenciada.",
+            ],
+            "oportunidades": [
+                f"El rubro '{rubro}' tiene un mercado de consumo activo debido al perfil residencial local.",
+                "Posibilidad de captar clientes descontentos de la competencia actual mediante entrega rápida.",
+                "Implementación de marketing geolocalizado en redes sociales en las colonias colindantes.",
+            ],
+            "debilidades": [
+                f"Presencia de {competencia} competidores directos en la periferia que ya tienen posicionamiento.",
+                "Costos iniciales de instalación y acondicionamiento del local comercial en zonas transitadas.",
+                "Límite de estacionamiento disponible para clientes en horas de alto tráfico.",
+            ],
+            "amenazas": [
+                "Cambios macroeconómicos que afecten el ticket de compra promedio del sector en México.",
+                "Estrategias de descuentos agresivas de los competidores más consolidados de la zona.",
+                "Saturación comercial progresiva en el micro-segmento de la colonia.",
+            ],
+            "conclusion": (
+                f"El punto analizado cuenta con un Score de Viabilidad SVA de {sva}/100. La densidad poblacional "
+                f"es favorable y compensa la competencia de {competencia} negocios. La viabilidad comercial es altamente aceptable."
+            ),
+            "recomendacion_roi": (
+                "Se estima un Retorno de Inversión (ROI) inicial saludable. Se aconseja un modelo operativo de costo moderado "
+                "los primeros 6 meses, enfocando el 20% del presupuesto inicial a posicionamiento digital local."
+            ),
+            "ticket_recomendado": "$180 - $250 MXN",
+            "roi_estimado": "14 a 18 Meses",
+            "segmentacion_nicho": (
+                f"El nicho demográfico prioritario para el giro de '{rubro}' está integrado por familias de nivel socioeconómico "
+                f"medio y jóvenes profesionistas residentes dentro del radio de influencia. Con una población de {poblacion:,} "
+                f"habitantes en la zona de {direcc}, el punto geográfico presenta una masa crítica de consumidores cautivos con una "
+                f"clara afinidad y demanda activa hacia esta oferta de servicios."
+            ),
+            "estrategia_precios": (
+                "Se recomienda implementar un posicionamiento de precios de gama Media-Alta, capitalizando la densidad residencial "
+                "y la relativa distancia hacia los competidores de mayor rango. Se estima una tasa de penetración de mercado "
+                "del 12% al 15% durante el primer año de operaciones mediante estrategias digitales geolocalizadas."
+            ),
+            "viabilidad_financiera": (
+                "La estructura financiera proyecta una excelente factibilidad. Con una población residente estable y "
+                "una densidad atractiva, los flujos de caja mensuales estimados superarán el punto de equilibrio a partir del "
+                "cuarto mes de operación. El retorno de inversión sugerido es altamente viable bajo un modelo de costos optimizado."
+            ),
+            "dictamen_final": (
+                f"Se emite un Dictamen de Viabilidad COMERCIALMENTE ACEPTABLE para la apertura de '{rubro}' en la ubicación de "
+                f"{direcc}. El volumen de demanda geodésica del INEGI respalda la masa crítica requerida para la sustentabilidad "
+                f"de la operación. Se recomienda iniciar el plan de implantación local implementando diferenciadores de servicio "
+                f"frente a los {competencia} competidores detectados."
+            ),
+            "inversion_estimada": "$450,000 - $650,000 MXN",
+            "tir_proyectada": "28.4% Anual",
+            "top_quejas_competidores": [
+                f"\"El servicio de los competidores locales de '{rubro}' es sumamente lento y desatendido, tardan demasiado en atender.\"",
+                '"Los precios son excesivos para la porción y la calidad que ofrecen, no vale lo que cobran."',
+                '"El local comercial es extremadamente pequeño, incómodo y siempre está lleno de gente parada sin espacio."',
+                '"Nunca tienen inventario de los productos de especialidad que anuncian en sus redes, es frustrante."',
+                '"Es casi imposible estacionarse cerca de sus tiendas, y sus canales digitales de atención no contestan."',
+            ],
+        }
+
     # --- GUARDRAIL: Llama Guard 4 (verificación de seguridad pre-LLM) ---
     # Se ejecuta solo si la API key está disponible y no estamos en DEV_MODE
     import requests  # noqa: PLC0415 (import tardio intencional para evitar dep. circular)
@@ -350,74 +417,6 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         "[DEGRADACION] El LLM principal (Groq) no está disponible. "
         "El sistema cayó en fallback. Verificar rate limits y cuota de API."
     )
-
-    if DEV_MODE:
-        logger.info("[BEDROCK] Modo Desarrollo: Devolviendo análisis FODA simulatido para el reporte.")
-        # Análisis realista basado en el rubro
-        return {
-            "fortalezas": [
-                f"Sólida base demográfica con {poblacion:,} personas residentes directas en el búfer.",
-                f"Ubicación identificada en {direcc} con excelente accesibilidad vial.",
-                "Las intenciones del emprendedor muestran una propuesta de valor enfocada y diferenciada.",
-            ],
-            "oportunidades": [
-                f"El rubro '{rubro}' tiene un mercado de consumo activo debido al perfil residencial local.",
-                "Posibilidad de captar clientes descontentos de la competencia actual mediante entrega rápida.",
-                "Implementación de marketing geolocalizado en redes sociales en las colonias colindantes.",
-            ],
-            "debilidades": [
-                f"Presencia de {competencia} competidores directos en la periferia que ya tienen posicionamiento.",
-                "Costos iniciales de instalación y acondicionamiento del local comercial en zonas transitadas.",
-                "Límite de estacionamiento disponible para clientes en horas de alto tráfico.",
-            ],
-            "amenazas": [
-                "Cambios macroeconómicos que afecten el ticket de compra promedio del sector en México.",
-                "Estrategias de descuentos agresivas de los competidores más consolidados de la zona.",
-                "Saturación comercial progresiva en el micro-segmento de la colonia.",
-            ],
-            "conclusion": (
-                f"El punto analizado cuenta con un Score de Viabilidad SVA de {sva}/100. La densidad poblacional "
-                f"es favorable y compensa la competencia de {competencia} negocios. La viabilidad comercial es altamente aceptable."
-            ),
-            "recomendacion_roi": (
-                "Se estima un Retorno de Inversión (ROI) inicial saludable. Se aconseja un modelo operativo de costo moderado "
-                "los primeros 6 meses, enfocando el 20% del presupuesto inicial a posicionamiento digital local."
-            ),
-            "ticket_recomendado": "$180 - $250 MXN",
-            "roi_estimado": "14 a 18 Meses",
-            "segmentacion_nicho": (
-                f"El nicho demográfico prioritario para el giro de '{rubro}' está integrado por familias de nivel socioeconómico "
-                f"medio y jóvenes profesionistas residentes dentro del radio de influencia. Con una población de {poblacion:,} "
-                f"habitantes en la zona de {direcc}, el punto geográfico presenta una masa crítica de consumidores cautivos con una "
-                f"clara afinidad y demanda activa hacia esta oferta de servicios."
-            ),
-            "estrategia_precios": (
-                "Se recomienda implementar un posicionamiento de precios de gama Media-Alta, capitalizando la densidad residencial "
-                "y la relativa distancia hacia los competidores de mayor rango. Se estima una tasa de penetración de mercado "
-                "del 12% al 15% durante el primer año de operaciones mediante estrategias digitales geolocalizadas."
-            ),
-            "viabilidad_financiera": (
-                "La estructura financiera proyecta una excelente factibilidad. Con una población residente estable y "
-                "una densidad atractiva, los flujos de caja mensuales estimados superarán el punto de equilibrio a partir del "
-                "cuarto mes de operación. El retorno de inversión sugerido es altamente viable bajo un modelo de costos optimizado."
-            ),
-            "dictamen_final": (
-                f"Se emite un Dictamen de Viabilidad COMERCIALMENTE ACEPTABLE para la apertura de '{rubro}' en la ubicación de "
-                f"{direcc}. El volumen de demanda geodésica del INEGI respalda la masa crítica requerida para la sustentabilidad "
-                f"de la operación. Se recomienda iniciar el plan de implantación local implementando diferenciadores de servicio "
-                f"frente a los {competencia} competidores detectados."
-            ),
-            "inversion_estimada": "$450,000 - $650,000 MXN",
-            "tir_proyectada": "28.4% Anual",
-            "top_quejas_competidores": [
-                f"\"El servicio de los competidores locales de '{rubro}' es sumamente lento y desatendido, tardan demasiado en atender.\"",
-                '"Los precios son excesivos para la porción y la calidad que ofrecen, no vale lo que cobran."',
-                '"El local comercial es extremadamente pequeño, incómodo y siempre está lleno de gente parada sin espacio."',
-                '"Nunca tienen inventario de los productos de especialidad que anuncian en sus redes, es frustrante."',
-                '"Es casi imposible estacionarse cerca de sus tiendas, y sus canales digitales de atención no contestan."',
-            ],
-        }
-
     # Llamada real a Amazon Bedrock
     try:
         bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)

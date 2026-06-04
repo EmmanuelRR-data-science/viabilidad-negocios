@@ -15,8 +15,8 @@ logger = logging.getLogger("middleware")
 # ---------------------------------------------------------------------------
 # Constantes de rate limiting
 # ---------------------------------------------------------------------------
-_RATE_LIMIT_WINDOW_SECS = 60          # Ventana deslizante en segundos
-_RATE_LIMIT_MAX_REQUESTS = 10         # Máx requests LLM por IP por ventana
+_RATE_LIMIT_WINDOW_SECS = 60  # Ventana deslizante en segundos
+_RATE_LIMIT_MAX_REQUESTS = 10  # Máx requests LLM por IP por ventana
 # Rutas a las que se aplica el rate limit del LLM (incluye el endpoint públ. de análisis)
 _RATE_LIMITED_PATHS = {
     "/api/analisis",
@@ -37,9 +37,7 @@ class LLMRateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
         # Diccionario IP -> deque de timestamps de requests recientes
-        self._windows: dict[str, collections.deque] = collections.defaultdict(
-            lambda: collections.deque()
-        )
+        self._windows: dict[str, collections.deque] = collections.defaultdict(lambda: collections.deque())
 
     def _is_private_ip(self, ip: str) -> bool:
         """Excluye IPs privadas/loopback del rate limiting."""
@@ -84,8 +82,6 @@ class LLMRateLimitMiddleware(BaseHTTPMiddleware):
                 window.append(now)
 
         return await call_next(request)
-
-
 
 
 class UserFriendlyExceptionMiddleware(BaseHTTPMiddleware):

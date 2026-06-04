@@ -1,18 +1,19 @@
 import os
 import sys
-import pytest
 from decimal import Decimal
+
 from fastapi.testclient import TestClient
 
 # Configure python path to resolve imports from root directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.main import app
-from app.database import SessionLocal
-from app.models import OrdenPago
 from app.analytics import calcular_distancia_haversine, resolver_google_type
+from app.database import SessionLocal
+from app.main import app
+from app.models import OrdenPago
 
 client = TestClient(app)
+
 
 def test_health_check():
     """
@@ -123,13 +124,13 @@ def test_crear_preferencia_cobro_api():
         "longitud": -99.133208,
         "radio_metros": 1000,
         "rubro": "cafeteria",
-        "intenciones": "Quiero poner una cafetería de especialidad."
+        "intenciones": "Quiero poner una cafetería de especialidad.",
     }
     # Bearer authentication header is required, even if simulated in DEV_MODE
     headers = {"Authorization": "Bearer test-jwt-token"}
     response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
     assert response.status_code == 201
-    
+
     data = response.json()
     assert "orden_id" in data
     assert data["monto"] == 99.00
@@ -175,16 +176,13 @@ def test_webhook_processing_and_mock():
         db.refresh(orden)
 
         # Trigger mock webhook to approve the payment
-        webhook_payload = {
-            "checkout_id": checkout_id,
-            "estado_pago": "approved"
-        }
+        webhook_payload = {"checkout_id": checkout_id, "estado_pago": "approved"}
         response = client.post("/api/pagos/webhook-mock", json=webhook_payload)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
         assert data["orden_id"] == orden.id
-        
+
         # Verify the webhook updates the payment state and launches tasks (tested in DEV_MODE synchronously)
         db.refresh(orden)
         assert orden.estado_pago == "approved"
@@ -197,7 +195,7 @@ def test_webhook_processing_and_mock():
         local_pdf = f"scratch/reports/{checkout_id}_reporte.pdf"
         if os.path.exists(local_pdf):
             os.remove(local_pdf)
-            
+
         local_email = f"scratch/emails/email_orden_{orden.id}.html"
         if os.path.exists(local_email):
             os.remove(local_email)
