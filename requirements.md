@@ -40,3 +40,19 @@ Este documento define los requerimientos funcionales y no funcionales para permi
 
 ### RNF-02: Persistencia
 * Las elecciones del usuario deben guardarse en formato JSON serializado en la tabla `ordenes_pagos`.
+
+## 4. Requerimientos de Formato y Layout del PDF (Ajustes Estéticos)
+
+### RF-06: Formato del Título de la Portada
+* El título secundario en la portada del PDF debe aparecer en mayúsculas completas ("ANÁLISIS ESPACIAL Y DIAGNÓSTICO DE GEOMARKETING INTELIGENTE EN MÉXICO") o mayúsculas convencionales con acentuación correcta, de forma estandarizada.
+
+### RF-07: Formato de Fecha en Español
+* El mes de la fecha de emisión en la portada del PDF debe aparecer en español de manera explícita (por ejemplo: "05 de junio de 2026"), evitando nombres de meses en inglés.
+
+### RF-08: Alineación del Tier de Compra en el PDF
+* El campo "NIVEL ADQUIRIDO" en la portada del PDF debe reflejar exactamente el plan adquirido por el usuario en español y mayúsculas (por ejemplo: "TIER BÁSICO", "TIER PRO", "TIER PREMIUM").
+* Las secciones y páginas del reporte generado deben truncarse y limitarse exactamente según las páginas estipuladas para cada tier de pago (Básico: 6 páginas, Pro: 10 páginas, Premium: 13 páginas).
+
+### RF-09: Diseño de Portada Sin Desbordamiento
+* Los márgenes y espaciados (`Spacer`) en la portada del PDF deben optimizarse para evitar desbordar el texto hacia la página 2, garantizando que la portada ocupe exactamente 1 página.
+

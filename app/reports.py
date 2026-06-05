@@ -259,15 +259,37 @@ class ReportLabGenerator:
         # =====================================================================
         # PÁGINA 1: PORTADA DARK PREMIUM (Todos los Tiers)
         # =====================================================================
-        story.append(Spacer(1, 150))
+        story.append(Spacer(1, 80))
         story.append(Paragraph("ESTUDIO DE<br/>VIABILIDAD COMERCIAL", s_title_cover))
         story.append(
-            Paragraph("Análisis Espacial y Diagnóstico de Geomarketing Inteligente en México", s_subtitle_cover)
+            Paragraph("ANÁLISIS ESPACIAL Y DIAGNÓSTICO DE GEOMARKETING INTELIGENTE EN MÉXICO", s_subtitle_cover)
         )
 
         # Etiqueta de Tier destacada
-        tier_label = orden.tier_adquirido.upper()
-        story.append(Spacer(1, 100))
+        tier_map = {
+            "basico": "BÁSICO",
+            "pro": "PRO",
+            "premium": "PREMIUM",
+        }
+        tier_label = tier_map.get(orden.tier_adquirido, orden.tier_adquirido.upper())
+        story.append(Spacer(1, 50))
+
+        meses_es = {
+            1: "enero",
+            2: "febrero",
+            3: "marzo",
+            4: "abril",
+            5: "mayo",
+            6: "junio",
+            7: "julio",
+            8: "agosto",
+            9: "septiembre",
+            10: "octubre",
+            11: "noviembre",
+            12: "diciembre",
+        }
+        today = datetime.date.today()
+        fecha_es = f"{today.day:02d} de {meses_es[today.month]} de {today.year}"
 
         meta_html = (
             f"<b>GIRO COMERCIAL:</b> {orden.rubro.upper()}<br/>"
@@ -275,12 +297,12 @@ class ReportLabGenerator:
             f"<b>RADIO DE INFLUENCIA:</b> {orden.radio_metros} metros<br/>"
             f"<b>CÓDIGO DE ORDEN:</b> {orden.checkout_id}<br/>"
             f"<b>NIVEL ADQUIRIDO:</b> <font color='#0675F1'><b>TIER {tier_label}</b></font><br/>"
-            f"<b>FECHA DE EMISIÓN:</b> {datetime.date.today().strftime('%d de %B de %Y')}<br/>"
+            f"<b>FECHA DE EMISIÓN:</b> {fecha_es}<br/>"
         )
         story.append(Paragraph(meta_html, s_meta_cover))
 
         # Elementos adicionales de la diapositiva 14
-        story.append(Spacer(1, 60))
+        story.append(Spacer(1, 40))
 
         # Monospace Data Science
         s_data_science = ParagraphStyle(
@@ -1294,6 +1316,10 @@ class ReportLabGenerator:
             # SI EL TIER ES PRO, CONCLUIMOS AQUÍ EL PDF EN EXACTAMENTE 10 PÁGINAS
             if orden.tier_adquirido == "pro":
                 logger.info("ReportLab: Compilación Pro exitosa (10 páginas).")
+                doc.build(story, canvasmaker=NumberedCanvas, onFirstPage=dibujar_portada_background)
+                pdf_bytes = buffer.getvalue()
+                buffer.close()
+                return pdf_bytes
 
             # =====================================================================
             # EXPANSIÓN A TIER PREMIUM (13 PÁGINAS)

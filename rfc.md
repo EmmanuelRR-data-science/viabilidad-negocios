@@ -115,3 +115,18 @@ else:
 
 ## 7. Métricas y Pruebas
 * **Test de Validación**: Pruebas en `test_suite.py` para asegurar que payloads inválidos (ej. enviar aliados en Tier Pro o más de 1 competidor en Básico) sean rechazados con `422 Unprocessable Entity` y mensajes user-centric correctos.
+
+---
+
+## 8. Corrección Estética y de Desbordamiento de PDF
+Se identificó que el diseño original de la portada en `reports.py` generaba un desbordamiento invisible de pocos puntos debido a márgenes y espaciadores altos (`Spacer(1, 150)`, `Spacer(1, 100)`, `Spacer(1, 60)`). Esto desplazaba la fecha y el pie de página de la portada a la página 2 del PDF, dejando la página 2 vacía e incrementando la longitud total de cada tier de reporte por exactamente 1 página (Básico: 7 en lugar de 6, Pro: 11 en lugar de 10, Premium: 14 en lugar de 13).
+
+### Solución Propuesta
+1. Reducir los valores de espaciado en la portada de la siguiente forma:
+   * `Spacer(1, 150)` -> `Spacer(1, 80)`
+   * `Spacer(1, 100)` -> `Spacer(1, 50)`
+   * `Spacer(1, 60)` -> `Spacer(1, 40)`
+2. Mapear el tier de pago en español y con acentos para el campo "NIVEL ADQUIRIDO" en la portada (por ejemplo: `basico` -> `TIER BÁSICO`).
+3. Actualizar la fecha de emisión en español a través del mapeo de meses preexistente.
+4. Ajustar el validador de pruebas (`check_pdf_pages.py`) para utilizar `pypdf`, midiendo con precisión absoluta el número de páginas lógicas del archivo PDF compilado.
+

@@ -62,3 +62,23 @@ En `bedrock.py`, el `user_prompt` se expandirá para incluir de forma estructura
 
 ## 5. Diseño de Experiencia de Errores Orientada al Usuario
 * Si la llamada a Google Places para alguna categoría personalizada falla por timeout o cuota, el motor de analítica continuará procesando las demás categorías de forma resiliente, registrando el error en los logs internos y mostrando lo que esté disponible en el PDF sin tracebacks para el usuario.
+
+---
+
+## 6. Diseño del Ajuste de Layout en Portada del PDF
+Para evitar el desbordamiento de la primera página, reduciremos los espaciadores verticales (`Spacer`) en la portada:
+* **Espaciador Superior**: Reducido de `150pt` a `80pt`.
+* **Espaciador Central**: Reducido de `100pt` a `50pt`.
+* **Espaciador Inferior**: Reducido de `60pt` a `40pt`.
+
+### Mapeo Estético del Tier Adquirido
+Para mejorar la presentación en el campo de metadatos de la portada del PDF, se implementará un mapeo explícito de los tiers:
+```python
+tier_map = {
+    "basico": "BÁSICO",
+    "pro": "PRO",
+    "premium": "PREMIUM",
+}
+```
+Esto asegura la acentuación correcta en español ("TIER BÁSICO" en lugar de "TIER BASICO" o "TIER PREMIUM" forzado).
+

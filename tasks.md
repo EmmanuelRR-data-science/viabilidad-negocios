@@ -23,8 +23,14 @@
   - [ ] Implementar en `app.js` la lógica de recorte dinámico de arrays al abrir el modal de pago
   - [ ] Poblar el resumen visual en el modal de pago según la lista recortada
   - [ ] Habilitar soporte de competidor personalizado para Tier Básico en `analytics.py` (cambiar `if tier in ["pro", "premium"]:` por `if tier in ["basico", "pro", "premium"]:`)
-- [ ] Fase de Verificación y Calidad
+- [/] Fase de Verificación y Calidad
   - [ ] Adaptar pruebas unitarias para validación del Tier Básico (1 competidor) en `tests/test_suite.py`
   - [ ] Compilar reporte de prueba Premium personalizado y verificar PDF
   - [ ] Ejecutar pytest y verificar que todas las pruebas pasen con éxito
   - [ ] Ejecutar Ruff check y format para cumplir con los estándares
+- [ ] Fase de Corrección de Layout y Estilo de PDF
+  - [ ] Ajustar espaciadores de la portada en `app/reports.py` (de 150/100/60 a 80/50/40) para eliminar desbordamientos de página
+  - [ ] Añadir diccionario de mapeo de nombres de tiers en `app/reports.py` para acentuación correcta en español
+  - [ ] Actualizar el script `scratch/check_pdf_pages.py` para utilizar `pypdf` al contar las páginas
+  - [ ] Verificar el conteo exacto de páginas en todos los tiers (Básico: 6, Pro: 10, Premium: 13)
+
