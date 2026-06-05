@@ -90,7 +90,9 @@ def crear_preferencia_cobro(
             radio_metros=payload.radio_metros,
             rubro=payload.rubro,
             intenciones=payload.intenciones,
-            competidores_seleccionados=json.dumps(payload.competidores_seleccionados) if payload.competidores_seleccionados else None,
+            competidores_seleccionados=json.dumps(payload.competidores_seleccionados)
+            if payload.competidores_seleccionados
+            else None,
             aliados_seleccionados=json.dumps(payload.aliados_seleccionados) if payload.aliados_seleccionados else None,
         )
         db.add(nueva_orden)

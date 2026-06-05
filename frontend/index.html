@@ -78,7 +78,16 @@
                             <option value="lavanderia">Lavandería o Tintorería</option>
                             <option value="consultorio_medico">Consultorio Médico</option>
                             <option value="escuela">Escuela Privada (Preescolar/Primaria)</option>
+                            <option value="otro">Otro giro (Especificar)...</option>
                         </select>
+                    </div>
+                    
+                    <!-- Campo de texto dinámico para especificar un giro personalizado -->
+                    <div id="custom-giro-container" class="hidden" style="margin-top: 10px;">
+                        <label for="custom-giro-input" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+                            Especifica tu giro / rubro comercial
+                        </label>
+                        <input type="text" id="custom-giro-input" placeholder="Ej: Tienda de ropa para bebés, Juguetería..." style="width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); color: var(--text-primary); font-size: 14px; outline: none;">
                     </div>
                 </div>
                 

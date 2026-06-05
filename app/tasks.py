@@ -35,6 +35,7 @@ def generar_informe_task(orden_id: int):
 
         # Deserializar listas de selección personalizadas
         import json
+
         competidores_sel = json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
         aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
 

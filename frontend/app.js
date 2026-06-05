@@ -104,9 +104,25 @@ function bindUIEvents() {
     
     // B. Giro comercial
     const giroSelect = document.getElementById("giro-select");
+    const customGiroContainer = document.getElementById("custom-giro-container");
+    const customGiroInput = document.getElementById("custom-giro-input");
+
     giroSelect.addEventListener("change", (e) => {
-        state.selectedGiro = e.target.value;
+        if (e.target.value === "otro") {
+            customGiroContainer.classList.remove("hidden");
+            state.selectedGiro = customGiroInput.value.trim();
+        } else {
+            customGiroContainer.classList.add("hidden");
+            state.selectedGiro = e.target.value;
+        }
         checkFormValidity();
+    });
+
+    customGiroInput.addEventListener("input", (e) => {
+        if (giroSelect.value === "otro") {
+            state.selectedGiro = e.target.value.trim();
+            checkFormValidity();
+        }
     });
     
     // C. Alternador de Tema Dinámico (Sun/Moon Switcher)
