@@ -30,9 +30,12 @@ class NumberedCanvas(canvas.Canvas):
 
     def save(self):
         num_pages = len(self._saved_page_states)
+        current_annotation_count = getattr(self, "_annotationCount", 0)
         for state in self._saved_page_states:
             self.__dict__.update(state)
+            self._annotationCount = current_annotation_count
             self.draw_page_decorations(num_pages)
+            current_annotation_count = self._annotationCount
             super().showPage()
         super().save()
 
@@ -72,14 +75,24 @@ class NumberedCanvas(canvas.Canvas):
             self.line(54, 55, 612 - 54, 55)
             self.setFont("Helvetica-Bold", 7)
             self.setFillColor(colors.HexColor("#ef4444"))  # Rojo alerta confidencial
-            self.drawString(54, 40, "CONFIDENCIAL")
+            self.drawString(54, 42, "CONFIDENCIAL")
 
             self.setFont("Helvetica", 7)
             self.setFillColor(colors.HexColor("#64748b"))
-            self.drawString(130, 40, "— ESTE REPORTE TIENE VIGENCIA DE 30 DÍAS.")
+            self.drawString(130, 42, "— ESTE REPORTE TIENE VIGENCIA DE 30 DÍAS.")
 
             page_text = f"Página {self._pageNumber} de {page_count}"
-            self.drawRightString(612 - 54, 40, page_text)
+            self.drawRightString(612 - 54, 42, page_text)
+
+            # Invitación a agendar asesoría / videollamada
+            self.setFont("Helvetica-Bold", 6.5)
+            self.setFillColor(colors.HexColor("#2563eb"))  # Azul enlace
+            self.drawString(
+                54,
+                30,
+                "— ¿DESEAS AGENDAR UNA ENTREVISTA POR VIDEOLLAMADA CON EL EQUIPO DE ESTUDIOS DE MERCADO? HAZ CLIC AQUÍ.",
+            )
+            self.linkURL("https://estudiosdemercado.phiqus.com/agenda", rect=(54, 25, 520, 35))
 
         self.restoreState()
 
