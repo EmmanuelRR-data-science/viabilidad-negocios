@@ -197,6 +197,8 @@ def procesar_calculo_analitico(
                                     "rating": ally.get("rating", 0.0),
                                     "user_ratings_total": ally.get("user_ratings_total", 0),
                                     "direccion": ally.get("direccion", ""),
+                                    "latitud": ally.get("latitud"),
+                                    "longitud": ally.get("longitud"),
                                 }
                             )
                     except Exception as ally_err:
@@ -241,6 +243,8 @@ def procesar_calculo_analitico(
                         "rating": item.get("rating", 0.0),
                         "user_ratings_total": item.get("user_ratings_total", 0),
                         "direccion": item.get("direccion", ""),
+                        "latitud": item.get("latitud"),
+                        "longitud": item.get("longitud"),
                     }
 
                 aliados_listado = (

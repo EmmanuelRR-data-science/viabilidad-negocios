@@ -418,13 +418,36 @@ async function openPaymentModal(tier) {
     // 1. Invocar API de preferencia para registrar en BD
     try {
         const headers = getAuthHeaders();
+        
+        // Obtener competidores seleccionados
+        const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
+        let competidores_seleccionados = Array.from(compCheckboxes).map(cb => cb.value);
+
+        // Obtener aliados seleccionados
+        const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
+        let aliados_seleccionados = Array.from(aliadosCheckboxes).map(cb => cb.value);
+
+        // Ajustar según el nivel de pago (Tier)
+        if (tier === "basico") {
+            competidores_seleccionados = null;
+            aliados_seleccionados = null;
+        } else if (tier === "pro") {
+            competidores_seleccionados = competidores_seleccionados.slice(0, 3);
+            aliados_seleccionados = null;
+        } else if (tier === "premium") {
+            competidores_seleccionados = competidores_seleccionados.slice(0, 5);
+            aliados_seleccionados = aliados_seleccionados.slice(0, 5);
+        }
+
         const payload = {
             tier_adquirido: tier,
             latitud: state.selectedLat,
             longitud: state.selectedLng,
             radio_metros: state.selectedRadio,
             rubro: state.selectedGiro,
-            intenciones: document.getElementById("intenciones-textarea").value || "Evaluación comercial del giro en la zona residencial mexicana."
+            intenciones: document.getElementById("intenciones-textarea").value || "Evaluación comercial del giro en la zona residencial mexicana.",
+            competidores_seleccionados: competidores_seleccionados,
+            aliados_seleccionados: aliados_seleccionados
         };
         
         const response = await fetch("/api/pagos/preferencia", {
@@ -574,8 +597,8 @@ async function unlockPaidReport() {
                 document.getElementById("comp-chart-locked-msg").classList.add("hidden");
                 document.getElementById("poi-chart-locked-msg").classList.add("hidden");
                 
-                // Pintar pines de competidores en el mapa
-                renderCompetitorPins(metricas.competidores_listado);
+                // Pintar pines de competidores y aliados en el mapa
+                renderCompetitorPins(metricas.competidores_listado, metricas.aliados_listado);
                 
                 // Generar Gráfico de Competidores
                 renderCompetitorsChart(metricas.competidores_listado);
@@ -605,11 +628,11 @@ async function unlockPaidReport() {
     }
 }
 
-// --- RENDERIZAR PINS DE LA COMPETENCIA ---
-function renderCompetitorPins(competidores) {
+// --- RENDERIZAR PINS DE LA COMPETENCIA Y POIs ---
+function renderCompetitorPins(competidores, aliados) {
     clearMapPins();
     
-    logger(`Trazando pins en el mapa para ${competidores.length} comercios locales.`);
+    logger(`Trazando pins en el mapa para ${competidores.length} competidores locales.`);
     
     // Icono rojo premium con sombra para competidores
     const competitorIcon = L.divIcon({
@@ -623,13 +646,13 @@ function renderCompetitorPins(competidores) {
         if (comp.latitud && comp.longitud) {
             const marker = L.marker([comp.latitud, comp.longitud], { icon: competitorIcon })
                 .addTo(state.map)
-                .bindPopup(`<b>${comp.nombre}</b><br/>${comp.direccion}<br/>⭐ ${comp.rating} / 5.0`);
+                .bindPopup(`<b>${comp.nombre}</b><br/>${comp.direccion || 'Dirección no disponible'}<br/>⭐ ${comp.rating} / 5.0`);
             state.competitorMarkers.push(marker);
         }
     });
     
-    // Colocar atractores / POIs simulados de forma elegante en verde si es PREMIUM
-    if (state.activeTier === "premium") {
+    // Colocar atractores / POIs reales de forma elegante en verde si es PREMIUM
+    if (state.activeTier === "premium" && aliados) {
         const allyIcon = L.divIcon({
             html: '<div style="background-color: #10b981; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid white; box-shadow: 0 0 8px #34d399;"></div>',
             className: 'ally-pin',
@@ -637,21 +660,13 @@ function renderCompetitorPins(competidores) {
             iconAnchor: [5, 5]
         });
         
-        // Colocar 3 atractores alrededor del pin central
-        const offset = 0.003;
-        const pois = [
-            { nombre: "Estación de Transporte Público", tipo: "Transporte" },
-            { nombre: "Sucursal BBVA / Bancomer", tipo: "Banco" },
-            { nombre: "Escuela Primaria Lic. Benito Juárez", tipo: "Escuela" }
-        ];
-        
-        pois.forEach((poi, idx) => {
-            const lat = state.selectedLat + (offset * (idx === 0 ? 1 : -0.5));
-            const lng = state.selectedLng + (offset * (idx === 1 ? 1 : -0.8));
-            const marker = L.marker([lat, lng], { icon: allyIcon })
-                .addTo(state.map)
-                .bindPopup(`<b>🌱 Aliado Comercial (Atractor)</b><br/>${poi.nombre}<br/>Categoría: ${poi.tipo}`);
-            state.poiMarkers.push(marker);
+        aliados.forEach(poi => {
+            if (poi.latitud && poi.longitud) {
+                const marker = L.marker([poi.latitud, poi.longitud], { icon: allyIcon })
+                    .addTo(state.map)
+                    .bindPopup(`<b>🌱 Aliado Comercial (Atractor)</b><br/>${poi.nombre}<br/>Categoría: ${poi.tipo}<br/>⭐ ${poi.rating} / 5.0`);
+                state.poiMarkers.push(marker);
+            }
         });
     }
 }

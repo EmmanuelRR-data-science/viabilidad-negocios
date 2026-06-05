@@ -951,3 +951,35 @@ body.light-theme .progress-bar-wrapper {
     border: none !important;
     box-shadow: none !important;
 }
+
+/* --- CHECKBOX GROUPS FOR SELECTIONS --- */
+.checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.15);
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--glass-border);
+}
+
+body.light-theme .checkbox-group {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.checkbox-item input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--accent-color);
+}

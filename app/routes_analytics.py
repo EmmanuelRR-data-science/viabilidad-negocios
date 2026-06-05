@@ -107,8 +107,20 @@ def obtener_resultado_analisis(
         direccion_res = obtener_direccion(float(orden.latitud), float(orden.longitud))
 
         # 2. Ejecutar cálculos analíticos según el Tier adquirido
+        import json
+
+        competidores_sel = json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
+        aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
+
         analisis_cuant = procesar_calculo_analitico(
-            db, float(orden.latitud), float(orden.longitud), orden.radio_metros, orden.rubro, tier=orden.tier_adquirido
+            db=db,
+            lat=float(orden.latitud),
+            lng=float(orden.longitud),
+            radio=orden.radio_metros,
+            rubro=orden.rubro,
+            tier=orden.tier_adquirido,
+            competidores_seleccionados=competidores_sel,
+            aliados_seleccionados=aliados_sel,
         )
 
         # Inyectar dirección física

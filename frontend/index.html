@@ -101,6 +101,36 @@
                     <textarea id="intenciones-textarea" rows="4" placeholder="Ej: Quiero abrir una cafetería gourmet con zona infantil, enfocada a familias de clase media-alta, que ofrezca servicio rápido y café veracruzano de especialidad..."></textarea>
                     <span class="helper-text">La IA de Bedrock cruzará tus intenciones con los datos demográficos y la competencia para darte una recomendación explicable.</span>
                 </div>
+
+                <!-- Personalización de Competidores (Pro / Premium) -->
+                <div class="form-group">
+                    <label>Competidores Personalizados (Pro/Premium)</label>
+                    <div class="checkbox-group glass-card" id="competidores-checkboxes">
+                        <label class="checkbox-item"><input type="checkbox" value="cafe"> Cafetería</label>
+                        <label class="checkbox-item"><input type="checkbox" value="restaurant"> Restaurante</label>
+                        <label class="checkbox-item"><input type="checkbox" value="gym"> Gimnasio</label>
+                        <label class="checkbox-item"><input type="checkbox" value="pharmacy"> Farmacia</label>
+                        <label class="checkbox-item"><input type="checkbox" value="bakery"> Panadería</label>
+                        <label class="checkbox-item"><input type="checkbox" value="beauty_salon"> Estética</label>
+                        <label class="checkbox-item"><input type="checkbox" value="laundry"> Lavandería</label>
+                    </div>
+                    <span class="helper-text">Selecciona hasta 3 para el plan PRO o hasta 5 para PREMIUM.</span>
+                </div>
+
+                <!-- Personalización de Aliados (Premium) -->
+                <div class="form-group">
+                    <label>Aliados Estratégicos (Sólo Premium)</label>
+                    <div class="checkbox-group glass-card" id="aliados-checkboxes">
+                        <label class="checkbox-item"><input type="checkbox" value="bank"> Bancos</label>
+                        <label class="checkbox-item"><input type="checkbox" value="school"> Escuelas</label>
+                        <label class="checkbox-item"><input type="checkbox" value="transit_station"> Transporte Público</label>
+                        <label class="checkbox-item"><input type="checkbox" value="supermarket"> Supermercado</label>
+                        <label class="checkbox-item"><input type="checkbox" value="shopping_mall"> Centro Comercial</label>
+                        <label class="checkbox-item"><input type="checkbox" value="convenience_store"> Conveniencia</label>
+                        <label class="checkbox-item"><input type="checkbox" value="park"> Parque</label>
+                    </div>
+                    <span class="helper-text">Selecciona hasta 5 aliados estratégicos de tráfico comercial.</span>
+                </div>
                 
                 <!-- Coordenadas Capturadas (Feedback Cartográfico) -->
                 <div class="coords-box glass-card" id="coords-display">
