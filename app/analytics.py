@@ -110,12 +110,21 @@ def resolver_google_type(db: Session, rubro: str) -> tuple[str, str]:
     return "store", "comercio_general"
 
 
-def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, rubro: str, tier: str) -> dict:
+def procesar_calculo_analitico(
+    db: Session,
+    lat: float,
+    lng: float,
+    radio: int,
+    rubro: str,
+    tier: str,
+    competidores_seleccionados: list[str] | None = None,
+    aliados_seleccionados: list[str] | None = None,
+) -> dict:
     """
     Orquesta todo el motor analítico cuantitativo:
     1. Demografía espacial PostGIS.
     2. Cruce de categorías.
-    3. Mapeo de competencia con Google Places.
+    3. Mapeo de competencia con Google Places (estándar o personalizada).
     4. Curvas BestTime.
     5. Scoring normalizado SVA.
     """
@@ -141,9 +150,25 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
     bancos_list: list = []
     escuelas_list: list = []
     transporte_list: list = []
+    aliados_listado: list = []
+    aliados_conteos: dict = {}
 
     if tier in ["pro", "premium"]:
-        competidores = buscar_competidores(lat, lng, float(radio), google_type)
+        if competidores_seleccionados:
+            logger.info(f"Buscando competidores personalizados por Places: {competidores_seleccionados}...")
+            seen_keys = set()
+            for custom_type in competidores_seleccionados:
+                found = buscar_competidores(lat, lng, float(radio), custom_type)
+                for comp in found:
+                    comp_key = (round(comp["latitud"], 5), round(comp["longitud"], 5))
+                    if comp_key not in seen_keys:
+                        seen_keys.add(comp_key)
+                        comp["tipo"] = custom_type.replace("_", " ").title()
+                        competidores.append(comp)
+        else:
+            competidores = buscar_competidores(lat, lng, float(radio), google_type)
+            for comp in competidores:
+                comp["tipo"] = categoria.replace("_", " ").title()
         logger.info(f"Competidores detectados en el radio por Places: {len(competidores)}")
 
         # Calcular distancias e Índice de Saturación Comercial (Huff)
@@ -157,30 +182,72 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
             isc += 1.0 / (dist_cap**2)
 
         if tier == "premium":
-            # Buscar atractores urbanos reales — si falla la API el conteo queda en 0, nunca inventado
-            try:
-                logger.info("Buscando bancos cercanos para la viabilidad de tráficos...")
-                bancos_list = buscar_competidores(lat, lng, float(radio), "bank")
-                bancos_conteo = len(bancos_list)
-            except Exception as bank_err:
-                logger.error(f"Falla al buscar bancos en Places: {bank_err}. Conteo = 0.")
-                bancos_conteo = 0
+            if aliados_seleccionados:
+                logger.info(f"Buscando aliados personalizados por Places: {aliados_seleccionados}...")
+                for custom_type in aliados_seleccionados:
+                    try:
+                        found_allies = buscar_competidores(lat, lng, float(radio), custom_type)
+                        aliados_conteos[custom_type] = len(found_allies)
+                        for ally in found_allies[:3]:
+                            tipo_nombre = custom_type.replace("_", " ").title()
+                            aliados_listado.append(
+                                {
+                                    "nombre": ally.get("nombre", "Establecimiento sin nombre"),
+                                    "tipo": tipo_nombre,
+                                    "rating": ally.get("rating", 0.0),
+                                    "user_ratings_total": ally.get("user_ratings_total", 0),
+                                    "direccion": ally.get("direccion", ""),
+                                }
+                            )
+                    except Exception as ally_err:
+                        logger.error(f"Falla al buscar aliado personalizado {custom_type}: {ally_err}")
+                        aliados_conteos[custom_type] = 0
+            else:
+                # Buscar atractores urbanos reales — si falla la API el conteo queda en 0, nunca inventado
+                try:
+                    logger.info("Buscando bancos cercanos para la viabilidad de tráficos...")
+                    bancos_list = buscar_competidores(lat, lng, float(radio), "bank")
+                    bancos_conteo = len(bancos_list)
+                except Exception as bank_err:
+                    logger.error(f"Falla al buscar bancos en Places: {bank_err}. Conteo = 0.")
+                    bancos_conteo = 0
 
-            try:
-                logger.info("Buscando escuelas cercanas para la viabilidad de tráficos...")
-                escuelas_list = buscar_competidores(lat, lng, float(radio), "school")
-                escuelas_conteo = len(escuelas_list)
-            except Exception as school_err:
-                logger.error(f"Falla al buscar escuelas en Places: {school_err}. Conteo = 0.")
-                escuelas_conteo = 0
+                try:
+                    logger.info("Buscando escuelas cercanas para la viabilidad de tráficos...")
+                    escuelas_list = buscar_competidores(lat, lng, float(radio), "school")
+                    escuelas_conteo = len(escuelas_list)
+                except Exception as school_err:
+                    logger.error(f"Falla al buscar escuelas en Places: {school_err}. Conteo = 0.")
+                    escuelas_conteo = 0
 
-            try:
-                logger.info("Buscando paradas de transporte público cercanas...")
-                transporte_list = buscar_competidores(lat, lng, float(radio), "transit_station")
-                transporte_conteo = len(transporte_list)
-            except Exception as trans_err:
-                logger.error(f"Falla al buscar paradas de transporte: {trans_err}. Conteo = 0.")
-                transporte_conteo = 0
+                try:
+                    logger.info("Buscando paradas de transporte público cercanas...")
+                    transporte_list = buscar_competidores(lat, lng, float(radio), "transit_station")
+                    transporte_conteo = len(transporte_list)
+                except Exception as trans_err:
+                    logger.error(f"Falla al buscar paradas de transporte: {trans_err}. Conteo = 0.")
+                    transporte_conteo = 0
+
+                aliados_conteos = {
+                    "bank": bancos_conteo,
+                    "school": escuelas_conteo,
+                    "transit_station": transporte_conteo,
+                }
+
+                def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
+                    return {
+                        "nombre": item.get("nombre", "Establecimiento sin nombre"),
+                        "tipo": tipo_semantico,
+                        "rating": item.get("rating", 0.0),
+                        "user_ratings_total": item.get("user_ratings_total", 0),
+                        "direccion": item.get("direccion", ""),
+                    }
+
+                aliados_listado = (
+                    [_enriquecer_aliado(b, "Institución Bancaria / Financiera") for b in bancos_list[:3]]
+                    + [_enriquecer_aliado(e, "Centro Educativo") for e in escuelas_list[:3]]
+                    + [_enriquecer_aliado(t, "Transporte Público") for t in transporte_list[:3]]
+                )
 
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
@@ -192,15 +259,10 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
     score_demog = min((pob_total / 15000.0) * 100.0, 100.0)
 
     # B. Score de Competencia (A menor saturación, mayor score)
-    # Si no hay competencia, el score es 100. Si hay mucha saturación, decrece.
     if not competidores:
         score_competencia = 100.0
     else:
-        # Ponderación basada en la gravedad comercial
-        # Un ISC de 0.0001 (ej: 1 competidor a 100m) es bajo. Un ISC de 0.01 (ej: 1 competidor a 10m) es muy alto.
-        # Escala logarítmica suavizada
         factor_saturacion = math.log10(isc) if isc > 0 else -10
-        # Mapeo: factor_saturacion entre -6 (baja competencia) y -2 (alta competencia)
         if factor_saturacion <= -6:
             score_competencia = 100.0
         elif factor_saturacion >= -2:
@@ -212,33 +274,13 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
     if tier == "premium" and afluencia.get("status") == "success":
         score_trafico = afluencia.get("saturación_promedio", 50.0)
     else:
-        # En tiers básicos, el tráfico se estima moderado
         score_trafico = 55.0
 
     # D. Fusión Ponderada del Score SVA
-    # Ponderaciones: 40% Demografía, 30% Competencia, 30% Atracción/Tráfico
     sva = (score_demog * 0.4) + (score_competencia * 0.3) + (score_trafico * 0.3)
     sva_final = int(round(sva))
 
-    # Ajustes finales a la distancia más cercana
     distancia_cercana_res = int(round(distancia_mas_cercana)) if distancia_mas_cercana != float("inf") else -1
-
-    # Consolidar aliados reales: bancos + escuelas + transporte detectados por Places
-    # Cada aliado lleva nombre, tipo semántico, rating y reseñas para mostrarse en el reporte
-    def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
-        return {
-            "nombre": item.get("nombre", "Establecimiento sin nombre"),
-            "tipo": tipo_semantico,
-            "rating": item.get("rating", 0.0),
-            "user_ratings_total": item.get("user_ratings_total", 0),
-            "direccion": item.get("direccion", ""),
-        }
-
-    aliados_listado = (
-        [_enriquecer_aliado(b, "Institución Bancaria / Financiera") for b in bancos_list[:3]]
-        + [_enriquecer_aliado(e, "Centro Educativo") for e in escuelas_list[:3]]
-        + [_enriquecer_aliado(t, "Transporte Público") for t in transporte_list[:3]]
-    )
 
     return {
         "poblacion_ponderada": pob_total,
@@ -261,4 +303,7 @@ def procesar_calculo_analitico(db: Session, lat: float, lng: float, radio: int, 
         "escuelas_conteo": escuelas_conteo,
         "transporte_conteo": transporte_conteo,
         "aliados_listado": aliados_listado,
+        "aliados_conteos": aliados_conteos,
+        "competidores_seleccionados": competidores_seleccionados,
+        "aliados_seleccionados": aliados_seleccionados,
     }

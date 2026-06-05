@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PreferenciaCreate(BaseModel):
@@ -12,6 +12,8 @@ class PreferenciaCreate(BaseModel):
     rubro: str = Field(..., description="Giro comercial o nicho del negocio (ej. Cafetería, Gimnasio)")
     tier_adquirido: str = Field(..., description="Tier de visualización y análisis ('basico', 'pro', 'premium')")
     intenciones: str | None = Field(None, description="Intenciones o ideas de negocio adicionales en lenguaje natural")
+    competidores_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para competidores")
+    aliados_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para aliados")
 
     @field_validator("tier_adquirido")
     @classmethod
@@ -20,6 +22,27 @@ class PreferenciaCreate(BaseModel):
         if v_lower not in ["basico", "pro", "premium"]:
             raise ValueError("El tier_adquirido debe ser 'basico', 'pro' o 'premium'.")
         return v_lower
+
+    @model_validator(mode="after")
+    def validate_custom_selections(self) -> "PreferenciaCreate":
+        tier = self.tier_adquirido
+        comps = self.competidores_seleccionados
+        allies = self.aliados_seleccionados
+
+        if tier == "basico":
+            if (comps and len(comps) > 0) or (allies and len(allies) > 0):
+                raise ValueError("El Tier Básico no permite personalizar aliados ni competidores.")
+        elif tier == "pro":
+            if allies and len(allies) > 0:
+                raise ValueError("El Tier Pro no permite personalizar aliados estratégicos.")
+            if comps and len(comps) > 3:
+                raise ValueError("El Tier Pro permite un máximo de 3 competidores personalizados.")
+        elif tier == "premium":
+            if comps and len(comps) > 5:
+                raise ValueError("El Tier Premium permite un máximo de 5 competidores personalizados.")
+            if allies and len(allies) > 5:
+                raise ValueError("El Tier Premium permite un máximo de 5 aliados personalizados.")
+        return self
 
 
 class PreferenciaResponse(BaseModel):

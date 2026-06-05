@@ -202,3 +202,141 @@ def test_webhook_processing_and_mock():
 
     finally:
         db.close()
+
+
+def test_crear_preferencia_invalida_basico():
+    """
+    Test that Básico tier rejects custom competitors or allies.
+    """
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    payload = {
+        "tier_adquirido": "basico",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "competidores_seleccionados": ["cafe"],
+    }
+    response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
+    assert response.status_code == 422
+    assert "El Tier Básico no permite" in response.text
+
+    payload2 = {
+        "tier_adquirido": "basico",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "aliados_seleccionados": ["school"],
+    }
+    response2 = client.post("/api/pagos/preferencia", json=payload2, headers=headers)
+    assert response2.status_code == 422
+    assert "El Tier Básico no permite" in response2.text
+
+
+def test_crear_preferencia_invalida_pro_aliados():
+    """
+    Test that Pro tier rejects custom allies.
+    """
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    payload = {
+        "tier_adquirido": "pro",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "aliados_seleccionados": ["bank"],
+    }
+    response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
+    assert response.status_code == 422
+    assert "El Tier Pro no permite personalizar aliados" in response.text
+
+
+def test_crear_preferencia_invalida_pro_limites():
+    """
+    Test that Pro tier rejects more than 3 custom competitors.
+    """
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    payload = {
+        "tier_adquirido": "pro",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "competidores_seleccionados": ["cafe", "gym", "restaurant", "bank"],
+    }
+    response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
+    assert response.status_code == 422
+    assert "El Tier Pro permite un máximo de 3 competidores" in response.text
+
+
+def test_crear_preferencia_invalida_premium_limites():
+    """
+    Test that Premium tier rejects more than 5 custom competitors or allies.
+    """
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    payload = {
+        "tier_adquirido": "premium",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "competidores_seleccionados": ["1", "2", "3", "4", "5", "6"],
+    }
+    response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
+    assert response.status_code == 422
+    assert "El Tier Premium permite un máximo de 5 competidores" in response.text
+
+    payload2 = {
+        "tier_adquirido": "premium",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "aliados_seleccionados": ["1", "2", "3", "4", "5", "6"],
+    }
+    response2 = client.post("/api/pagos/preferencia", json=payload2, headers=headers)
+    assert response2.status_code == 422
+    assert "El Tier Premium permite un máximo de 5 aliados" in response2.text
+
+
+def test_crear_preferencia_valida_pro_premium():
+    """
+    Test successful creation of Pro and Premium preferences with custom selections.
+    """
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    payload_pro = {
+        "tier_adquirido": "pro",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "competidores_seleccionados": ["cafe", "restaurant"],
+    }
+    response_pro = client.post("/api/pagos/preferencia", json=payload_pro, headers=headers)
+    assert response_pro.status_code == 201
+    data_pro = response_pro.json()
+
+    payload_prem = {
+        "tier_adquirido": "premium",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "competidores_seleccionados": ["cafe", "gym"],
+        "aliados_seleccionados": ["bank", "school"],
+    }
+    response_prem = client.post("/api/pagos/preferencia", json=payload_prem, headers=headers)
+    assert response_prem.status_code == 201
+    data_prem = response_prem.json()
+
+    # Clean up
+    db = SessionLocal()
+    try:
+        for checkout_id in [data_pro["checkout_id"], data_prem["checkout_id"]]:
+            orden = db.query(OrdenPago).filter(OrdenPago.checkout_id == checkout_id).first()
+            if orden:
+                db.delete(orden)
+                db.commit()
+    finally:
+        db.close()

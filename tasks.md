@@ -1,0 +1,23 @@
+# Tareas de Implementación: Personalización de Aliados y Competidores
+
+- [ ] Fase de Planificación y Aprobación
+  - [ ] Crear documentos RFC, Requirements, Design y Tasks
+  - [ ] Presentar propuesta al usuario y obtener aprobación
+- [ ] Fase de Ingesta y Base de Datos
+  - [ ] Crear y ejecutar la migración `scratch/add_custom_selection_columns.py`
+  - [ ] Actualizar el ORM `OrdenPago` en [models.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/models.py)
+  - [ ] Actualizar `init_db_schemas` en [admin_app.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/admin_app.py)
+- [ ] Fase de Validación y Endpoints (API)
+  - [ ] Actualizar validaciones de Pydantic en [schemas.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/schemas.py) para validar límites por Tier
+  - [ ] Actualizar registro de órdenes en [payments.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/payments.py) para serializar y guardar las listas en base de datos
+- [ ] Fase del Motor Analítico e IA
+  - [ ] Modificar consultas a Places en [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py) para que iteren por categorías personalizadas
+  - [ ] Actualizar el cálculo del SVA en [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py) ante competencia personalizada
+  - [ ] Integrar inputs de aliados y competidores personalizados en el prompt del LLM en [bedrock.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/bedrock.py)
+- [ ] Fase de Generación de Reportes PDF
+  - [ ] Adaptar dinámicamente la tabla de competidores (Pág 8) y la tabla de atractores (Pág 10) en [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py) en base a los datos recolectados
+- [ ] Fase de Verificación y Calidad
+  - [ ] Crear pruebas unitarias para validación de Tiers en `tests/test_suite.py`
+  - [ ] Compilar reporte de prueba Premium personalizado y verificar PDF
+  - [ ] Ejecutar pytest y verificar que todas las pruebas pasen con éxito
+  - [ ] Ejecutar Ruff check y format para cumplir con los estándares

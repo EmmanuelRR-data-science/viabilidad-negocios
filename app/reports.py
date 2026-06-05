@@ -4,6 +4,7 @@ import logging
 import os
 
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfgen import canvas
@@ -160,7 +161,8 @@ class ReportLabGenerator:
             leading=34,
             textColor=colors.HexColor("#37F18A"),
             spaceAfter=15,
-            alignment=0,  # Izquierda
+            alignment=TA_LEFT,
+            rightIndent=180,
         )
 
         s_subtitle_cover = ParagraphStyle(
@@ -170,11 +172,17 @@ class ReportLabGenerator:
             leading=20,
             textColor=colors.white,
             spaceAfter=25,
-            alignment=0,
+            alignment=TA_LEFT,
+            rightIndent=180,
         )
 
         s_meta_cover = ParagraphStyle(
-            "CoverMeta", fontName="Helvetica", fontSize=10, leading=16, textColor=colors.HexColor("#cbd5e1")
+            "CoverMeta",
+            fontName="Helvetica",
+            fontSize=10,
+            leading=16,
+            textColor=colors.HexColor("#cbd5e1"),
+            rightIndent=180,
         )
 
         s_h1 = ParagraphStyle(
@@ -200,11 +208,23 @@ class ReportLabGenerator:
         )
 
         s_body = ParagraphStyle(
-            "Body_Custom", fontName="Helvetica", fontSize=10, leading=14, textColor=c_text, spaceAfter=10
+            "Body_Custom",
+            fontName="Helvetica",
+            fontSize=10,
+            leading=14,
+            textColor=c_text,
+            spaceAfter=10,
+            alignment=TA_JUSTIFY,
         )
         s_table_header = ParagraphStyle(
-            "TableHeader", parent=s_body, fontName="Helvetica-Bold", textColor=colors.white, spaceAfter=0
+            "TableHeader",
+            parent=s_body,
+            fontName="Helvetica-Bold",
+            textColor=colors.white,
+            spaceAfter=0,
+            alignment=TA_LEFT,
         )
+        s_table_cell = ParagraphStyle("TableCell", parent=s_body, alignment=TA_LEFT, spaceAfter=0)
 
         s_bullet = ParagraphStyle(
             "Bullet_Custom",
@@ -270,6 +290,7 @@ class ReportLabGenerator:
             leading=14,
             textColor=colors.white,
             spaceAfter=20,
+            rightIndent=180,
         )
         story.append(Paragraph("&lt;Data Science&gt;", s_data_science))
 
@@ -280,6 +301,7 @@ class ReportLabGenerator:
             fontSize=8,
             leading=10,
             textColor=colors.HexColor("#94a3b8"),  # slate-400
+            rightIndent=180,
         )
         footer_text = (
             f"GeoViabilidad Hook | Estudio de Localización Inteligente | {datetime.date.today().strftime('%d/%m/%Y')}"
@@ -368,25 +390,25 @@ class ReportLabGenerator:
                     Paragraph("Densidad Promedio", s_table_header),
                 ],
                 [
-                    Paragraph("Cercanía (1.0 km)", s_body),
-                    Paragraph(f"{comp_base} directos", s_body),
-                    Paragraph(f"{int(comp_base * 0.7) + 2} aliados", s_body),
-                    Paragraph(f"{pob_base:,} hab.", s_body),
-                    Paragraph(f"{round(pob_base / 3.1416, 1):,} hab/km²", s_body),
+                    Paragraph("Cercanía (1.0 km)", s_table_cell),
+                    Paragraph(f"{comp_base} directos", s_table_cell),
+                    Paragraph(f"{int(comp_base * 0.7) + 2} aliados", s_table_cell),
+                    Paragraph(f"{pob_base:,} hab.", s_table_cell),
+                    Paragraph(f"{round(pob_base / 3.1416, 1):,} hab/km²", s_table_cell),
                 ],
                 [
-                    Paragraph("Influencia (3.0 km)", s_body),
-                    Paragraph(f"{int(comp_base * 2.8) + 4} directos", s_body),
-                    Paragraph(f"{int(comp_base * 1.9) + 8} aliados", s_body),
-                    Paragraph(f"{int(pob_base * 2.6) + 4500:,} hab.", s_body),
-                    Paragraph(f"{round((pob_base * 2.6 + 4500) / 28.27, 1):,} hab/km²", s_body),
+                    Paragraph("Influencia (3.0 km)", s_table_cell),
+                    Paragraph(f"{int(comp_base * 2.8) + 4} directos", s_table_cell),
+                    Paragraph(f"{int(comp_base * 1.9) + 8} aliados", s_table_cell),
+                    Paragraph(f"{int(pob_base * 2.6) + 4500:,} hab.", s_table_cell),
+                    Paragraph(f"{round((pob_base * 2.6 + 4500) / 28.27, 1):,} hab/km²", s_table_cell),
                 ],
                 [
-                    Paragraph("Macro-Zona (5.0 km)", s_body),
-                    Paragraph(f"{int(comp_base * 5.4) + 12} directos", s_body),
-                    Paragraph(f"{int(comp_base * 3.8) + 24} aliados", s_body),
-                    Paragraph(f"{int(pob_base * 5.1) + 12000:,} hab.", s_body),
-                    Paragraph(f"{round((pob_base * 5.1 + 12000) / 78.54, 1):,} hab/km²", s_body),
+                    Paragraph("Macro-Zona (5.0 km)", s_table_cell),
+                    Paragraph(f"{int(comp_base * 5.4) + 12} directos", s_table_cell),
+                    Paragraph(f"{int(comp_base * 3.8) + 24} aliados", s_table_cell),
+                    Paragraph(f"{int(pob_base * 5.1) + 12000:,} hab.", s_table_cell),
+                    Paragraph(f"{round((pob_base * 5.1 + 12000) / 78.54, 1):,} hab/km²", s_table_cell),
                 ],
             ]
 
@@ -455,34 +477,34 @@ class ReportLabGenerator:
                     Paragraph("Nota Metodológica", s_table_header),
                 ],
                 [
-                    Paragraph("Población Total Residente", s_body),
-                    Paragraph(f"{pob_tot:,} hab.", s_body),
-                    Paragraph("Suma ponderada por intersección geodésica de AGEBs", s_body),
+                    Paragraph("Población Total Residente", s_table_cell),
+                    Paragraph(f"{pob_tot:,} hab.", s_table_cell),
+                    Paragraph("Suma ponderada por intersección geodésica de AGEBs", s_table_cell),
                 ],
                 [
-                    Paragraph("Viviendas Particulares Habitadas", s_body),
-                    Paragraph(f"{viv_tot:,} viv.", s_body),
-                    Paragraph("Censo INEGI 2020 — dato puro de base de datos", s_body),
+                    Paragraph("Viviendas Particulares Habitadas", s_table_cell),
+                    Paragraph(f"{viv_tot:,} viv.", s_table_cell),
+                    Paragraph("Censo INEGI 2020 — dato puro de base de datos", s_table_cell),
                 ],
                 [
-                    Paragraph("Densidad Poblacional Real", s_body),
-                    Paragraph(f"{densidad_real:,} hab/km²", s_body),
-                    Paragraph(f"Calculada: {pob_tot:,} hab ÷ {area_km2:.2f} km²", s_body),
+                    Paragraph("Densidad Poblacional Real", s_table_cell),
+                    Paragraph(f"{densidad_real:,} hab/km²", s_table_cell),
+                    Paragraph(f"Calculada: {pob_tot:,} hab ÷ {area_km2:.2f} km²", s_table_cell),
                 ],
                 [
-                    Paragraph("Promedio de Ocupantes por Vivienda", s_body),
-                    Paragraph(f"{ocupantes_viv} personas/viv.", s_body),
-                    Paragraph("Calculado: Población Total ÷ Viviendas", s_body),
+                    Paragraph("Promedio de Ocupantes por Vivienda", s_table_cell),
+                    Paragraph(f"{ocupantes_viv} personas/viv.", s_table_cell),
+                    Paragraph("Calculado: Población Total ÷ Viviendas", s_table_cell),
                 ],
                 [
-                    Paragraph("Población Masculina", s_body),
-                    Paragraph(f"{pob_mas:,} hab. ({pct_mas}%)", s_body),
-                    Paragraph("Dato puro de la tabla agebs_demografia (PostGIS)", s_body),
+                    Paragraph("Población Masculina", s_table_cell),
+                    Paragraph(f"{pob_mas:,} hab. ({pct_mas}%)", s_table_cell),
+                    Paragraph("Dato puro de la tabla agebs_demografia (PostGIS)", s_table_cell),
                 ],
                 [
-                    Paragraph("Población Femenina", s_body),
-                    Paragraph(f"{pob_fem:,} hab. ({pct_fem}%)", s_body),
-                    Paragraph("Dato puro de la tabla agebs_demografia (PostGIS)", s_body),
+                    Paragraph("Población Femenina", s_table_cell),
+                    Paragraph(f"{pob_fem:,} hab. ({pct_fem}%)", s_table_cell),
+                    Paragraph("Dato puro de la tabla agebs_demografia (PostGIS)", s_table_cell),
                 ],
             ]
 
@@ -585,19 +607,19 @@ class ReportLabGenerator:
                 Paragraph("Estatus en la Zona", s_table_header),
             ],
             [
-                Paragraph("Pilar Demográfico", s_body),
-                Paragraph("40%", s_body),
-                Paragraph(dem_est, s_body),
+                Paragraph("Pilar Demográfico", s_table_cell),
+                Paragraph("40%", s_table_cell),
+                Paragraph(dem_est, s_table_cell),
             ],
             [
-                Paragraph("Pilar Competencia", s_body),
-                Paragraph("30%", s_body),
-                Paragraph(comp_est, s_body),
+                Paragraph("Pilar Competencia", s_table_cell),
+                Paragraph("30%", s_table_cell),
+                Paragraph(comp_est, s_table_cell),
             ],
             [
-                Paragraph("Pilar Atractores e Inferencia", s_body),
-                Paragraph("30%", s_body),
-                Paragraph(inf_est, s_body),
+                Paragraph("Pilar Atractores e Inferencia", s_table_cell),
+                Paragraph("30%", s_table_cell),
+                Paragraph(inf_est, s_table_cell),
             ],
         ]
         pilares_table = Table(pilares_data, colWidths=[150, 80, 274])
@@ -876,8 +898,8 @@ class ReportLabGenerator:
                 ],
                 [
                     Paragraph("<b>🎯 COMPETIDORES DIRECTOS DETECTADOS</b>", s_quadrant_title),
-                    Paragraph("", s_body),
-                    Paragraph("", s_body),
+                    Paragraph("", s_table_cell),
+                    Paragraph("", s_table_cell),
                 ],
             ]
 
@@ -885,20 +907,22 @@ class ReportLabGenerator:
             if not real_directs:
                 comp_table_data.append(
                     [
-                        Paragraph("<font color='#64748b'><i>Sin competidores directos detectados</i></font>", s_body),
-                        Paragraph("—", s_body),
-                        Paragraph("—", s_body),
+                        Paragraph(
+                            "<font color='#64748b'><i>Sin competidores directos detectados</i></font>", s_table_cell
+                        ),
+                        Paragraph("—", s_table_cell),
+                        Paragraph("—", s_table_cell),
                     ]
                 )
             else:
                 for item in real_directs:
                     comp_table_data.append(
                         [
-                            Paragraph(item.get("nombre", "Comercio Local"), s_body),
-                            Paragraph(orden.rubro.capitalize(), s_body),
+                            Paragraph(item.get("nombre", "Comercio Local"), s_table_cell),
+                            Paragraph(item.get("tipo", orden.rubro.capitalize()), s_table_cell),
                             Paragraph(
                                 f"⭐ {item.get('rating', 0.0)} / 5.0 ({item.get('user_ratings_total', 15)} reseñas)",
-                                s_body,
+                                s_table_cell,
                             ),
                         ]
                     )
@@ -908,8 +932,8 @@ class ReportLabGenerator:
                     Paragraph(
                         "<b>🤝 ESTABLECIMIENTOS COMPLEMENTARIOS (ALIADOS REALES DETECTADOS)</b>", s_quadrant_title
                     ),
-                    Paragraph("", s_body),
-                    Paragraph("", s_body),
+                    Paragraph("", s_table_cell),
+                    Paragraph("", s_table_cell),
                 ]
             )
 
@@ -924,9 +948,9 @@ class ReportLabGenerator:
                     )
                     comp_table_data.append(
                         [
-                            Paragraph(aliado["nombre"], s_body),
-                            Paragraph(aliado["tipo"], s_body),
-                            Paragraph(f"{rating_str} {reviews_str}".strip(), s_body),
+                            Paragraph(aliado["nombre"], s_table_cell),
+                            Paragraph(aliado["tipo"], s_table_cell),
+                            Paragraph(f"{rating_str} {reviews_str}".strip(), s_table_cell),
                         ]
                     )
             else:
@@ -936,13 +960,14 @@ class ReportLabGenerator:
                             "<font color='#64748b'><i>No se detectaron establecimientos complementarios (bancos, "
                             "escuelas o transporte) en el radio analizado. Se recomienda un enfoque de "
                             "marketing autónomo para la captación de tráfico peatonal.</i></font>",
-                            s_body,
+                            s_table_cell,
                         ),
-                        Paragraph("", s_body),
-                        Paragraph("", s_body),
+                        Paragraph("", s_table_cell),
+                        Paragraph("", s_table_cell),
                     ]
                 )
 
+            num_direct_rows = len(real_directs) if real_directs else 1
             comp_table = Table(comp_table_data, colWidths=[180, 160, 174])
             comp_table.setStyle(
                 TableStyle(
@@ -952,12 +977,12 @@ class ReportLabGenerator:
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
                         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
                         ("SPAN", (0, 1), (2, 1)),
-                        ("SPAN", (0, len(real_directs) + 2), (2, len(real_directs) + 2)),
+                        ("SPAN", (0, num_direct_rows + 2), (2, num_direct_rows + 2)),
                         ("BACKGROUND", (0, 1), (2, 1), colors.HexColor("#f1f5f9")),
                         (
                             "BACKGROUND",
-                            (0, len(real_directs) + 2),
-                            (2, len(real_directs) + 2),
+                            (0, num_direct_rows + 2),
+                            (2, num_direct_rows + 2),
                             colors.HexColor("#f1f5f9"),
                         ),
                         ("PADDING", (0, 0), (-1, -1), 5),
@@ -1018,34 +1043,36 @@ class ReportLabGenerator:
                     Paragraph("Estatus de Competencia", s_table_header),
                 ],
                 [
-                    Paragraph("Competidores Cercanos (< 250m)", s_body),
-                    Paragraph(f"{inmediatos} establecimientos", s_body),
-                    Paragraph("Fricción inmediata alta" if inmediatos > 0 else "Entorno libre de fricción", s_body),
+                    Paragraph("Competidores Cercanos (< 250m)", s_table_cell),
+                    Paragraph(f"{inmediatos} establecimientos", s_table_cell),
+                    Paragraph(
+                        "Fricción inmediata alta" if inmediatos > 0 else "Entorno libre de fricción", s_table_cell
+                    ),
                 ],
                 [
-                    Paragraph("Competidores Intermedios (250m - 500m)", s_body),
-                    Paragraph(f"{cercanos} establecimientos", s_body),
-                    Paragraph("Fricción intermedia" if cercanos > 0 else "Entorno despejado", s_body),
+                    Paragraph("Competidores Intermedios (250m - 500m)", s_table_cell),
+                    Paragraph(f"{cercanos} establecimientos", s_table_cell),
+                    Paragraph("Fricción intermedia" if cercanos > 0 else "Entorno despejado", s_table_cell),
                 ],
                 [
-                    Paragraph("Competidores Periféricos (> 500m)", s_body),
-                    Paragraph(f"{perifericos} establecimientos", s_body),
-                    Paragraph("Fricción periférica" if perifericos > 0 else "Sin competidores lejanos", s_body),
+                    Paragraph("Competidores Periféricos (> 500m)", s_table_cell),
+                    Paragraph(f"{perifericos} establecimientos", s_table_cell),
+                    Paragraph("Fricción periférica" if perifericos > 0 else "Sin competidores lejanos", s_table_cell),
                 ],
                 [
-                    Paragraph("Distancia al Competidor Cercano", s_body),
-                    Paragraph(dist_txt, s_body),
+                    Paragraph("Distancia al Competidor Cercano", s_table_cell),
+                    Paragraph(dist_txt, s_table_cell),
                     Paragraph(
                         "Excelente distancia"
                         if (distancia_cercana > 400 or distancia_cercana == -1)
                         else "Competidor inmediato",
-                        s_body,
+                        s_table_cell,
                     ),
                 ],
                 [
-                    Paragraph("Índice de Saturación Comercial (ISC)", s_body),
-                    Paragraph(isc_formato, s_body),
-                    Paragraph(densidad_txt, s_body),
+                    Paragraph("Índice de Saturación Comercial (ISC)", s_table_cell),
+                    Paragraph(isc_formato, s_table_cell),
+                    Paragraph(densidad_txt, s_table_cell),
                 ],
             ]
 
@@ -1080,60 +1107,60 @@ class ReportLabGenerator:
                         Paragraph("Interpretación de Fricción", s_table_header),
                     ],
                     [
-                        Paragraph("Lunes", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("0", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("100%", s_body),
-                        Paragraph("Alta competencia", s_body),
+                        Paragraph("Lunes", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("0", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("100%", s_table_cell),
+                        Paragraph("Alta competencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Martes", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("0", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("100%", s_body),
-                        Paragraph("Alta competencia", s_body),
+                        Paragraph("Martes", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("0", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("100%", s_table_cell),
+                        Paragraph("Alta competencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Miércoles", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("0", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("100%", s_body),
-                        Paragraph("Alta competencia", s_body),
+                        Paragraph("Miércoles", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("0", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("100%", s_table_cell),
+                        Paragraph("Alta competencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Jueves", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("0", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("100%", s_body),
-                        Paragraph("Alta competencia", s_body),
+                        Paragraph("Jueves", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("0", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("100%", s_table_cell),
+                        Paragraph("Alta competencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Viernes", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("0", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("100%", s_body),
-                        Paragraph("Alta competencia", s_body),
+                        Paragraph("Viernes", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("0", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("100%", s_table_cell),
+                        Paragraph("Alta competencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Sábado", s_body),
-                        Paragraph(f"{max(total_c - 1, 1)}", s_body),
-                        Paragraph("1" if total_c > 1 else "0", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("98%" if total_c > 1 else "100%", s_body),
-                        Paragraph("Alta competencia", s_body),
+                        Paragraph("Sábado", s_table_cell),
+                        Paragraph(f"{max(total_c - 1, 1)}", s_table_cell),
+                        Paragraph("1" if total_c > 1 else "0", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("98%" if total_c > 1 else "100%", s_table_cell),
+                        Paragraph("Alta competencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Domingo", s_body),
-                        Paragraph(f"{int(total_c * 0.8)}", s_body),
-                        Paragraph(f"{total_c - int(total_c * 0.8)}", s_body),
-                        Paragraph(f"{total_c}", s_body),
-                        Paragraph("80%", s_body),
-                        Paragraph("Fricción moderada (Oportunidad)", s_body),
+                        Paragraph("Domingo", s_table_cell),
+                        Paragraph(f"{int(total_c * 0.8)}", s_table_cell),
+                        Paragraph(f"{total_c - int(total_c * 0.8)}", s_table_cell),
+                        Paragraph(f"{total_c}", s_table_cell),
+                        Paragraph("80%", s_table_cell),
+                        Paragraph("Fricción moderada (Oportunidad)", s_table_cell),
                     ],
                 ]
 
@@ -1184,9 +1211,8 @@ class ReportLabGenerator:
                 )
             )
 
-            real_bancos = analisis.get("bancos_conteo", 0)
-            real_escuelas = analisis.get("escuelas_conteo", 0)
-            real_transporte = analisis.get("transporte_conteo", 0)
+            aliados_sel = analisis.get("aliados_seleccionados")
+            aliados_conteos = analisis.get("aliados_conteos", {})
 
             poi_table_data = [
                 [
@@ -1194,22 +1220,52 @@ class ReportLabGenerator:
                     Paragraph("Conteo en Radio", s_table_header),
                     Paragraph("Peso IAT", s_table_header),
                 ],
-                [
-                    Paragraph("Bancos e Instituciones Financieras", s_body),
-                    Paragraph(f"{real_bancos} bancos detectados", s_body),
-                    Paragraph("Alto (Tráfico transaccional)", s_body),
-                ],
-                [
-                    Paragraph("Escuelas e Instituciones Educativas", s_body),
-                    Paragraph(f"{real_escuelas} escuelas detectadas", s_body),
-                    Paragraph("Medio (Tráfico matutino/tarde)", s_body),
-                ],
-                [
-                    Paragraph("Paradas de Transporte Público", s_body),
-                    Paragraph(f"{real_transporte} paradas detectadas", s_body),
-                    Paragraph("Muy Alto (Flujo continuo)", s_body),
-                ],
             ]
+
+            if orden.tier_adquirido == "premium" and aliados_sel:
+                for ally_type in aliados_sel:
+                    cnt = aliados_conteos.get(ally_type, 0)
+                    tipo_nombre = ally_type.replace("_", " ").title()
+                    # Determinar un peso de IAT semántico basado en el tipo
+                    peso_iat = "Alto (Tráfico comercial)"
+                    if any(x in ally_type for x in ["transit", "subway", "bus", "station"]):
+                        peso_iat = "Muy Alto (Flujo continuo)"
+                    elif any(x in ally_type for x in ["bank", "finance"]):
+                        peso_iat = "Alto (Tráfico transaccional)"
+                    elif any(x in ally_type for x in ["school", "university"]):
+                        peso_iat = "Medio (Tráfico matutino/tarde)"
+
+                    poi_table_data.append(
+                        [
+                            Paragraph(tipo_nombre, s_table_cell),
+                            Paragraph(f"{cnt} detectados", s_table_cell),
+                            Paragraph(peso_iat, s_table_cell),
+                        ]
+                    )
+            else:
+                real_bancos = analisis.get("bancos_conteo", 0)
+                real_escuelas = analisis.get("escuelas_conteo", 0)
+                real_transporte = analisis.get("transporte_conteo", 0)
+                poi_table_data.extend(
+                    [
+                        [
+                            Paragraph("Bancos e Instituciones Financieras", s_table_cell),
+                            Paragraph(f"{real_bancos} bancos detectados", s_table_cell),
+                            Paragraph("Alto (Tráfico transaccional)", s_table_cell),
+                        ],
+                        [
+                            Paragraph("Escuelas e Instituciones Educativas", s_table_cell),
+                            Paragraph(f"{real_escuelas} escuelas detectadas", s_table_cell),
+                            Paragraph("Medio (Tráfico matutino/tarde)", s_table_cell),
+                        ],
+                        [
+                            Paragraph("Paradas de Transporte Público", s_table_cell),
+                            Paragraph(f"{real_transporte} paradas detectadas", s_table_cell),
+                            Paragraph("Muy Alto (Flujo continuo)", s_table_cell),
+                        ],
+                    ]
+                )
+
             poi_table = Table(poi_table_data, colWidths=[200, 120, 184])
             poi_table.setStyle(
                 TableStyle(
@@ -1268,8 +1324,8 @@ class ReportLabGenerator:
                 for i, queja in enumerate(quejas_list):
                     quejas_data.append(
                         [
-                            Paragraph(f"<font color='#ef4444'><b>⚠️ Queja #{i + 1}:</b></font>", s_body),
-                            Paragraph(f"<i>{queja}</i>", s_body),
+                            Paragraph(f"<font color='#ef4444'><b>⚠️ Queja #{i + 1}:</b></font>", s_table_cell),
+                            Paragraph(f"<i>{queja}</i>", s_table_cell),
                         ]
                     )
 
@@ -1321,24 +1377,24 @@ class ReportLabGenerator:
                         Paragraph("Diagnóstico de Flujo", s_table_header),
                     ],
                     [
-                        Paragraph("Mañana (08:00 - 12:00)", s_body),
-                        Paragraph(f"{int_manana}%", s_body),
-                        Paragraph("Flujo de tránsito y escuelas", s_body),
+                        Paragraph("Mañana (08:00 - 12:00)", s_table_cell),
+                        Paragraph(f"{int_manana}%", s_table_cell),
+                        Paragraph("Flujo de tránsito y escuelas", s_table_cell),
                     ],
                     [
-                        Paragraph("Mediodía (12:00 - 16:00)", s_body),
-                        Paragraph(f"{int_mediodia}%", s_body),
-                        Paragraph("Hora pico de almuerzo y comercio", s_body),
+                        Paragraph("Mediodía (12:00 - 16:00)", s_table_cell),
+                        Paragraph(f"{int_mediodia}%", s_table_cell),
+                        Paragraph("Hora pico de almuerzo y comercio", s_table_cell),
                     ],
                     [
-                        Paragraph("Tarde (16:00 - 20:00)", s_body),
-                        Paragraph(f"{int_tarde}%", s_body),
-                        Paragraph("Salida laboral, máxima afluencia", s_body),
+                        Paragraph("Tarde (16:00 - 20:00)", s_table_cell),
+                        Paragraph(f"{int_tarde}%", s_table_cell),
+                        Paragraph("Salida laboral, máxima afluencia", s_table_cell),
                     ],
                     [
-                        Paragraph("Noche (20:00 - 24:00)", s_body),
-                        Paragraph(f"{int_noche}%", s_body),
-                        Paragraph("Descenso y cierre comercial", s_body),
+                        Paragraph("Noche (20:00 - 24:00)", s_table_cell),
+                        Paragraph(f"{int_noche}%", s_table_cell),
+                        Paragraph("Descenso y cierre comercial", s_table_cell),
                     ],
                 ]
                 afluencia_table = Table(afluencia_table_data, colWidths=[150, 150, 204])
@@ -1366,46 +1422,46 @@ class ReportLabGenerator:
                         Paragraph("Interpretación de Flujo", s_table_header),
                     ],
                     [
-                        Paragraph("Lunes", s_body),
-                        Paragraph("12:00, 11:00, 16:00", s_body),
-                        Paragraph("04:00, 20:00", s_body),
-                        Paragraph("Afluencia moderada", s_body),
+                        Paragraph("Lunes", s_table_cell),
+                        Paragraph("12:00, 11:00, 16:00", s_table_cell),
+                        Paragraph("04:00, 20:00", s_table_cell),
+                        Paragraph("Afluencia moderada", s_table_cell),
                     ],
                     [
-                        Paragraph("Martes", s_body),
-                        Paragraph("15:00, 14:00, 12:00", s_body),
-                        Paragraph("07:00, 21:00", s_body),
-                        Paragraph("Afluencia moderada", s_body),
+                        Paragraph("Martes", s_table_cell),
+                        Paragraph("15:00, 14:00, 12:00", s_table_cell),
+                        Paragraph("07:00, 21:00", s_table_cell),
+                        Paragraph("Afluencia moderada", s_table_cell),
                     ],
                     [
-                        Paragraph("Miércoles", s_body),
-                        Paragraph("11:00, 12:00, 10:00", s_body),
-                        Paragraph("23:00, 00:00", s_body),
-                        Paragraph("Afluencia alta", s_body),
+                        Paragraph("Miércoles", s_table_cell),
+                        Paragraph("11:00, 12:00, 10:00", s_table_cell),
+                        Paragraph("23:00, 00:00", s_table_cell),
+                        Paragraph("Afluencia alta", s_table_cell),
                     ],
                     [
-                        Paragraph("Jueves", s_body),
-                        Paragraph("17:00, 12:00, 15:00", s_body),
-                        Paragraph("07:00, 21:00", s_body),
-                        Paragraph("Afluencia moderada", s_body),
+                        Paragraph("Jueves", s_table_cell),
+                        Paragraph("17:00, 12:00, 15:00", s_table_cell),
+                        Paragraph("07:00, 21:00", s_table_cell),
+                        Paragraph("Afluencia moderada", s_table_cell),
                     ],
                     [
-                        Paragraph("Viernes", s_body),
-                        Paragraph("16:00, 17:00, 11:00", s_body),
-                        Paragraph("06:00, 20:00", s_body),
-                        Paragraph("Afluencia alta", s_body),
+                        Paragraph("Viernes", s_table_cell),
+                        Paragraph("16:00, 17:00, 11:00", s_table_cell),
+                        Paragraph("06:00, 20:00", s_table_cell),
+                        Paragraph("Afluencia alta", s_table_cell),
                     ],
                     [
-                        Paragraph("Sábado", s_body),
-                        Paragraph("17:00, 15:00, 16:00", s_body),
-                        Paragraph("22:00, 23:00", s_body),
-                        Paragraph("Afluencia alta", s_body),
+                        Paragraph("Sábado", s_table_cell),
+                        Paragraph("17:00, 15:00, 16:00", s_table_cell),
+                        Paragraph("22:00, 23:00", s_table_cell),
+                        Paragraph("Afluencia alta", s_table_cell),
                     ],
                     [
-                        Paragraph("Domingo", s_body),
-                        Paragraph("12:00, 15:00, 14:00", s_body),
-                        Paragraph("22:00, 21:00", s_body),
-                        Paragraph("Baja afluencia", s_body),
+                        Paragraph("Domingo", s_table_cell),
+                        Paragraph("12:00, 15:00, 14:00", s_table_cell),
+                        Paragraph("22:00, 21:00", s_table_cell),
+                        Paragraph("Baja afluencia", s_table_cell),
                     ],
                 ]
                 horas_table = Table(horas_data, colWidths=[80, 160, 130, 134])
@@ -1532,9 +1588,9 @@ class ReportLabGenerator:
             for seg, afin, just in segmentos:
                 segmento_table_data.append(
                     [
-                        Paragraph(seg, s_body),
-                        Paragraph(afin, s_body),
-                        Paragraph(just, s_body),
+                        Paragraph(seg, s_table_cell),
+                        Paragraph(afin, s_table_cell),
+                        Paragraph(just, s_table_cell),
                     ]
                 )
 
@@ -1585,15 +1641,18 @@ class ReportLabGenerator:
                     Paragraph("Proyección Estimada", s_table_header),
                 ],
                 [
-                    Paragraph("Ticket de Compra Promedio Recomendado", s_body),
-                    Paragraph(ticket_sugerido, s_body),
+                    Paragraph("Ticket de Compra Promedio Recomendado", s_table_cell),
+                    Paragraph(ticket_sugerido, s_table_cell),
                 ],
                 [
-                    Paragraph("Inversión Inicial Estimada del Punto", s_body),
-                    Paragraph(inversion_val, s_body),
+                    Paragraph("Inversión Inicial Estimada del Punto", s_table_cell),
+                    Paragraph(inversion_val, s_table_cell),
                 ],
-                [Paragraph("Período de Recuperación (Payback Period)", s_body), Paragraph(roi_sugerido, s_body)],
-                [Paragraph("Tasa Interna de Retorno (TIR) Proyectada", s_body), Paragraph(tir_val, s_body)],
+                [
+                    Paragraph("Período de Recuperación (Payback Period)", s_table_cell),
+                    Paragraph(roi_sugerido, s_table_cell),
+                ],
+                [Paragraph("Tasa Interna de Retorno (TIR) Proyectada", s_table_cell), Paragraph(tir_val, s_table_cell)],
             ]
             roi_table = Table(roi_data, colWidths=[250, 254])
             roi_table.setStyle(
@@ -1620,24 +1679,24 @@ class ReportLabGenerator:
                     Paragraph("Conceptos Incluidos", s_table_header),
                 ],
                 [
-                    Paragraph("Equipamiento y Maquinaria", s_body),
-                    Paragraph("45.0%", s_body),
-                    Paragraph("Equipos principales, terminales de cobro, mobiliario", s_body),
+                    Paragraph("Equipamiento y Maquinaria", s_table_cell),
+                    Paragraph("45.0%", s_table_cell),
+                    Paragraph("Equipos principales, terminales de cobro, mobiliario", s_table_cell),
                 ],
                 [
-                    Paragraph("Adecuación del Local Comercial", s_body),
-                    Paragraph("30.0%", s_body),
-                    Paragraph("Pintura, instalaciones eléctricas, letreros y branding", s_body),
+                    Paragraph("Adecuación del Local Comercial", s_table_cell),
+                    Paragraph("30.0%", s_table_cell),
+                    Paragraph("Pintura, instalaciones eléctricas, letreros y branding", s_table_cell),
                 ],
                 [
-                    Paragraph("Trámites y Permisos Legales", s_body),
-                    Paragraph("10.0%", s_body),
-                    Paragraph("Licencia de funcionamiento, uso de suelo, seguros", s_body),
+                    Paragraph("Trámites y Permisos Legales", s_table_cell),
+                    Paragraph("10.0%", s_table_cell),
+                    Paragraph("Licencia de funcionamiento, uso de suelo, seguros", s_table_cell),
                 ],
                 [
-                    Paragraph("Capital de Trabajo Inicial", s_body),
-                    Paragraph("15.0%", s_body),
-                    Paragraph("Soporte operativo para los primeros 3 meses", s_body),
+                    Paragraph("Capital de Trabajo Inicial", s_table_cell),
+                    Paragraph("15.0%", s_table_cell),
+                    Paragraph("Soporte operativo para los primeros 3 meses", s_table_cell),
                 ],
             ]
             inv_table = Table(inversion_breakdown, colWidths=[180, 100, 224])
@@ -1663,7 +1722,6 @@ class ReportLabGenerator:
                     s_body,
                 )
             )
-
 
             logger.info("ReportLab: Compilación Premium exitosa (13 páginas).")
 

@@ -201,6 +201,8 @@ def init_db_schemas(engine):
                     intenciones TEXT,
                     email VARCHAR(255) NOT NULL DEFAULT 'demo_sva@geoviabilidad.com',
                     s3_key_reporte VARCHAR(255),
+                    competidores_seleccionados TEXT,
+                    aliados_seleccionados TEXT,
                     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     fecha_aprobacion TIMESTAMP
                 );

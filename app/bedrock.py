@@ -246,31 +246,52 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     if DEV_MODE:
         logger.info("[BEDROCK] Modo Desarrollo: Devolviendo análisis FODA simulatido para el reporte.")
+        comp_sel = datos_entorno.get("competidores_seleccionados")
+        aliados_sel = datos_entorno.get("aliados_seleccionados")
+        comp_sel_str = f" ({', '.join(comp_sel)})" if comp_sel else ""
+        aliados_sel_str = f" ({', '.join(aliados_sel)})" if aliados_sel else ""
+
+        fortalezas_list = [
+            f"Sólida base demográfica con {poblacion:,} personas residentes directas en el búfer.",
+            f"Ubicación identificada en {direcc} con excelente accesibilidad vial.",
+            "Las intenciones del emprendedor muestran una propuesta de valor enfocada y diferenciada.",
+        ]
+        if aliados_sel:
+            fortalezas_list.append(
+                f"Presencia de aliados estratégicos clave de tipo {', '.join(aliados_sel)} en la zona."
+            )
+
+        oportunidades_list = [
+            f"El rubro '{rubro}' tiene un mercado de consumo activo debido al perfil residencial local.",
+            "Posibilidad de captar clientes descontentos de la competencia actual mediante entrega rápida.",
+            "Implementación de marketing geolocalizado en redes sociales en las colonias colindantes.",
+        ]
+        if aliados_sel:
+            oportunidades_list.append(
+                f"Alianzas comerciales directas con establecimientos locales de tipo {', '.join(aliados_sel)}."
+            )
+
+        debilidades_list = [
+            f"Presencia de {competencia} competidores directos{comp_sel_str} en la periferia que ya tienen posicionamiento.",
+            "Costos iniciales de instalación y acondicionamiento del local comercial en zonas transitadas.",
+            "Límite de estacionamiento disponible para clientes en horas de alto tráfico.",
+        ]
+
+        amenazas_list = [
+            "Cambios macroeconómicos que afecten el ticket de compra promedio del sector en México.",
+            f"Estrategias de descuentos agresivas de los competidores más consolidados de tipo {', '.join(comp_sel) if comp_sel else 'giro estándar'} de la zona.",
+            "Saturación comercial progresiva en el micro-segmento de la colonia.",
+        ]
+
         # Análisis realista basado en el rubro
         return {
-            "fortalezas": [
-                f"Sólida base demográfica con {poblacion:,} personas residentes directas en el búfer.",
-                f"Ubicación identificada en {direcc} con excelente accesibilidad vial.",
-                "Las intenciones del emprendedor muestran una propuesta de valor enfocada y diferenciada.",
-            ],
-            "oportunidades": [
-                f"El rubro '{rubro}' tiene un mercado de consumo activo debido al perfil residencial local.",
-                "Posibilidad de captar clientes descontentos de la competencia actual mediante entrega rápida.",
-                "Implementación de marketing geolocalizado en redes sociales en las colonias colindantes.",
-            ],
-            "debilidades": [
-                f"Presencia de {competencia} competidores directos en la periferia que ya tienen posicionamiento.",
-                "Costos iniciales de instalación y acondicionamiento del local comercial en zonas transitadas.",
-                "Límite de estacionamiento disponible para clientes en horas de alto tráfico.",
-            ],
-            "amenazas": [
-                "Cambios macroeconómicos que afecten el ticket de compra promedio del sector en México.",
-                "Estrategias de descuentos agresivas de los competidores más consolidados de la zona.",
-                "Saturación comercial progresiva en el micro-segmento de la colonia.",
-            ],
+            "fortalezas": fortalezas_list,
+            "oportunidades": oportunidades_list,
+            "debilidades": debilidades_list,
+            "amenazas": amenazas_list,
             "conclusion": (
                 f"El punto analizado cuenta con un Score de Viabilidad SVA de {sva}/100. La densidad poblacional "
-                f"es favorable y compensa la competencia de {competencia} negocios. La viabilidad comercial es altamente aceptable."
+                f"es favorable y compensa la competencia de {competencia} negocios{comp_sel_str}. La viabilidad comercial es altamente aceptable."
             ),
             "recomendacion_roi": (
                 "Se estima un Retorno de Inversión (ROI) inicial saludable. Se aconseja un modelo operativo de costo moderado "
@@ -290,7 +311,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
                 "del 12% al 15% durante el primer año de operaciones mediante estrategias digitales geolocalizadas."
             ),
             "viabilidad_financiera": (
-                "La estructura financiera proyecta una excelente factibilidad. Con una población residente estable y "
+                "La estructura financiera proyecta una excelente factibilidad. Con una población residente estable and "
                 "una densidad atractiva, los flujos de caja mensuales estimados superarán el punto de equilibrio a partir del "
                 "cuarto mes de operación. El retorno de inversión sugerido es altamente viable bajo un modelo de costos optimizado."
             ),
@@ -375,12 +396,21 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         "No agregues texto explicativo fuera del JSON."
     )
 
+    comp_sel = datos_entorno.get("competidores_seleccionados")
+    aliados_sel = datos_entorno.get("aliados_seleccionados")
+    comp_sel_str = ", ".join(comp_sel) if comp_sel else "Ninguna (giro estándar)"
+    aliados_sel_str = (
+        ", ".join(aliados_sel) if aliados_sel else "Ninguna (atractores estándar: bancos, escuelas, transporte)"
+    )
+
     user_prompt = (
         f"Giro del negocio: {rubro}\n"
         f"Ubicación: {direcc}\n"
         f"Radio de análisis: {datos_entorno.get('radio_metros', 1000)} metros\n"
         f"Población estimada en zona: {poblacion:,} habitantes\n"
         f"Número de competidores directos: {competencia} comercios\n"
+        f"Categorías de competidores analizadas: {comp_sel_str}\n"
+        f"Categorías de aliados analizadas: {aliados_sel_str}\n"
         f"Score SVA de Viabilidad General: {sva}/100\n"
         f"Intenciones del emprendedor: {intenciones or 'Sin intenciones especiales escritas.'}\n\n"
         f"Genera el análisis FODA adaptado específicamente para el éxito comercial de este giro en México."

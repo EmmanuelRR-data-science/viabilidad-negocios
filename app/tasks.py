@@ -33,6 +33,11 @@ def generar_informe_task(orden_id: int):
             logger.error(f"[TASK] Orden con ID {orden_id} no encontrada en la base de datos.")
             return
 
+        # Deserializar listas de selección personalizadas
+        import json
+        competidores_sel = json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
+        aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
+
         # 1. Ejecutar el cálculo analítico real geoespacial (PostGIS, Places, BestTime)
         logger.info(f"[TASK] Calculando analíticas para coordenadas: ({orden.latitud}, {orden.longitud})...")
         resultado = procesar_calculo_analitico(
@@ -42,6 +47,8 @@ def generar_informe_task(orden_id: int):
             radio=orden.radio_metros,
             rubro=orden.rubro,
             tier=orden.tier_adquirido,
+            competidores_seleccionados=competidores_sel,
+            aliados_seleccionados=aliados_sel,
         )
 
         # Geocodificar la dirección física real para incluirla en el reporte PDF
