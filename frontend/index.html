@@ -114,7 +114,7 @@
                         <label class="checkbox-item"><input type="checkbox" value="beauty_salon"> Estética</label>
                         <label class="checkbox-item"><input type="checkbox" value="laundry"> Lavandería</label>
                     </div>
-                    <span class="helper-text">Selecciona hasta 3 para el plan PRO o hasta 5 para PREMIUM.</span>
+                    <span class="helper-text">Selecciona hasta 5 competidores. (El reporte Básico evaluará el primero, Pro hasta 3 y Premium hasta 5).</span>
                 </div>
 
                 <!-- Personalización de Aliados (Premium) -->
@@ -129,7 +129,7 @@
                         <label class="checkbox-item"><input type="checkbox" value="convenience_store"> Conveniencia</label>
                         <label class="checkbox-item"><input type="checkbox" value="park"> Parque</label>
                     </div>
-                    <span class="helper-text">Selecciona hasta 5 aliados estratégicos de tráfico comercial.</span>
+                    <span class="helper-text">Selecciona hasta 5 aliados estratégicos. (El reporte Básico y Pro los omiten, Premium evaluará los 5).</span>
                 </div>
                 
                 <!-- Coordenadas Capturadas (Feedback Cartográfico) -->
@@ -321,6 +321,15 @@
                         <span id="billing-title">Reporte BÁSICO</span>
                         <strong id="billing-price">$99.00 MXN</strong>
                     </div>
+                </div>
+                
+                <!-- Resumen de personalización recortada según el Tier adquirido -->
+                <div id="modal-selections-summary" class="coords-box glass-card hidden" style="margin-top: 15px; flex-direction: column; align-items: flex-start; gap: 5px; background: rgba(37, 99, 235, 0.04); border: 1px solid var(--glass-border);">
+                    <p class="coords-title" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 2px;">
+                        Configuración Incluida en el Reporte
+                    </p>
+                    <p id="modal-summary-comps" class="helper-text" style="margin: 0; font-size: 12.5px; color: var(--text-primary); font-weight: 500;"></p>
+                    <p id="modal-summary-allies" class="helper-text" style="margin: 0; font-size: 12.5px; color: var(--text-primary); font-weight: 500;"></p>
                 </div>
                 
                 <div class="payment-options">

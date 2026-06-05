@@ -21,19 +21,20 @@ ADD COLUMN IF NOT EXISTS aliados_seleccionados TEXT;
 
 ```mermaid
 graph TD
-    A[Cliente / Frontend] -->|Payload con aliados/competidores| B[FastAPI Endpoint /preferencia]
-    B -->|Validación en Pydantic schemas.py| C[models.py OrdenPago]
-    C -->|Guardar serializado JSON| D[(Postgres DB)]
-    D -->|Lectura en background task.py| E[analytics.py]
-    E -->|Consultas dinámicas a Google Places| F[Google Places API]
-    E -->|Scoring y métricas| G[bedrock.py Prompt]
-    G -->|Bedrock LLM| H[reports.py PDF Compiler]
-    H -->|PDF Final en S3| I[Amazon S3 / SES]
+    A[Usuario / Panel Izquierdo] -->|Selecciona hasta 5 comps y aliados en modo gratuito| B[Formulario Centralizado]
+    B -->|Haz clic en comprar Básico/Pro/Premium| C[Frontend recorta listas según Tier]
+    C -->|Muestra resumen en modal de pago| D[Modal de Mercado Pago]
+    D -->|Confirma Pago| E[FastAPI /preferencia]
+    E -->|Crea Orden con Selección Recortada| F[FastAPI /webhook-mock]
+    F -->|Ejecuta Tarea Background| G[analytics.py / Google Places]
+    G -->|Prompt con datos| H[bedrock.py LLM]
+    H -->|Genera Reporte PDF| I[reports.py]
+    I -->|Carga a S3 y descarga| J[Descarga PDF]
 ```
 
 ### Validación en `schemas.py`
 Se validarán las listas en `PreferenciaCreate` utilizando decoradores de Pydantic:
-* Si `tier_adquirido == 'basico'`: Tanto `competidores_seleccionados` como `aliados_seleccionados` deben ser nulos o estar vacíos.
+* Si `tier_adquirido == 'basico'`: `competidores_seleccionados` puede tener un máximo de 1 elemento. `aliados_seleccionados` debe ser nulo o estar vacío.
 * Si `tier_adquirido == 'pro'`: `competidores_seleccionados` puede tener un máximo de 3 elementos. `aliados_seleccionados` debe ser nulo o estar vacío.
 * Si `tier_adquirido == 'premium'`: `competidores_seleccionados` y `aliados_seleccionados` pueden tener un máximo de 5 elementos cada uno.
 
@@ -43,7 +44,7 @@ Se validarán las listas en `PreferenciaCreate` utilizando decoradores de Pydant
 
 ### Mapeo de Competidores
 * Si no hay categorías personalizadas, se usa el resolvedor estándar `google_type`.
-* Si están definidas, se ejecuta un loop que llama a `buscar_competidores` para cada categoría y se eliminan duplicados (en base a su identificador de lugar único o coordenadas exactas).
+* Si están definidas, se ejecuta un loop que llama a `buscar_competidores` para cada categoría (soporta Básico, Pro y Premium) y se eliminan duplicados.
 
 ### Mapeo de Aliados
 * En Tier Premium, si el usuario seleccionó aliados personalizados, se consultan en Google Places.

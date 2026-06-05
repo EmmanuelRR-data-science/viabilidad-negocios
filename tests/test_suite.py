@@ -206,10 +206,12 @@ def test_webhook_processing_and_mock():
 
 def test_crear_preferencia_invalida_basico():
     """
-    Test that Básico tier rejects custom competitors or allies.
+    Test that Básico tier accepts up to 1 custom competitor and rejects allies or more than 1 competitor.
     """
     headers = {"Authorization": "Bearer test-jwt-token"}
-    payload = {
+
+    # 1. 1 competitor should be VALID
+    payload_valid = {
         "tier_adquirido": "basico",
         "latitud": 19.432608,
         "longitud": -99.133208,
@@ -217,10 +219,34 @@ def test_crear_preferencia_invalida_basico():
         "rubro": "cafeteria",
         "competidores_seleccionados": ["cafe"],
     }
-    response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
-    assert response.status_code == 422
-    assert "El Tier Básico no permite" in response.text
+    response_val = client.post("/api/pagos/preferencia", json=payload_valid, headers=headers)
+    assert response_val.status_code == 201
+    data_val = response_val.json()
 
+    # Clean up valid test order
+    db = SessionLocal()
+    try:
+        orden = db.query(OrdenPago).filter(OrdenPago.checkout_id == data_val["checkout_id"]).first()
+        if orden:
+            db.delete(orden)
+            db.commit()
+    finally:
+        db.close()
+
+    # 2. 2 competitors should be INVALID (limit is 1 for Básico)
+    payload_invalid_comps = {
+        "tier_adquirido": "basico",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "competidores_seleccionados": ["cafe", "gym"],
+    }
+    response = client.post("/api/pagos/preferencia", json=payload_invalid_comps, headers=headers)
+    assert response.status_code == 422
+    assert "El Tier Básico permite un máximo de 1 competidor" in response.text
+
+    # 3. Any allies should be INVALID
     payload2 = {
         "tier_adquirido": "basico",
         "latitud": 19.432608,
@@ -231,7 +257,7 @@ def test_crear_preferencia_invalida_basico():
     }
     response2 = client.post("/api/pagos/preferencia", json=payload2, headers=headers)
     assert response2.status_code == 422
-    assert "El Tier Básico no permite" in response2.text
+    assert "El Tier Básico no permite personalizar aliados" in response2.text
 
 
 def test_crear_preferencia_invalida_pro_aliados():

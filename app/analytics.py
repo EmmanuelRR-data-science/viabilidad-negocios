@@ -153,7 +153,7 @@ def procesar_calculo_analitico(
     aliados_listado: list = []
     aliados_conteos: dict = {}
 
-    if tier in ["pro", "premium"]:
+    if tier in ["basico", "pro", "premium"]:
         if competidores_seleccionados:
             logger.info(f"Buscando competidores personalizados por Places: {competidores_seleccionados}...")
             seen_keys = set()

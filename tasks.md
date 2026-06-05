@@ -1,23 +1,30 @@
 # Tareas de Implementación: Personalización de Aliados y Competidores
 
-- [ ] Fase de Planificación y Aprobación
-  - [ ] Crear documentos RFC, Requirements, Design y Tasks
-  - [ ] Presentar propuesta al usuario y obtener aprobación
-- [ ] Fase de Ingesta y Base de Datos
-  - [ ] Crear y ejecutar la migración `scratch/add_custom_selection_columns.py`
-  - [ ] Actualizar el ORM `OrdenPago` en [models.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/models.py)
-  - [ ] Actualizar `init_db_schemas` en [admin_app.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/admin_app.py)
-- [ ] Fase de Validación y Endpoints (API)
-  - [ ] Actualizar validaciones de Pydantic en [schemas.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/schemas.py) para validar límites por Tier
-  - [ ] Actualizar registro de órdenes en [payments.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/payments.py) para serializar y guardar las listas en base de datos
-- [ ] Fase del Motor Analítico e IA
-  - [ ] Modificar consultas a Places en [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py) para que iteren por categorías personalizadas
-  - [ ] Actualizar el cálculo del SVA en [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py) ante competencia personalizada
-  - [ ] Integrar inputs de aliados y competidores personalizados en el prompt del LLM en [bedrock.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/bedrock.py)
-- [ ] Fase de Generación de Reportes PDF
-  - [ ] Adaptar dinámicamente la tabla de competidores (Pág 8) y la tabla de atractores (Pág 10) en [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py) en base a los datos recolectados
+- [x] Fase de Planificación y Aprobación
+  - [x] Crear documentos RFC, Requirements, Design y Tasks
+  - [x] Presentar propuesta al usuario y obtener aprobación
+- [x] Fase de Ingesta y Base de Datos
+  - [x] Crear y ejecutar la migración `scratch/add_custom_selection_columns.py`
+  - [x] Actualizar el ORM `OrdenPago` en [models.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/models.py)
+  - [x] Actualizar `init_db_schemas` en [admin_app.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/admin_app.py)
+- [x] Fase de Validación y Endpoints (API)
+  - [x] Actualizar validaciones de Pydantic en [schemas.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/schemas.py) para validar límites por Tier (Básico: 1 comp / 0 aliados, Pro: 3 comp / 0 aliados, Premium: 5 comp / 5 aliados)
+  - [x] Actualizar registro de órdenes en [payments.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/payments.py) para serializar y guardar las listas en base de datos
+- [x] Fase del Motor Analítico e IA
+  - [x] Modificar consultas a Places en [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py) para que iteren por categorías personalizadas
+  - [x] Actualizar el cálculo del SVA en [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py) ante competencia personalizada
+  - [x] Integrar inputs de aliados y competidores personalizados en el prompt del LLM en [bedrock.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/bedrock.py)
+- [x] Fase de Generación de Reportes PDF
+  - [x] Adaptar dinámicamente la tabla de competidores (Pág 8) y la tabla de atractores (Pág 10) en [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py) en base a los datos recolectados
+- [/] Fase de Ajuste y Refinamiento UX (Slicing en Checkout)
+  - [ ] Habilitar selección de hasta 5 competidores y aliados en el panel izquierdo (modo gratuito) en `index.html` y deshabilitar/limitar con JS en `app.js`
+  - [ ] Actualizar los textos explicativos en el panel izquierdo de `index.html` indicando cómo se recortarán según el Tier de compra
+  - [ ] Implementar el contenedor `#modal-selections-summary` dentro de la pasarela de pago en `index.html`
+  - [ ] Implementar en `app.js` la lógica de recorte dinámico de arrays al abrir el modal de pago
+  - [ ] Poblar el resumen visual en el modal de pago según la lista recortada
+  - [ ] Habilitar soporte de competidor personalizado para Tier Básico en `analytics.py` (cambiar `if tier in ["pro", "premium"]:` por `if tier in ["basico", "pro", "premium"]:`)
 - [ ] Fase de Verificación y Calidad
-  - [ ] Crear pruebas unitarias para validación de Tiers en `tests/test_suite.py`
+  - [ ] Adaptar pruebas unitarias para validación del Tier Básico (1 competidor) en `tests/test_suite.py`
   - [ ] Compilar reporte de prueba Premium personalizado y verificar PDF
   - [ ] Ejecutar pytest y verificar que todas las pruebas pasen con éxito
   - [ ] Ejecutar Ruff check y format para cumplir con los estándares

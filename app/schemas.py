@@ -30,8 +30,10 @@ class PreferenciaCreate(BaseModel):
         allies = self.aliados_seleccionados
 
         if tier == "basico":
-            if (comps and len(comps) > 0) or (allies and len(allies) > 0):
-                raise ValueError("El Tier Básico no permite personalizar aliados ni competidores.")
+            if comps and len(comps) > 1:
+                raise ValueError("El Tier Básico permite un máximo de 1 competidor personalizado.")
+            if allies and len(allies) > 0:
+                raise ValueError("El Tier Básico no permite personalizar aliados estratégicos.")
         elif tier == "pro":
             if allies and len(allies) > 0:
                 raise ValueError("El Tier Pro no permite personalizar aliados estratégicos.")

@@ -148,6 +148,37 @@ function bindUIEvents() {
     
     // J. Descarga de PDF
     document.getElementById("download-pdf-btn").addEventListener("click", triggerPDFDownload);
+    
+    // K. Enforzar límites de selección de checkboxes en el panel izquierdo (máximo 5 cada uno)
+    setupLeftPanelCheckboxLimits();
+}
+
+function setupLeftPanelCheckboxLimits() {
+    const enforceLimits = (containerId, maxLimit) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const checkboxes = container.querySelectorAll("input[type='checkbox']");
+        
+        const updateState = () => {
+            const checkedCount = container.querySelectorAll("input[type='checkbox']:checked").length;
+            checkboxes.forEach(c => {
+                if (!c.checked) {
+                    c.disabled = checkedCount >= maxLimit;
+                } else {
+                    c.disabled = false;
+                }
+            });
+        };
+
+        checkboxes.forEach(cb => {
+            cb.addEventListener("change", updateState);
+        });
+        
+        // Ejecutar inicialmente
+        updateState();
+    };
+    enforceLimits("competidores-checkboxes", 5);
+    enforceLimits("aliados-checkboxes", 5);
 }
 
 // --- DETECTAR Y APLICAR CAMBIO DE TEMA (Alternador de Temas) ---
@@ -427,16 +458,58 @@ async function openPaymentModal(tier) {
         const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
         let aliados_seleccionados = Array.from(aliadosCheckboxes).map(cb => cb.value);
 
+        const categoryMap = {
+            "cafe": "Cafetería",
+            "restaurant": "Restaurante",
+            "gym": "Gimnasio",
+            "pharmacy": "Farmacia",
+            "bakery": "Panadería",
+            "beauty_salon": "Estética",
+            "laundry": "Lavandería",
+            "bank": "Bancos",
+            "school": "Escuelas",
+            "transit_station": "Transporte Público",
+            "supermarket": "Supermercado",
+            "shopping_mall": "Centro Comercial",
+            "convenience_store": "Tiendas de Conveniencia",
+            "park": "Parques"
+        };
+
+        const summaryContainer = document.getElementById("modal-selections-summary");
+        const summaryComps = document.getElementById("modal-summary-comps");
+        const summaryAllies = document.getElementById("modal-summary-allies");
+
         // Ajustar según el nivel de pago (Tier)
         if (tier === "basico") {
-            competidores_seleccionados = null;
+            competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 1) : null;
             aliados_seleccionados = null;
         } else if (tier === "pro") {
-            competidores_seleccionados = competidores_seleccionados.slice(0, 3);
+            competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 3) : null;
             aliados_seleccionados = null;
         } else if (tier === "premium") {
-            competidores_seleccionados = competidores_seleccionados.slice(0, 5);
-            aliados_seleccionados = aliados_seleccionados.slice(0, 5);
+            competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 5) : null;
+            aliados_seleccionados = aliados_seleccionados.length > 0 ? aliados_seleccionados.slice(0, 5) : null;
+        }
+
+        // Configurar textos del resumen visual en el modal
+        if (tier === "basico") {
+            summaryContainer.classList.remove("hidden");
+            const compLabel = competidores_seleccionados ? categoryMap[competidores_seleccionados[0]] : "Giro principal (Cafetería por defecto)";
+            summaryComps.innerHTML = `🏪 <b>Competidor a analizar:</b> ${compLabel}`;
+            summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (Omitido en Tier Básico)`;
+        } else if (tier === "pro") {
+            summaryContainer.classList.remove("hidden");
+            const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
+            summaryComps.innerHTML = `🏪 <b>Competidores a analizar (Máx 3):</b> ${compLabels}`;
+            summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (Omitido en Tier Pro)`;
+        } else if (tier === "premium") {
+            summaryContainer.classList.remove("hidden");
+            const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
+            const allyLabels = aliados_seleccionados ? aliados_seleccionados.map(a => categoryMap[a] || a).join(", ") : "Bancos, Escuelas y Transporte por defecto";
+            summaryComps.innerHTML = `🏪 <b>Competidores a analizar (Máx 5):</b> ${compLabels}`;
+            summaryAllies.innerHTML = `🌱 <b>Aliados a analizar (Máx 5):</b> ${allyLabels}`;
+        } else {
+            summaryContainer.classList.add("hidden");
         }
 
         const payload = {
