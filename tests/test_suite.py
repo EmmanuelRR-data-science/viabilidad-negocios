@@ -150,6 +150,44 @@ def test_crear_preferencia_cobro_api():
         db.close()
 
 
+def test_crear_preferencia_cobro_con_campos_adicionales_api():
+    """
+    Test preference creation API with custom competitor/ally keywords.
+    """
+    payload = {
+        "tier_adquirido": "premium",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "cafeteria",
+        "intenciones": "Quiero poner una cafetería de especialidad.",
+        "competidores_seleccionados": ["cafe", "restaurant"],
+        "aliados_seleccionados": ["bank", "school"],
+        "competidores_adicionales": "Starbucks, Cielito Querido",
+        "aliados_adicionales": "OXXO, Banamex",
+    }
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
+    assert response.status_code == 201
+
+    data = response.json()
+    assert "orden_id" in data
+
+    # Verify that columns exist and have the correct value
+    db = SessionLocal()
+    try:
+        orden = db.query(OrdenPago).filter(OrdenPago.id == data["orden_id"]).first()
+        assert orden is not None
+        assert orden.competidores_adicionales == "Starbucks, Cielito Querido"
+        assert orden.aliados_adicionales == "OXXO, Banamex"
+
+        # Clean up
+        db.delete(orden)
+        db.commit()
+    finally:
+        db.close()
+
+
 def test_webhook_processing_and_mock():
     """
     Test that the webhook and webhook-mock endpoints correctly process and schedule reports.

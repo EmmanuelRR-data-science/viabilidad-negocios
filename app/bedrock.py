@@ -225,10 +225,14 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
     intenciones_raw = intenciones
+    comp_adicionales_raw = datos_entorno.get("competidores_adicionales")
+    aliados_adicionales_raw = datos_entorno.get("aliados_adicionales")
 
     # --- Sanitización de seguridad (primera línea de defensa contra prompt injection) ---
     rubro_sanitizado = sanitizar_input_usuario(rubro_raw, field="rubro")
     intenciones_sanitizadas = sanitizar_input_usuario(intenciones_raw, field="intenciones")
+    comp_adicionales_sanitizado = sanitizar_input_usuario(comp_adicionales_raw, field="competidores_adicionales")
+    aliados_adicionales_sanitizado = sanitizar_input_usuario(aliados_adicionales_raw, field="aliados_adicionales")
 
     if rubro_sanitizado is None:
         logger.warning("[SEGURIDAD] Rubro rechazado por sanitización. Usando valor por defecto.")
@@ -239,6 +243,8 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     rubro = rubro_sanitizado
     intenciones = intenciones_sanitizadas
+    comp_adicionales = comp_adicionales_sanitizado
+    aliados_adicionales = aliados_adicionales_sanitizado
     poblacion = datos_entorno.get("poblacion_ponderada", 0)
     competencia = datos_entorno.get("competidores_conteo", 0)
     sva = datos_entorno.get("sva", 50)
@@ -270,12 +276,20 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
             oportunidades_list.append(
                 f"Alianzas comerciales directas con establecimientos locales de tipo {', '.join(aliados_sel)}."
             )
+        if aliados_adicionales:
+            oportunidades_list.append(
+                f"Sinergias potenciales con aliados estratégicos propuestos: {aliados_adicionales}."
+            )
 
         debilidades_list = [
             f"Presencia de {competencia} competidores directos{comp_sel_str} en la periferia que ya tienen posicionamiento.",
             "Costos iniciales de instalación y acondicionamiento del local comercial en zonas transitadas.",
             "Límite de estacionamiento disponible para clientes en horas de alto tráfico.",
         ]
+        if comp_adicionales:
+            debilidades_list.append(
+                f"Presión competitiva adicional por marcas/negocios locales identificados: {comp_adicionales}."
+            )
 
         amenazas_list = [
             "Cambios macroeconómicos que afecten el ticket de compra promedio del sector en México.",
@@ -402,6 +416,8 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
     aliados_sel_str = (
         ", ".join(aliados_sel) if aliados_sel else "Ninguna (atractores estándar: bancos, escuelas, transporte)"
     )
+    comp_adicionales_str = comp_adicionales if comp_adicionales else "Ninguno"
+    aliados_adicionales_str = aliados_adicionales if aliados_adicionales else "Ninguno"
 
     user_prompt = (
         f"Giro del negocio: {rubro}\n"
@@ -410,7 +426,9 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         f"Población estimada en zona: {poblacion:,} habitantes\n"
         f"Número de competidores directos: {competencia} comercios\n"
         f"Categorías de competidores analizadas: {comp_sel_str}\n"
+        f"Competidores específicos o marcas a considerar (contexto adicional): {comp_adicionales_str}\n"
         f"Categorías de aliados analizadas: {aliados_sel_str}\n"
+        f"Aliados específicos o marcas a considerar (contexto adicional): {aliados_adicionales_str}\n"
         f"Score SVA de Viabilidad General: {sva}/100\n"
         f"Intenciones del emprendedor: {intenciones or 'Sin intenciones especiales escritas.'}\n\n"
         f"Genera el análisis FODA adaptado específicamente para el éxito comercial de este giro en México."

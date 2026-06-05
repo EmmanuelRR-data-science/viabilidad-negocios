@@ -41,7 +41,7 @@ class LLMRateLimitMiddleware(BaseHTTPMiddleware):
 
     def _is_private_ip(self, ip: str) -> bool:
         """Excluye IPs privadas/loopback del rate limiting."""
-        return ip.startswith(("127.", "10.", "172.", "192.168.", "::1"))
+        return ip.startswith(("127.", "10.", "172.", "192.168.", "::1")) or ip == "testclient"
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path

@@ -909,6 +909,14 @@ class ReportLabGenerator:
                     s_body,
                 )
             )
+            if getattr(orden, "competidores_adicionales", None):
+                story.append(
+                    Paragraph(
+                        f"<b>Competidores específicos o marcas a considerar:</b> {orden.competidores_adicionales}",
+                        s_body,
+                    )
+                )
+                story.append(Spacer(1, 5))
 
             comp_list = analisis.get("competidores_listado", [])
 
@@ -1232,6 +1240,14 @@ class ReportLabGenerator:
                     s_body,
                 )
             )
+            if getattr(orden, "aliados_adicionales", None):
+                story.append(
+                    Paragraph(
+                        f"<b>Aliados específicos o marcas a considerar:</b> {orden.aliados_adicionales}",
+                        s_body,
+                    )
+                )
+                story.append(Spacer(1, 5))
 
             aliados_sel = analisis.get("aliados_seleccionados")
             aliados_conteos = analisis.get("aliados_conteos", {})

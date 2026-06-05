@@ -64,6 +64,9 @@ def generar_informe_task(orden_id: int):
             resultado["direccion"] = "Dirección física no resuelta en México"
             resultado["localidad"] = "México"
 
+        resultado["competidores_adicionales"] = orden.competidores_adicionales
+        resultado["aliados_adicionales"] = orden.aliados_adicionales
+
         # Obtener mapa estático de Google si estamos en PRO o PREMIUM
         resultado["map_bytes"] = None
         if orden.tier_adquirido in ["pro", "premium"]:

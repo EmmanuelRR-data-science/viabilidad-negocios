@@ -123,8 +123,10 @@ def obtener_resultado_analisis(
             aliados_seleccionados=aliados_sel,
         )
 
-        # Inyectar dirección física
+        # Inyectar dirección física y contexto personalizado
         analisis_cuant["direccion"] = direccion_res["formato_completo"]
+        analisis_cuant["competidores_adicionales"] = orden.competidores_adicionales
+        analisis_cuant["aliados_adicionales"] = orden.aliados_adicionales
 
         # 3. Invocar Bedrock (Meta Llama 3) para diagnóstico FODA inteligente (Disponible en todos los Tiers de pago)
         foda_inteligente = generar_analisis_foda(analisis_cuant, orden.intenciones)
@@ -146,6 +148,8 @@ def obtener_resultado_analisis(
                 "tier": orden.tier_adquirido,
                 "monto": float(orden.monto),
                 "fecha_aprobacion": orden.fecha_aprobacion,
+                "competidores_adicionales": orden.competidores_adicionales,
+                "aliados_adicionales": orden.aliados_adicionales,
             },
             "metricas": analisis_cuant,
             "analisis_estrategico_ia": foda_inteligente,

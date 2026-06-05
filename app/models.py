@@ -27,5 +27,7 @@ class OrdenPago(Base):
     s3_key_reporte = Column(String(255), nullable=True)
     competidores_seleccionados = Column(Text, nullable=True)
     aliados_seleccionados = Column(Text, nullable=True)
+    competidores_adicionales = Column(Text, nullable=True)
+    aliados_adicionales = Column(Text, nullable=True)
     fecha_creacion = Column(DateTime, server_default=func.now())
     fecha_aprobacion = Column(DateTime, nullable=True)

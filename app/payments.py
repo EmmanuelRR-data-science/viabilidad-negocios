@@ -94,6 +94,8 @@ def crear_preferencia_cobro(
             if payload.competidores_seleccionados
             else None,
             aliados_seleccionados=json.dumps(payload.aliados_seleccionados) if payload.aliados_seleccionados else None,
+            competidores_adicionales=payload.competidores_adicionales,
+            aliados_adicionales=payload.aliados_adicionales,
         )
         db.add(nueva_orden)
         db.commit()

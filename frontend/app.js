@@ -480,6 +480,10 @@ async function openPaymentModal(tier) {
         const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
         let aliados_seleccionados = Array.from(aliadosCheckboxes).map(cb => cb.value);
 
+        // Obtener entradas de texto libre
+        const compAdicionales = document.getElementById("competidores-adicionales-input").value.trim();
+        const aliadosAdicionales = document.getElementById("aliados-adicionales-input").value.trim();
+
         const categoryMap = {
             "cafe": "Cafetería",
             "restaurant": "Restaurante",
@@ -519,19 +523,35 @@ async function openPaymentModal(tier) {
         if (tier === "basico") {
             summaryContainer.classList.remove("hidden");
             const compLabel = competidores_seleccionados ? categoryMap[competidores_seleccionados[0]] : "Giro principal (Cafetería por defecto)";
-            summaryComps.innerHTML = `🏪 <b>Competidor a analizar:</b> ${compLabel}`;
+            let compText = `🏪 <b>Competidor a analizar:</b> ${compLabel}`;
+            if (compAdicionales) {
+                compText += ` (+ "${compAdicionales}")`;
+            }
+            summaryComps.innerHTML = compText;
             summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (Omitido en Tier Básico)`;
         } else if (tier === "pro") {
             summaryContainer.classList.remove("hidden");
             const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
-            summaryComps.innerHTML = `🏪 <b>Competidores a analizar (Máx 3):</b> ${compLabels}`;
+            let compText = `🏪 <b>Competidores a analizar (Máx 3):</b> ${compLabels}`;
+            if (compAdicionales) {
+                compText += ` (+ "${compAdicionales}")`;
+            }
+            summaryComps.innerHTML = compText;
             summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (Omitido en Tier Pro)`;
         } else if (tier === "premium") {
             summaryContainer.classList.remove("hidden");
             const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
             const allyLabels = aliados_seleccionados ? aliados_seleccionados.map(a => categoryMap[a] || a).join(", ") : "Bancos, Escuelas y Transporte por defecto";
-            summaryComps.innerHTML = `🏪 <b>Competidores a analizar (Máx 5):</b> ${compLabels}`;
-            summaryAllies.innerHTML = `🌱 <b>Aliados a analizar (Máx 5):</b> ${allyLabels}`;
+            let compText = `🏪 <b>Competidores a analizar (Máx 5):</b> ${compLabels}`;
+            if (compAdicionales) {
+                compText += ` (+ "${compAdicionales}")`;
+            }
+            let allyText = `🌱 <b>Aliados a analizar (Máx 5):</b> ${allyLabels}`;
+            if (aliadosAdicionales) {
+                allyText += ` (+ "${aliadosAdicionales}")`;
+            }
+            summaryComps.innerHTML = compText;
+            summaryAllies.innerHTML = allyText;
         } else {
             summaryContainer.classList.add("hidden");
         }
@@ -544,7 +564,9 @@ async function openPaymentModal(tier) {
             rubro: state.selectedGiro,
             intenciones: document.getElementById("intenciones-textarea").value || "Evaluación comercial del giro en la zona residencial mexicana.",
             competidores_seleccionados: competidores_seleccionados,
-            aliados_seleccionados: aliados_seleccionados
+            aliados_seleccionados: aliados_seleccionados,
+            competidores_adicionales: compAdicionales || null,
+            aliados_adicionales: aliadosAdicionales || null
         };
         
         const response = await fetch("/api/pagos/preferencia", {

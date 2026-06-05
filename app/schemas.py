@@ -14,6 +14,8 @@ class PreferenciaCreate(BaseModel):
     intenciones: str | None = Field(None, description="Intenciones o ideas de negocio adicionales en lenguaje natural")
     competidores_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para competidores")
     aliados_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para aliados")
+    competidores_adicionales: str | None = Field(None, description="Marcas o competidores específicos de texto libre")
+    aliados_adicionales: str | None = Field(None, description="Aliados o franquicias específicas de texto libre")
 
     @field_validator("tier_adquirido")
     @classmethod
