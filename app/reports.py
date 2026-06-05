@@ -318,7 +318,7 @@ class ReportLabGenerator:
         story.append(
             Paragraph(
                 f"Este reporte ejecutivo proporciona un diagnóstico cuantitativo y estratégico de geomarketing "
-                f"para evaluar la apertura o expansión de tu negocio en <b>{localidad}</b>. A continuación se presentan los KPIs sintéticos "
+                f"para evaluar la apertura o expansión de tu negocio en <b>{localidad}</b>. A continuación se presentan los indicadores clave "
                 f"calculados a partir de los datos geodésicos del Censo de Población de INEGI y el motor analítico de la plataforma.",
                 s_body,
             )
@@ -544,7 +544,7 @@ class ReportLabGenerator:
         story.append(Paragraph("3. COMPOSICIÓN DEL SCORE DE VIABILIDAD SVA", s_h1))
         story.append(
             Paragraph(
-                "El Score de Viabilidad de Apertura (SVA) es una métrica sintética patentada de 0 a 100 puntos "
+                "El Score de Viabilidad de Apertura (SVA) es una métrica compuesta patentada de 0 a 100 puntos "
                 "que pondera tres dimensiones críticas de geointeligencia:",
                 s_body,
             )
