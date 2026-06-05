@@ -483,11 +483,13 @@ async function openPaymentModal(tier) {
         const categoryMap = {
             "cafe": "Cafetería",
             "restaurant": "Restaurante",
+            "fast_food": "Comida Rápida",
             "gym": "Gimnasio",
             "pharmacy": "Farmacia",
             "bakery": "Panadería",
             "beauty_salon": "Estética",
             "laundry": "Lavandería",
+            "doctor": "Consultorio Médico",
             "bank": "Bancos",
             "school": "Escuelas",
             "transit_station": "Transporte Público",
