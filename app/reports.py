@@ -457,9 +457,9 @@ class ReportLabGenerator:
         story.append(Paragraph("2. ANÁLISIS GEODEMOGRÁFICO DETALLADO (INEGI)", s_h1))
         story.append(
             Paragraph(
-                "El cálculo demográfico se realiza de manera geodésica ponderando la intersección del búfer "
-                "de radio seleccionado con cada una de las Áreas Geoestadísticas Básicas (AGEBs) urbanas registradas en "
-                "nuestra base de datos geoespacial proveniente del Censo de Población y Vivienda 2020 de INEGI.",
+                "El cálculo demográfico se realiza ponderando la intersección del radio de influencia seleccionado "
+                "con cada una de las Áreas Geoestadísticas Básicas (AGEBs) urbanas registradas en "
+                "nuestra base demográfica proveniente del Censo de Población y Vivienda 2020 de INEGI.",
                 s_body,
             )
         )
@@ -495,7 +495,7 @@ class ReportLabGenerator:
             demo_table_data = [
                 [
                     Paragraph("Indicador Demográfico (Censo INEGI 2020)", s_table_header),
-                    Paragraph("Valor Real PostGIS", s_table_header),
+                    Paragraph("Valor Real", s_table_header),
                     Paragraph("Nota Metodológica", s_table_header),
                 ],
                 [
@@ -521,12 +521,12 @@ class ReportLabGenerator:
                 [
                     Paragraph("Población Masculina", s_table_cell),
                     Paragraph(f"{pob_mas:,} hab. ({pct_mas}%)", s_table_cell),
-                    Paragraph("Dato puro de la tabla agebs_demografia (PostGIS)", s_table_cell),
+                    Paragraph("Dato de registros oficiales", s_table_cell),
                 ],
                 [
                     Paragraph("Población Femenina", s_table_cell),
                     Paragraph(f"{pob_fem:,} hab. ({pct_fem}%)", s_table_cell),
-                    Paragraph("Dato puro de la tabla agebs_demografia (PostGIS)", s_table_cell),
+                    Paragraph("Dato de registros oficiales", s_table_cell),
                 ],
             ]
 
@@ -548,13 +548,13 @@ class ReportLabGenerator:
             story.append(demo_table)
 
         story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>Nota de precisión geoespacial:</b>", s_h2))
+        story.append(Paragraph("<b>Nota de precisión en el análisis:</b>", s_h2))
         story.append(
             Paragraph(
-                "Al intersectar el círculo de influencia con los límites políticos y geográficos de los AGEBs, "
-                "se aplica una ponderación estrictamente superficial (proporcional al área interceptada de cada polígono). "
-                "Esto asegura que si una AGEB se encuentra parcialmente cruzada por el búfer, únicamente se sume la fracción "
-                "de población que reside físicamente en la sección interceptada, reduciendo sobreestimaciones geográficas.",
+                "Al intersectar el radio de influencia con los límites de las zonas habitacionales, "
+                "se aplica una ponderación de superficie proporcional al área interceptada de cada polígono. "
+                "Esto asegura que si una zona se encuentra parcialmente cruzada por el radio de influencia, únicamente se sume la fracción "
+                "de población que reside físicamente en la sección interceptada, reduciendo estimaciones imprecisas.",
                 s_body,
             )
         )
@@ -566,8 +566,8 @@ class ReportLabGenerator:
         story.append(Paragraph("3. COMPOSICIÓN DEL SCORE DE VIABILIDAD SVA", s_h1))
         story.append(
             Paragraph(
-                "El Score de Viabilidad de Apertura (SVA) es una métrica compuesta patentada de 0 a 100 puntos "
-                "que pondera tres dimensiones críticas de geointeligencia:",
+                "El Score de Viabilidad de Apertura (SVA) es una métrica compuesta de 0 a 100 puntos "
+                "que pondera tres dimensiones críticas:",
                 s_body,
             )
         )
@@ -605,11 +605,11 @@ class ReportLabGenerator:
             dem_est = f"Baja concentración ({pob_tot_val:,} hab.)"
 
         if comp_cont == 0:
-            comp_est = "Océano Azul (0 competidores directos)"
+            comp_est = "Sin competidores directos detectados"
         elif comp_cont <= 3:
             comp_est = f"Baja competencia ({comp_cont} competidores)"
         elif comp_cont <= 8:
-            comp_est = f"Fricción intermedia ({comp_cont} competidores)"
+            comp_est = f"Competencia intermedia ({comp_cont} competidores)"
         else:
             comp_est = f"Alta saturación ({comp_cont} competidores)"
 
@@ -678,10 +678,10 @@ class ReportLabGenerator:
         ParagraphStyle("Bullet_Foda", parent=s_bullet, fontSize=7.8, leading=10, spaceAfter=2)
         s_h2_foda = ParagraphStyle("Heading2_Foda", parent=s_h2, fontSize=9.5, leading=12, spaceBefore=4, spaceAfter=2)
 
-        story.append(Paragraph("4. DIAGNÓSTICO ESTRATÉGICO (AWS BEDROCK LLM)", s_h1))
+        story.append(Paragraph("4. DIAGNÓSTICO ESTRATÉGICO", s_h1))
         story.append(
             Paragraph(
-                "El motor cognitivo de Inteligencia Artificial (Amazon Bedrock con el modelo Meta Llama 3 70B) "
+                "La Inteligencia Artificial "
                 "genera una evaluación estratégica cruzada adaptada al giro comercial y las intenciones específicas ingresadas.",
                 s_body_foda,
             )
@@ -766,10 +766,11 @@ class ReportLabGenerator:
         story.append(Paragraph(foda_dict.get("conclusion", "Análisis de viabilidad concluido con éxito."), s_body_foda))
 
         story.append(Spacer(1, 4))
-        story.append(Paragraph("Recomendación de Retorno de Inversión:", s_h2_foda))
+        story.append(Paragraph("Recomendación de Rentabilidad:", s_h2_foda))
         story.append(
             Paragraph(
-                foda_dict.get("recomendacion_roi", "Estudio de ROI aceptable bajo modelo operativo base."), s_body_foda
+                foda_dict.get("recomendacion_roi", "Estudio de rentabilidad aceptable bajo modelo operativo base."),
+                s_body_foda,
             )
         )
 
@@ -782,9 +783,9 @@ class ReportLabGenerator:
         story.append(
             Paragraph(
                 "<b>Fuentes de Información Oficiales:</b><br/>"
-                "Todos los datos geodemográficos y cartográficos provienen del Instituto Nacional de Estadística y Geografía "
-                "<b>(INEGI)</b>, recopilados en el Censo de Población y Vivienda 2020. Las capas comerciales son mapeadas en tiempo "
-                "real a través de consultas seguras de la API de Google Places y los flujos horarias con BestTime.",
+                "Todos los datos demográficos provienen del Instituto Nacional de Estadística y Geografía "
+                "<b>(INEGI)</b>, recopilados en el Censo de Población y Vivienda 2020. Las zonas comerciales son mapeadas en tiempo "
+                "real y los flujos horarios se obtienen de servicios de analítica de tráfico.",
                 s_body,
             )
         )
@@ -793,34 +794,33 @@ class ReportLabGenerator:
         story.append(Paragraph("<b>Conceptos Clave de Localización:</b>", s_h2))
         story.append(
             Paragraph(
-                "• <b>AGEB (Área Geoestadística Básica):</b> Límites geográficos definidos por el INEGI que agrupan conjuntos de manzanas urbanas con características demográficas homogéneas.",
+                "• <b>Zona Habitacional:</b> Agrupaciones geográficas definidas por el INEGI que agrupan conjuntos de manzanas con características demográficas homogéneas.",
                 s_bullet,
             )
         )
         story.append(
             Paragraph(
-                "• <b>Búfer Geodésico:</b> Radio de influencia matemática proyectado sobre el esferoide terrestre. La distancia se mide en metros lineales reales desde el marcador central.",
+                "• <b>Radio de Influencia:</b> Área geográfica circular en torno a la ubicación seleccionada para estimar el mercado y sus características demográficas. La distancia se mide en metros lineales.",
                 s_bullet,
             )
         )
         story.append(
             Paragraph(
-                "• <b>Huff Gravity Model:</b> Modelo espacial clásico de retail que predice la probabilidad de atracción comercial en función del tamaño del comercio y la distancia inversa al cuadrado.",
+                "• <b>Modelo de Atracción Comercial:</b> Herramienta analítica que evalúa la probabilidad de éxito en función de la capacidad de captación del punto de venta y su cercanía geográfica.",
                 s_bullet,
             )
         )
 
         story.append(Spacer(1, 15))
-        story.append(Paragraph("<b>Deslinde de Responsabilidad Legal:</b>", s_h2))
+        story.append(Paragraph("<b>Deslinde de Responsabilidad:</b>", s_h2))
         story.append(
             Paragraph(
-                "GeoViabilidad Hook es una aplicación desarrollada por PhiQus que integra modelos de geointeligencia, "
-                "geomarketing y analítica avanzada basados en información estadística y fuentes oficiales gubernamentales en México. "
+                "GeoViabilidad Hook es una aplicación desarrollada por PhiQus que integra modelos de análisis avanzado "
+                "basados en información estadística y fuentes oficiales gubernamentales en México. "
                 "Los resultados presentados constituyen una herramienta de apoyo para la toma de decisiones y no representan una "
-                "garantía de rentabilidad, éxito comercial, viabilidad financiera, cumplimiento normativo o aprobación de uso de suelo. "
-                "Parte de los análisis puede ser generada mediante modelos de Inteligencia Artificial (IA) y aproximaciones analíticas "
-                "automatizadas. En caso de requerir un análisis más profundo, validaciones específicas o acompañamiento estratégico "
-                "especializado, recomendamos contactar directamente los servicios de consultoría de "
+                "garantía de rentabilidad, éxito comercial o validación de uso de suelo. "
+                "Parte de los análisis puede ser generada mediante modelos de Inteligencia Artificial (IA). En caso de requerir un análisis más profundo, "
+                "recomendamos contactar directamente los servicios de consultoría de "
                 "<font color='#2563eb'><u><a href=\"https://phiqus.com/\">PhiQus</a></u></font>, "
                 "<font color='#2563eb'><u><a href=\"https://estudiosdemercado.phiqus.com/\">Estudios de Mercado</a></u></font>.",
                 s_body,
@@ -841,7 +841,7 @@ class ReportLabGenerator:
             story.append(Paragraph("6. MAPA DE UBICACIÓN Y COMPETENCIA", s_h1))
             story.append(
                 Paragraph(
-                    "A continuación se presenta el croquis cartográfico del área comercial analizada. "
+                    "A continuación se presenta el croquis del área comercial analizada. "
                     "La ubicación propuesta de tu negocio se muestra marcada con un pin <font color='#2563eb'><b>AZUL (O)</b></font>, "
                     "y los establecimientos competidores directos detectados en el radio de influencia se muestran marcados en <font color='#dc2626'><b>ROJO</b></font>.",
                     s_body,
@@ -901,11 +901,11 @@ class ReportLabGenerator:
             story.append(PageBreak())
 
             # PÁGINA 8: DETALLE DE COMPETIDORES EN LA ZONA (Pro y Premium)
-            story.append(Paragraph("7. COMPETENCIA DETALLADA (GOOGLE PLACES)", s_h1))
+            story.append(Paragraph("7. COMPETENCIA DETALLADA EN LA ZONA", s_h1))
             story.append(
                 Paragraph(
-                    "Visualización detallada de los establecimientos competidores mapeados en tiempo real. "
-                    "Los datos se obtienen indexando los tipos comerciales equivalentes según el descriptor SCIAN de INEGI.",
+                    "Visualización detallada de los establecimientos competidores mapeados. "
+                    "Los datos se obtienen identificando tipos comerciales equivalentes según las clasificaciones oficiales de actividad económica.",
                     s_body,
                 )
             )
@@ -956,7 +956,7 @@ class ReportLabGenerator:
                     ),
                     Paragraph("", s_table_cell),
                     Paragraph("", s_table_cell),
-                ]
+                ],
             )
 
             # Usar aliados reales detectados por la API de Google Places
@@ -1017,11 +1017,11 @@ class ReportLabGenerator:
             story.append(PageBreak())
 
             # PÁGINA 9: ANÁLISIS DE SATURACIÓN COMERCIAL (ISC - HUFF) (Pro y Premium)
-            story.append(Paragraph("8. ANÁLISIS DE SATURACIÓN COMERCIAL (ISC)", s_h1))
+            story.append(Paragraph("8. ANÁLISIS DE SATURACIÓN COMERCIAL", s_h1))
             story.append(
                 Paragraph(
                     "El Índice de Saturación Comercial (ISC) estima el nivel de fricción en la zona de influencia. "
-                    "Se computa aplicando el decaimiento cuadrático por distancia (1/d²), penalizando fuertemente a competidores "
+                    "Se computa penalizando a competidores "
                     "que comparten vecindario inmediato con tu punto.",
                     s_body,
                 )
@@ -1206,8 +1206,8 @@ class ReportLabGenerator:
                 story.append(
                     Paragraph(
                         "<font color='#16a34a'><b>Océano Azul Detectado:</b></font> No se detectaron competidores directos "
-                        "en el radio de influencia. Este entorno comercialmente libre representa una oportunidad "
-                        "privilegiada de capturar mercado sin fricción competitiva directa.",
+                        "en el radio de influencia. Este entorno libre de competencia representa una oportunidad "
+                        "privilegiada para capturar mercado sin fricción directa.",
                         s_body,
                     )
                 )
@@ -1215,8 +1215,8 @@ class ReportLabGenerator:
             story.append(Paragraph("<b>Recomendación de Posicionamiento Estratégico:</b>", s_h2))
             story.append(
                 Paragraph(
-                    "El modelo Huff de gravedad comercial evalúa la probabilidad de atracción basándose en el decaimiento "
-                    "cuadrático inverso. En áreas de fricción media/alta, se recomienda un enfoque en valor agregado e "
+                    "El modelo de atracción comercial evalúa la probabilidad de éxito basándose en la ubicación. "
+                    "En áreas de fricción media/alta, se recomienda un enfoque en valor agregado e "
                     "identidad de marca para maximizar la tasa de conversión sin entrar en guerras de precios destructivas.",
                     s_body,
                 )
@@ -1224,10 +1224,10 @@ class ReportLabGenerator:
             story.append(PageBreak())
 
             # PÁGINA 10: ATRACTORES DE TRÁFICO (IAT) & FORECAST (Última Página del Pro, 10 páginas en total)
-            story.append(Paragraph("9. ÍNDICE DE ATRACCIÓN DE TRÁFICO Y POIs", s_h1))
+            story.append(Paragraph("9. ÍNDICE DE ATRACCIÓN DE TRÁFICO Y PUNTOS DE INTERÉS", s_h1))
             story.append(
                 Paragraph(
-                    "El Índice de Atracción de Tráfico (IAT) mapea los Points of Interest (POIs) que actúan como "
+                    "El Índice de Atracción de Tráfico (IAT) mapea los puntos de interés que actúan como "
                     "magnetos de flujo de personas en la zona (ej. estaciones de metro, paradas de autobús, bancos y escuelas).",
                     s_body,
                 )
@@ -1238,7 +1238,7 @@ class ReportLabGenerator:
 
             poi_table_data = [
                 [
-                    Paragraph("Categoría POI (Atractor)", s_table_header),
+                    Paragraph("Categoría de Punto de Interés (Atractor)", s_table_header),
                     Paragraph("Conteo en Radio", s_table_header),
                     Paragraph("Peso IAT", s_table_header),
                 ],
@@ -1380,10 +1380,10 @@ class ReportLabGenerator:
 
             if besttime_tiene_datos:
                 story.append(PageBreak())
-                story.append(Paragraph("10. AFLUENCIA PEATONAL DINÁMICA (BESTTIME)", s_h1))
+                story.append(Paragraph("10. AFLUENCIA PEATONAL DINÁMICA EN LA ZONA", s_h1))
                 story.append(
                     Paragraph(
-                        "Mapeo de la afluencia de peatones horaria mediante telemetría satelital e histórica (BestTime API). "
+                        "Mapeo de la afluencia de peatones horaria mediante telemetría satelital e histórica. "
                         "Este análisis permite programar de forma eficiente turnos del personal y picos de producción.",
                         s_body,
                     )

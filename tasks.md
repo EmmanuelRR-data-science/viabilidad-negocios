@@ -28,9 +28,17 @@
   - [ ] Compilar reporte de prueba Premium personalizado y verificar PDF
   - [ ] Ejecutar pytest y verificar que todas las pruebas pasen con éxito
   - [ ] Ejecutar Ruff check y format para cumplir con los estándares
-- [ ] Fase de Corrección de Layout y Estilo de PDF
-  - [ ] Ajustar espaciadores de la portada en `app/reports.py` (de 150/100/60 a 80/50/40) para eliminar desbordamientos de página
-  - [ ] Añadir diccionario de mapeo de nombres de tiers en `app/reports.py` para acentuación correcta en español
-  - [ ] Actualizar el script `scratch/check_pdf_pages.py` para utilizar `pypdf` al contar las páginas
-  - [ ] Verificar el conteo exacto de páginas en todos los tiers (Básico: 6, Pro: 10, Premium: 13)
+- [x] Fase de Corrección de Layout y Estilo de PDF
+  - [x] Ajustar espaciadores de la portada en `app/reports.py` (de 150/100/60 a 80/50/40) para eliminar desbordamientos de página
+  - [x] Añadir diccionario de mapeo de nombres de tiers en `app/reports.py` para acentuación correcta en español
+  - [x] Actualizar el script `scratch/check_pdf_pages.py` para utilizar `pypdf` al contar las páginas
+  - [x] Verificar el conteo exacto de páginas en todos los tiers (Básico: 6, Pro: 10, Premium: 13)
+
+- [x] Fase de Remoción de Terminología Técnica en Interfaz y PDF
+  - [x] Reemplazar "AWS Bedrock", "Amazon S3", "ReportLab", "PostGIS", "BestTime", "SCIAN" y "Búfer" en `frontend/index.html`
+  - [x] Reemplazar términos técnicos de progreso y alertas en `frontend/app.js`
+  - [x] Quitar menciones a "Bedrock" en el endpoint `routes_analytics.py` ("mensaje_tier")
+  - [x] Reemplazar títulos, notas metodológicas y deslindes técnicos en `app/reports.py`
+  - [x] Verificar compilación correcta y probar la SPA localmente
+
 

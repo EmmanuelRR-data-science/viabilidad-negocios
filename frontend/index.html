@@ -6,8 +6,8 @@
     <title>GeoViabilidad Hook — Localización Inteligente y Geomarketing en México</title>
     
     <!-- Metadatos de SEO -->
-    <meta name="description" content="Plataforma premium de Location Intelligence y Geomarketing para México. Analiza la viabilidad demográfica (INEGI Censo 2020), competencia (Google Places) y afluencia (BestTime) de forma costo-eficiente.">
-    <meta name="keywords" content="geomarketing, location intelligence, inegi, mexico, postgis, viabilidad comercial, huff gravity, score sva">
+    <meta name="description" content="Plataforma premium de geointeligencia y geomarketing para México. Analiza la viabilidad demográfica (INEGI Censo 2020), competencia de la zona y afluencia de personas de forma costo-eficiente.">
+    <meta name="keywords" content="geomarketing, geointeligencia, inegi, mexico, viabilidad comercial, atraccion comercial, score sva">
     <meta name="author" content="GeoViabilidad Hook Team">
     
     <!-- Google Fonts - Outfit & Inter -->
@@ -94,7 +94,7 @@
                 <!-- Slider de Radio de Búfer -->
                 <div class="form-group">
                     <div class="label-row">
-                        <label for="radio-slider">Radio de Influencia (Búfer)</label>
+                        <label for="radio-slider">Radio de Influencia</label>
                         <span id="radio-val" class="badge">1,000 m</span>
                     </div>
                     <input type="range" id="radio-slider" min="500" max="5000" step="500" value="1000" class="slider">
@@ -109,7 +109,7 @@
                 <div class="form-group">
                     <label for="intenciones-textarea">Intenciones Específicas del Negocio</label>
                     <textarea id="intenciones-textarea" rows="4" placeholder="Ej: Quiero abrir una cafetería gourmet con zona infantil, enfocada a familias de clase media-alta, que ofrezca servicio rápido y café veracruzano de especialidad..."></textarea>
-                    <span class="helper-text">La IA de Bedrock cruzará tus intenciones con los datos demográficos y la competencia para darte una recomendación explicable.</span>
+                    <span class="helper-text">La Inteligencia Artificial cruzará tus intenciones con los datos demográficos y la competencia para darte una recomendación detallada.</span>
                 </div>
 
                 <!-- Personalización de Competidores (Pro / Premium) -->
@@ -227,7 +227,7 @@
                 <div class="kpi-info">
                     <h3>Demanda Residente</h3>
                     <p class="kpi-value" id="kpi-poblacion">--</p>
-                    <p class="kpi-desc" id="kpi-pob-desc">Población residente estimada en el búfer.</p>
+                    <p class="kpi-desc" id="kpi-pob-desc">Población residente estimada en el radio.</p>
                 </div>
             </div>
             
@@ -267,8 +267,8 @@
         <!-- Fila 3: Diagnóstico Estratégico FODA de la IA (Amazon Bedrock) -->
         <div class="foda-section glass-card" id="foda-container">
             <div class="section-title-foda">
-                <h3>⚡ Diagnóstico Estratégico Inteligente (AWS Bedrock)</h3>
-                <p id="foda-locked-msg">💡 Desbloquea un reporte de pago para obtener las recomendaciones, ROI y FODA cruzado con Llama 3.</p>
+                <h3>⚡ Diagnóstico Estratégico Inteligente con IA</h3>
+                <p id="foda-locked-msg">💡 Desbloquea un reporte de pago para obtener las recomendaciones, ROI y análisis FODA cruzado inteligente.</p>
             </div>
             
             <div class="foda-grid" id="foda-cards-grid">
@@ -320,8 +320,8 @@
         <!-- Descarga de Informe ReportLab -->
         <div class="report-download-section glass-card hidden" id="download-section">
             <div class="download-info">
-                <h4>📄 Tu reporte ejecutivo ReportLab está listo para descarga</h4>
-                <p id="download-p-desc">El reporte privado e encriptado se ha guardado en Amazon S3. Puedes descargar la versión de alta definición en PDF ahora.</p>
+                <h4>📄 Tu reporte ejecutivo está listo para descarga</h4>
+                <p id="download-p-desc">El reporte privado y encriptado se ha guardado de forma segura en nuestro servidor. Puedes descargar la versión de alta definición en PDF ahora.</p>
             </div>
             <button id="download-pdf-btn" class="btn-primary font-glow">
                 ⬇️ DESCARGAR REPORTE EN PDF
@@ -373,7 +373,7 @@
                     <div class="progress-bar-wrapper">
                         <div id="progress-bar-fill" class="progress-bar-fill"></div>
                     </div>
-                    <p class="helper-text">FastAPI BackgroundTasks está generando el PDF con ReportLab de 6, 10 o 14 páginas y subiéndolo cifrado con SSE-KMS a Amazon S3...</p>
+                    <p class="helper-text">Generando reporte ejecutivo en PDF de alta definición...</p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -394,7 +394,7 @@
                 <span style="font-size: 48px; margin-bottom: 5px; display: block;">🔒</span>
                 <h4 style="font-size: 16px; font-weight: 700; color: var(--text-primary);">Guarda tu Reporte Comercial</h4>
                 <p class="billing-desc" style="font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); margin: 0;">
-                    Para poder personalizar tu análisis y descargar el reporte ejecutivo encriptado en S3, inicia sesión de forma segura.
+                    Para poder personalizar tu análisis y descargar el reporte ejecutivo de forma segura, inicia sesión.
                 </p>
                 
                 <button id="google-signin-btn" class="btn-secondary font-glow" style="background: var(--text-primary); color: var(--bg-main); border: 1px solid var(--glass-border); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer;">
@@ -421,7 +421,7 @@
     <!-- Footer de la Aplicación -->
     <footer class="app-footer glass-card">
         <p>&copy; 2026 GeoViabilidad Hook &mdash; Location Intelligence en México. Todos los derechos reservados.</p>
-        <p class="footer-meta">Infraestructura 100% Optimizada en AWS (S3, RDS PostGIS, Bedrock, SES & EC2). Costo mensual < $22.00 USD.</p>
+        <p class="footer-meta">Servidor corporativo optimizado y seguro. Información protegida mediante encriptación avanzada.</p>
     </footer>
 
     <!-- Leaflet.js JS (Mapas) -->

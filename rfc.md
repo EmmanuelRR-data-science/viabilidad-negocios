@@ -130,3 +130,20 @@ Se identificó que el diseño original de la portada en `reports.py` generaba un
 3. Actualizar la fecha de emisión en español a través del mapeo de meses preexistente.
 4. Ajustar el validador de pruebas (`check_pdf_pages.py`) para utilizar `pypdf`, midiendo con precisión absoluta el número de páginas lógicas del archivo PDF compilado.
 
+---
+
+## 9. Eliminación de Terminología Técnica y Proveedores
+Los usuarios finales son dueños de negocios e inversionistas inmobiliarios que buscan valor comercial, no especificaciones de software o de infraestructura en la nube. Mostrar términos como "AWS Bedrock", "ReportLab", "PostGIS" o "BestTime Peatonal" distrae al usuario y añade complejidad innecesaria.
+
+### Cambios Detallados en Texto
+1. **Reemplazo del término "Búfer"**: En la UI y PDF pasará a ser "Radio de Influencia" o "Zona de Estudio".
+2. **Reemplazo de modelos de IA y servicios de AWS**:
+   * "AWS Bedrock (Llama 3 70B)" -> "Motor Cognitivo de Inteligencia Artificial" o "IA Estratégica".
+   * "Amazon S3 (cifrado KMS)" -> "Servidor de almacenamiento seguro y encriptado".
+3. **Reemplazo de herramientas de compilación y base de datos**:
+   * "ReportLab PDF Library" -> Eliminado del texto de descarga y diálogos.
+   * "PostGIS" -> "Base de datos demográfica" o "Análisis geoespacial".
+4. **Reemplazo de resolvedores sectoriales**:
+   * "SCIAN de INEGI" -> "descriptores comerciales oficiales".
+
+

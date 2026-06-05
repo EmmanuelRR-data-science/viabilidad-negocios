@@ -82,3 +82,18 @@ tier_map = {
 ```
 Esto asegura la acentuación correcta en español ("TIER BÁSICO" en lugar de "TIER BASICO" o "TIER PREMIUM" forzado).
 
+---
+
+## 7. Diseño de Remoción de Jergas y Proveedores Técnicos
+Se implementarán modificaciones en cadenas de texto estáticas y dinámicas para ocultar la infraestructura tecnológica subyacente a los ojos del usuario:
+* **En el PDF (`reports.py`)**:
+  * Títulos de página simplificados (ej. "7. COMPETENCIA DETALLADA" en lugar de "7. COMPETENCIA DETALLADA (GOOGLE PLACES)").
+  * Redefinición del anexo metodológico para eliminar referencias directas a APIs propietarias.
+  * Cambios de cabeceras de tablas ("Valor Real PostGIS" -> "Valor Encontrado").
+* **En el Frontend (`index.html` y `app.js`)**:
+  * Ocultar menciones de AWS, S3, Cognito, FastAPI y ReportLab.
+  * Reemplazo de los estados de la barra de progreso simulada para usar frases amigables como "Autenticando sesión..." y "Almacenando reporte..." en lugar de referencias a "Cognito User Pool" y "Amazon S3 (KMS)".
+* **En variables del API (`routes_analytics.py`)**:
+  * Modificación de `"mensaje_tier"` de salida para quitar la mención explicativa de "Bedrock" o "BestTime".
+
+

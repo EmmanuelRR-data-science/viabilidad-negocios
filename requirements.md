@@ -56,3 +56,10 @@ Este documento define los requerimientos funcionales y no funcionales para permi
 ### RF-09: Diseño de Portada Sin Desbordamiento
 * Los márgenes y espaciados (`Spacer`) en la portada del PDF deben optimizarse para evitar desbordar el texto hacia la página 2, garantizando que la portada ocupe exactamente 1 página.
 
+### RF-10: Eliminación de Terminología Técnica (Jergas y Proveedores)
+* Ningún texto visible para el usuario en la interfaz web de la aplicación (SPA) ni en el reporte PDF descargable debe mencionar nombres de marcas o tecnologías de desarrollo (tales como AWS Bedrock, Amazon S3, ReportLab, PostGIS, Google Places, BestTime, Llama 3, etc.).
+* El término "Búfer" debe ser reemplazado por "Radio de Influencia" o "Zona de Estudio" en todos los casos user-facing.
+* El concepto de "Huff Gravity Model" debe ser denominado "Modelo de Atracción Comercial".
+* El descriptor "SCIAN" debe reemplazarse por "descriptores oficiales" o "giros comerciales oficiales".
+
+

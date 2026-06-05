@@ -454,13 +454,13 @@ async function openPaymentModal(tier) {
     
     // Asignar conceptos en base al Tier
     if (tier === "basico") {
-        billingTitle.textContent = "Reporte Comercial BÁSICO (6 Páginas + INEGI)";
+        billingTitle.textContent = "Reporte Comercial BÁSICO (6 Páginas)";
         billingPrice.textContent = "$99.00 MXN";
     } else if (tier === "pro") {
-        billingTitle.textContent = "Reporte Comercial PRO (10 Páginas + Mapas + Huff)";
+        billingTitle.textContent = "Reporte Comercial PRO (10 Páginas + Mapas + Atracción)";
         billingPrice.textContent = "$249.00 MXN";
     } else {
-        billingTitle.textContent = "Reporte PREMIUM (14 Páginas + ROI + Afluencia Satelital)";
+        billingTitle.textContent = "Reporte PREMIUM (14 Páginas + ROI + Afluencia)";
         billingPrice.textContent = "$499.00 MXN";
     }
     
@@ -615,18 +615,18 @@ async function processSimulatedPayment() {
         if (paymentStatus === "approved") {
             // Animación de barra de progreso interactiva (3 segundos) para simular ReportLab / S3
             let progress = 0;
-            statusText.textContent = "Detonando BackgroundTask en FastAPI. Compilando PDF ReportLab...";
+            statusText.textContent = "Procesando el cálculo analítico. Compilando reporte PDF...";
             
             const progressInterval = setInterval(() => {
                 progress += 5;
                 progressFill.style.width = `${progress}%`;
                 
                 if (progress === 40) {
-                    statusText.textContent = "Invocando IA estratégica en AWS Bedrock (Llama 3 70B)...";
+                    statusText.textContent = "Generando diagnóstico estratégico inteligente con IA...";
                 } else if (progress === 70) {
-                    statusText.textContent = "Escribiendo reporte encriptado en Amazon S3 (KMS)...";
+                    statusText.textContent = "Guardando reporte de forma segura...";
                 } else if (progress === 90) {
-                    statusText.textContent = "Enviando confirmación de SES con enlace privado...";
+                    statusText.textContent = "Enviando confirmación de compra con enlace de descarga...";
                 }
                 
                 if (progress >= 100) {
@@ -913,7 +913,7 @@ async function triggerPDFDownload() {
         }
     } catch (err) {
         logger("Falla al descargar PDF:", err);
-        alert("Error de red al conectar con el servidor S3/FastAPI.");
+        alert("Error de red al conectar con el servidor de análisis.");
     }
 }
 
@@ -949,11 +949,11 @@ async function processGoogleSigninMock() {
         progressFill.style.width = `${progress}%`;
 
         if (progress === 30) {
-            statusText.textContent = "Autenticando en AWS Cognito (User Pool OIDC)...";
+            statusText.textContent = "Autenticando sesión y validando credenciales...";
         } else if (progress === 60) {
-            statusText.textContent = "Mapeando atributos (email, username)...";
+            statusText.textContent = "Verificando perfil de usuario...";
         } else if (progress === 90) {
-            statusText.textContent = "Generando tokens JWT seguros para GeoViabilidad...";
+            statusText.textContent = "Generando accesos seguros...";
         }
 
         if (progress >= 100) {

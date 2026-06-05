@@ -65,7 +65,7 @@ def obtener_vista_previa_gratuita(
             # Bloqueamos listados individuales y análisis avanzados en el Tier gratuito
             "competidores_listado": [],
             "afluencia_peatonal": {},
-            "mensaje_tier": "¡Estás viendo la vista previa gratuita! Compra el reporte Básico o Pro para desbloquear mapas detallados de competencia, o Premium para afluencia y diagnóstico estratégico IA (Bedrock).",
+            "mensaje_tier": "¡Estás viendo la vista previa gratuita! Compra el reporte Básico o Pro para desbloquear mapas detallados de competencia, o Premium para afluencia y diagnóstico estratégico inteligente con IA.",
         }
     except Exception as e:
         logger.error(f"Falla en cálculo de vista previa: {e}")
