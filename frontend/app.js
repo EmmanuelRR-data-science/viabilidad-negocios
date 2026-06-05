@@ -17,7 +17,7 @@ const state = {
     selectedRadio: 1000,
     
     // Perfiles y Tokens
-    currentUserRole: 'user', // 'user' o 'admin'
+    currentUserRole: 'guest', // 'guest', 'user', o 'admin'
     currentTheme: 'light', // 'dark' o 'light'
     
     // Capas de azulejos de Leaflet
@@ -125,13 +125,19 @@ function bindUIEvents() {
     analyzeBtn.addEventListener("click", runPreviewAnalysis);
     
     // F. Botones de Compra de Tiers
-    document.getElementById("buy-basico-btn").addEventListener("click", () => openPaymentModal("basico"));
-    document.getElementById("buy-pro-btn").addEventListener("click", () => openPaymentModal("pro"));
-    document.getElementById("buy-premium-btn").addEventListener("click", () => openPaymentModal("premium"));
+    document.getElementById("buy-basico-btn").addEventListener("click", () => checkAuthAndBuy("basico"));
+    document.getElementById("buy-pro-btn").addEventListener("click", () => checkAuthAndBuy("pro"));
+    document.getElementById("buy-premium-btn").addEventListener("click", () => checkAuthAndBuy("premium"));
     
-    // G. Cerrar Modal de Pago
+    // G. Cerrar Modal de Pago y de Login Google
     document.getElementById("close-modal-btn").addEventListener("click", closePaymentModal);
     document.getElementById("cancel-payment-btn").addEventListener("click", closePaymentModal);
+    document.getElementById("close-login-modal-btn").addEventListener("click", () => {
+        document.getElementById("google-login-modal").classList.add("hidden");
+    });
+    
+    // G2. Iniciar Sesión con Google
+    document.getElementById("google-signin-btn").addEventListener("click", processGoogleSigninMock);
     
     // H. Cambiar Opción de Pago Simulada
     const payOptions = document.querySelectorAll(".pay-option-btn");
@@ -891,4 +897,62 @@ async function triggerPDFDownload() {
         logger("Falla al descargar PDF:", err);
         alert("Error de red al conectar con el servidor S3/FastAPI.");
     }
+}
+
+// --- INTERCEPCIÓN DE COMPRA Y AUTENTICACIÓN GOOGLE ---
+function checkAuthAndBuy(tier) {
+    if (state.currentUserRole === 'guest') {
+        state.pendingTier = tier;
+        // Limpiar cargador anterior del modal de login
+        document.getElementById("login-progress-container").classList.add("hidden");
+        document.getElementById("google-signin-btn").removeAttribute("disabled");
+        // Mostrar modal de registro/login
+        document.getElementById("google-login-modal").classList.remove("hidden");
+        logger(`Redirigiendo flujo de compra para Tier ${tier.toUpperCase()} a modal de registro Google/Cognito.`);
+    } else {
+        openPaymentModal(tier);
+    }
+}
+
+async function processGoogleSigninMock() {
+    const signinBtn = document.getElementById("google-signin-btn");
+    const progressContainer = document.getElementById("login-progress-container");
+    const progressFill = document.getElementById("login-progress-bar-fill");
+    const statusText = document.getElementById("login-status-text");
+
+    signinBtn.setAttribute("disabled", "true");
+    progressContainer.classList.remove("hidden");
+    statusText.textContent = "Conectando con Google Accounts...";
+    progressFill.style.width = "0%";
+
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 10;
+        progressFill.style.width = `${progress}%`;
+
+        if (progress === 30) {
+            statusText.textContent = "Autenticando en AWS Cognito (User Pool OIDC)...";
+        } else if (progress === 60) {
+            statusText.textContent = "Mapeando atributos (email, username)...";
+        } else if (progress === 90) {
+            statusText.textContent = "Generando tokens JWT seguros para GeoViabilidad...";
+        }
+
+        if (progress >= 100) {
+            clearInterval(interval);
+            
+            // Cambiar rol a Cliente y actualizar selector visual
+            state.currentUserRole = 'user';
+            document.getElementById("user-role-select").value = 'user';
+            
+            // Ocultar modal de login
+            document.getElementById("google-login-modal").classList.add("hidden");
+            
+            // Notificación visual de éxito
+            alert("¡Autenticación con Google exitosa! Bienvenido, demo_google@geoviabilidad.com. Se reanuda tu compra.");
+            
+            // Proceder con la compra
+            openPaymentModal(state.pendingTier);
+        }
+    }, 150);
 }
