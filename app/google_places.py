@@ -103,18 +103,21 @@ def obtener_direccion(lat: float, lng: float) -> dict:
         raise e
 
 
-def buscar_competidores(lat: float, lng: float, radio: float, google_type: str) -> list:
+def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, keyword: str | None = None) -> list:
     """
     Consume la API de Google Places Nearby Search para localizar los comercios
     en un radio de distancia clasificados bajo el tipo específico de Google.
     """
     if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
-        logger.info(f"Modo Desarrollo (Simulado): Retornando lista de competidores simulados para tipo: {google_type}.")
+        logger.info(
+            f"Modo Desarrollo (Simulado): Retornando lista de competidores simulados para tipo: {google_type}, keyword: {keyword}."
+        )
+        display_name = keyword.capitalize() if keyword else google_type.capitalize()
         # Generar competidores ficticios y realistas
         return [
             {
                 "place_id": f"plc_mock_10{i}",
-                "nombre": f"Competidor Simulado {i + 1} ({google_type.capitalize()})",
+                "nombre": f"Competidor {display_name} Simulado {i + 1}",
                 "latitud": lat + (0.001 * (i + 1) * (-1 if i % 2 == 0 else 1)),
                 "longitud": lng + (0.001 * (i + 2) * (1 if i % 2 == 0 else -1)),
                 "direccion": f"Av. Principal #{100 * (i + 1)}, Colonia Centro",
@@ -127,9 +130,13 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str) 
     # Llamada real a Google Places Nearby Search
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {"location": f"{lat},{lng}", "radius": radio, "type": google_type, "key": GOOGLE_MAPS_API_KEY}
+    if keyword:
+        params["keyword"] = keyword
 
     try:
-        logger.info(f"Buscando competidores cercanos '{google_type}' en radio {radio}m...")
+        logger.info(
+            f"Buscando competidores cercanos '{google_type}' con palabra clave '{keyword}' en radio {radio}m..."
+        )
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()

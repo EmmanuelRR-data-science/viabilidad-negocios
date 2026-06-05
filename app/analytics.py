@@ -106,6 +106,22 @@ def resolver_google_type(db: Session, rubro: str) -> tuple[str, str]:
         return "restaurant", "restaurante"
     elif "gym" in rub_lower or "gimnasio" in rub_lower:
         return "gym", "gimnasio"
+    elif "veterinari" in rub_lower or "veterinary" in rub_lower:
+        return "veterinary_care", "veterinaria"
+    elif "mascota" in rub_lower or "perro" in rub_lower or "gato" in rub_lower or "pet" in rub_lower:
+        return "pet_store", "accesorios_para_mascotas"
+    elif "panaderia" in rub_lower or "pan" in rub_lower or "pasteler" in rub_lower:
+        return "bakery", "panaderia"
+    elif "ropa" in rub_lower or "boutique" in rub_lower or "vestido" in rub_lower:
+        return "clothing_store", "tienda_de_ropa"
+    elif "zapato" in rub_lower or "calzado" in rub_lower or "zapater" in rub_lower:
+        return "shoe_store", "zapateria"
+    elif "juguete" in rub_lower or "jugueter" in rub_lower:
+        return "toy_store", "jugueteria"
+    elif "dentista" in rub_lower or "dental" in rub_lower or "odontolog" in rub_lower:
+        return "dentist", "dentista"
+    elif "supermercado" in rub_lower or "super" in rub_lower:
+        return "supermarket", "supermercado"
 
     return "store", "comercio_general"
 
@@ -119,6 +135,8 @@ def procesar_calculo_analitico(
     tier: str,
     competidores_seleccionados: list[str] | None = None,
     aliados_seleccionados: list[str] | None = None,
+    competidores_adicionales: str | None = None,
+    aliados_adicionales: str | None = None,
 ) -> dict:
     """
     Orquesta todo el motor analítico cuantitativo:
@@ -166,9 +184,15 @@ def procesar_calculo_analitico(
                         comp["tipo"] = custom_type.replace("_", " ").title()
                         competidores.append(comp)
         else:
-            competidores = buscar_competidores(lat, lng, float(radio), google_type)
+            # Si el tipo resuelto es genérico ("store") pero el usuario dio competidores_adicionales,
+            # lo usamos como keyword de búsqueda en Google Places.
+            keyword = None
+            if google_type == "store" and competidores_adicionales:
+                keyword = competidores_adicionales.strip()
+
+            competidores = buscar_competidores(lat, lng, float(radio), google_type, keyword=keyword)
             for comp in competidores:
-                comp["tipo"] = categoria.replace("_", " ").title()
+                comp["tipo"] = keyword.title() if keyword else categoria.replace("_", " ").title()
         logger.info(f"Competidores detectados en el radio por Places: {len(competidores)}")
 
         # Calcular distancias e Índice de Saturación Comercial (Huff)

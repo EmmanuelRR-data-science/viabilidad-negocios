@@ -50,6 +50,8 @@ def generar_informe_task(orden_id: int):
             tier=orden.tier_adquirido,
             competidores_seleccionados=competidores_sel,
             aliados_seleccionados=aliados_sel,
+            competidores_adicionales=orden.competidores_adicionales,
+            aliados_adicionales=orden.aliados_adicionales,
         )
 
         # Geocodificar la dirección física real para incluirla en el reporte PDF

@@ -107,6 +107,20 @@ def test_resolver_google_type():
         assert type_gym == "gym"
         assert cat_gym == "gimnasio"
 
+        # Pet and Vet fallbacks
+        type_pet, cat_pet = resolver_google_type(db, "accesorios para mascota")
+        assert type_pet == "pet_store"
+        assert cat_pet == "accesorios_para_mascotas"
+
+        type_vet, cat_vet = resolver_google_type(db, "veterinaria de perros")
+        assert type_vet == "veterinary_care"
+        assert cat_vet == "veterinaria"
+
+        # Bakery fallback
+        type_bakery, cat_bakery = resolver_google_type(db, "panaderia artesanal")
+        assert type_bakery == "bakery"
+        assert cat_bakery == "panaderia"
+
         # General store fallback
         type_fallback, cat_fallback = resolver_google_type(db, "carpinteria metalica")
         assert type_fallback == "store"

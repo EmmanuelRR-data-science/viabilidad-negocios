@@ -121,6 +121,8 @@ def obtener_resultado_analisis(
             tier=orden.tier_adquirido,
             competidores_seleccionados=competidores_sel,
             aliados_seleccionados=aliados_sel,
+            competidores_adicionales=orden.competidores_adicionales,
+            aliados_adicionales=orden.aliados_adicionales,
         )
 
         # Inyectar dirección física y contexto personalizado
