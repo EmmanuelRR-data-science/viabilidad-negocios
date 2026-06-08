@@ -205,29 +205,57 @@ def procesar_calculo_analitico(
             dist_cap = max(dist, 10.0)
             isc += 1.0 / (dist_cap**2)
 
+        # Ordenar competidores por distancia (de más cercano a más lejano)
+        competidores.sort(key=lambda x: x.get("distancia_metros", 999999.0))
+
         if tier == "premium":
-            if aliados_seleccionados:
-                logger.info(f"Buscando aliados personalizados por Places: {aliados_seleccionados}...")
-                for custom_type in aliados_seleccionados:
-                    try:
-                        found_allies = buscar_competidores(lat, lng, float(radio), custom_type)
-                        aliados_conteos[custom_type] = len(found_allies)
-                        for ally in found_allies[:3]:
-                            tipo_nombre = custom_type.replace("_", " ").title()
-                            aliados_listado.append(
-                                {
-                                    "nombre": ally.get("nombre", "Establecimiento sin nombre"),
-                                    "tipo": tipo_nombre,
-                                    "rating": ally.get("rating", 0.0),
-                                    "user_ratings_total": ally.get("user_ratings_total", 0),
-                                    "direccion": ally.get("direccion", ""),
-                                    "latitud": ally.get("latitud"),
-                                    "longitud": ally.get("longitud"),
-                                }
-                            )
-                    except Exception as ally_err:
-                        logger.error(f"Falla al buscar aliado personalizado {custom_type}: {ally_err}")
-                        aliados_conteos[custom_type] = 0
+            if aliados_seleccionados or aliados_adicionales:
+                if aliados_seleccionados:
+                    logger.info(f"Buscando aliados personalizados por Places: {aliados_seleccionados}...")
+                    for custom_type in aliados_seleccionados:
+                        try:
+                            found_allies = buscar_competidores(lat, lng, float(radio), custom_type)
+                            aliados_conteos[custom_type] = len(found_allies)
+                            for ally in found_allies[:3]:
+                                tipo_nombre = custom_type.replace("_", " ").title()
+                                aliados_listado.append(
+                                    {
+                                        "nombre": ally.get("nombre", "Establecimiento sin nombre"),
+                                        "tipo": tipo_nombre,
+                                        "rating": ally.get("rating", 0.0),
+                                        "user_ratings_total": ally.get("user_ratings_total", 0),
+                                        "direccion": ally.get("direccion", ""),
+                                        "latitud": ally.get("latitud"),
+                                        "longitud": ally.get("longitud"),
+                                    }
+                                )
+                        except Exception as ally_err:
+                            logger.error(f"Falla al buscar aliado personalizado {custom_type}: {ally_err}")
+                            aliados_conteos[custom_type] = 0
+
+                if aliados_adicionales:
+                    logger.info(f"Buscando aliados adicionales por palabra clave: {aliados_adicionales}...")
+                    keywords = [kw.strip() for kw in aliados_adicionales.split(",") if kw.strip()]
+                    for kw in keywords:
+                        try:
+                            # Buscamos con el wildcard "establishment" usando la palabra clave ingresada
+                            found_allies = buscar_competidores(lat, lng, float(radio), "establishment", keyword=kw)
+                            aliados_conteos[kw] = len(found_allies)
+                            for ally in found_allies[:3]:
+                                aliados_listado.append(
+                                    {
+                                        "nombre": ally.get("nombre", "Establecimiento sin nombre"),
+                                        "tipo": kw.capitalize(),
+                                        "rating": ally.get("rating", 0.0),
+                                        "user_ratings_total": ally.get("user_ratings_total", 0),
+                                        "direccion": ally.get("direccion", ""),
+                                        "latitud": ally.get("latitud"),
+                                        "longitud": ally.get("longitud"),
+                                    }
+                                )
+                        except Exception as extra_ally_err:
+                            logger.error(f"Falla al buscar aliado adicional '{kw}': {extra_ally_err}")
+                            aliados_conteos[kw] = 0
             else:
                 # Buscar atractores urbanos reales — si falla la API el conteo queda en 0, nunca inventado
                 try:
@@ -280,7 +308,7 @@ def procesar_calculo_analitico(
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
     if tier == "premium":
-        afluencia = obtener_afluencia(lat, lng, rubro)
+        afluencia = obtener_afluencia(lat, lng, rubro, competidores=competidores)
 
     # 5. Calcular Score SVA de Viabilidad (0 a 100)
     # A. Score Demográfico (Normalizado a 100, óptimo si poblacion > 15,000)

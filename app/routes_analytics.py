@@ -103,35 +103,49 @@ def obtener_resultado_analisis(
         )
 
     try:
-        # 1. Obtener dirección física exacta
-        direccion_res = obtener_direccion(float(orden.latitud), float(orden.longitud))
-
-        # 2. Ejecutar cálculos analíticos según el Tier adquirido
         import json
 
-        competidores_sel = json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
-        aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
+        # Comprobar si existe caché en la base de datos
+        if orden.resultado_json and orden.foda_json:
+            logger.info(f"Cargando reporte de orden {orden_id} desde el caché de base de datos.")
+            analisis_cuant = json.loads(orden.resultado_json)
+            foda_inteligente = json.loads(orden.foda_json)
+        else:
+            logger.info(f"Reporte de orden {orden_id} no precalculado. Calculando en tiempo real...")
+            # 1. Obtener dirección física exacta
+            direccion_res = obtener_direccion(float(orden.latitud), float(orden.longitud))
 
-        analisis_cuant = procesar_calculo_analitico(
-            db=db,
-            lat=float(orden.latitud),
-            lng=float(orden.longitud),
-            radio=orden.radio_metros,
-            rubro=orden.rubro,
-            tier=orden.tier_adquirido,
-            competidores_seleccionados=competidores_sel,
-            aliados_seleccionados=aliados_sel,
-            competidores_adicionales=orden.competidores_adicionales,
-            aliados_adicionales=orden.aliados_adicionales,
-        )
+            # 2. Ejecutar cálculos analíticos según el Tier adquirido
+            competidores_sel = (
+                json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
+            )
+            aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
 
-        # Inyectar dirección física y contexto personalizado
-        analisis_cuant["direccion"] = direccion_res["formato_completo"]
-        analisis_cuant["competidores_adicionales"] = orden.competidores_adicionales
-        analisis_cuant["aliados_adicionales"] = orden.aliados_adicionales
+            analisis_cuant = procesar_calculo_analitico(
+                db=db,
+                lat=float(orden.latitud),
+                lng=float(orden.longitud),
+                radio=orden.radio_metros,
+                rubro=orden.rubro,
+                tier=orden.tier_adquirido,
+                competidores_seleccionados=competidores_sel,
+                aliados_seleccionados=aliados_sel,
+                competidores_adicionales=orden.competidores_adicionales,
+                aliados_adicionales=orden.aliados_adicionales,
+            )
 
-        # 3. Invocar Bedrock (Meta Llama 3) para diagnóstico FODA inteligente (Disponible en todos los Tiers de pago)
-        foda_inteligente = generar_analisis_foda(analisis_cuant, orden.intenciones)
+            # Inyectar dirección física y contexto personalizado
+            analisis_cuant["direccion"] = direccion_res["formato_completo"]
+            analisis_cuant["competidores_adicionales"] = orden.competidores_adicionales
+            analisis_cuant["aliados_adicionales"] = orden.aliados_adicionales
+
+            # 3. Invocar Bedrock (Meta Llama 3) para diagnóstico FODA inteligente (Disponible en todos los Tiers de pago)
+            foda_inteligente = generar_analisis_foda(analisis_cuant, orden.intenciones)
+
+            # Guardar en base de datos para futuras peticiones
+            orden.resultado_json = json.dumps(analisis_cuant, default=str)
+            orden.foda_json = json.dumps(foda_inteligente, default=str)
+            db.commit()
 
         # 4. Ajustar y omitir campos en base al Tier adquirido para respetar los privilegios (RF-05.4)
         if orden.tier_adquirido == "basico":
@@ -198,17 +212,26 @@ def obtener_url_descarga_pdf(
 
     try:
         if DEV_MODE:
-            # Modo Desarrollo: Retornamos el link local que FastAPI sirve estáticamente
-            logger.info("[ROUTES] Modo Desarrollo: Retornando URL de descarga de servidor estático local.")
-            url_descarga = f"http://localhost:8000/static/reports/{orden.checkout_id}_reporte.pdf"
+            # Modo Desarrollo: Retornamos el link local que expone la descarga directa
+            logger.info("[ROUTES] Modo Desarrollo: Retornando URL de descarga directa local.")
+            url_descarga = f"http://localhost:8000/api/analizar/pdf/{orden.id}/descargar"
         else:
             # Modo Producción: Generar URL firmada real de Amazon S3
+            import re
+
             import boto3
+
+            rubro_slug = re.sub(r"[^a-zA-Z0-9_]+", "_", orden.rubro.lower()).strip("_")
+            filename = f"Reporte_Viabilidad_{rubro_slug}.pdf"
 
             s3_client = boto3.client("s3", region_name=AWS_REGION)
             url_descarga = s3_client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": S3_REPORTS_BUCKET, "Key": orden.s3_key_reporte},
+                Params={
+                    "Bucket": S3_REPORTS_BUCKET,
+                    "Key": orden.s3_key_reporte,
+                    "ResponseContentDisposition": f'attachment; filename="{filename}"',
+                },
                 ExpiresIn=600,  # 10 minutos (600 segundos)
             )
             logger.info("[ROUTES] URL firmada de S3 generada exitosamente.")
@@ -225,3 +248,69 @@ def obtener_url_descarga_pdf(
     except Exception as e:
         logger.error(f"Error al generar presigned URL: {e}")
         raise e
+
+
+@router.get("/pdf/{orden_id}/descargar", status_code=status.HTTP_200_OK)
+def descargar_pdf_archivo(orden_id: int, db: Session = Depends(get_db)):
+    """
+    Descarga directamente el archivo PDF local en modo desarrollo para pruebas,
+    configurando el encabezado Content-Disposition correcto.
+    """
+    import os
+    import re
+
+    from fastapi.responses import FileResponse
+
+    if not DEV_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La descarga directa local solo está disponible en modo desarrollo.",
+        )
+
+    orden = db.query(OrdenPago).filter(OrdenPago.id == orden_id).first()
+    if not orden:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La orden solicitada no existe.")
+
+    # Validar acreditación de pago
+    if orden.estado_pago != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El análisis correspondiente no ha sido aprobado ni pagado.",
+        )
+
+    rubro_slug = re.sub(r"[^a-zA-Z0-9_]+", "_", orden.rubro.lower()).strip("_")
+    local_pdf_path = f"scratch/reports/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
+
+    if not os.path.exists(local_pdf_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El archivo PDF del reporte no se encuentra disponible localmente.",
+        )
+
+    filename = f"Reporte_Viabilidad_{rubro_slug}.pdf"
+    return FileResponse(path=local_pdf_path, filename=filename, media_type="application/pdf")
+
+
+@router.get("/buscar-direccion", status_code=status.HTTP_200_OK)
+def buscar_direccion(direccion: str, user: UserContext = Depends(get_current_user)):
+    """
+    Busca ubicaciones posibles (direcciones) y coordenadas asociadas
+    a partir de una consulta en texto libre (Geocodificación Directa).
+    """
+    direccion_query = direccion.strip() if direccion else ""
+    if not direccion_query:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="La dirección o palabra de búsqueda no puede estar vacía."
+        )
+
+    try:
+        from app.google_places import buscar_coordenadas_por_direccion
+
+        resultados = buscar_coordenadas_por_direccion(direccion_query)
+        return {"status": "success", "resultados": resultados}
+    except Exception as e:
+        logger.error(f"Falla al geocodificar dirección '{direccion_query}': {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Falla de comunicación con el servicio de geocodificación de Google.",
+        ) from e

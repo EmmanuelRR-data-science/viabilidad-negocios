@@ -41,4 +41,15 @@
   - [x] Reemplazar títulos, notas metodológicas y deslindes técnicos en `app/reports.py`
   - [x] Verificar compilación correcta y probar la SPA localmente
 
+- [x] Fase de Búsqueda de Direcciones (Geocodificación Directa)
+  - [x] Implementar la función `buscar_coordenadas_por_direccion` en [google_places.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/google_places.py) para resolver textos con Google Geocoding restringido a México
+  - [x] Implementar el endpoint GET `/api/analizar/buscar-direccion` en [routes_analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/routes_analytics.py)
+  - [x] Añadir la caja flotante de búsqueda y lista de resultados en [index.html](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/frontend/index.html) sobre el contenedor del mapa
+  - [x] Definir estilos visuales premium para la caja de búsqueda y dropdown flotante en [index.css](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/frontend/index.css)
+  - [x] Integrar event listeners de búsqueda, despliegue de coincidencias y centrado de Leaflet en [app.js](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/frontend/app.js)
+  - [x] Escribir pruebas automatizadas para el endpoint `/buscar-direccion` en [test_suite.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/tests/test_suite.py)
+  - [x] Ejecutar linting/formatting de Ruff y suite completa de pytest
+
+
+
 

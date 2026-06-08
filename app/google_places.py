@@ -227,3 +227,55 @@ def obtener_mapa_estatico(lat: float, lng: float, radio: int, competidores: list
     except Exception as e:
         logger.error(f"Error al obtener mapa estático de Google: {e}")
         return None
+
+
+def buscar_coordenadas_por_direccion(direccion: str) -> list[dict]:
+    """
+    Realiza geocodificación directa mediante la API de Google Geocoding para resolver
+    una dirección de texto en una latitud, longitud y dirección formateada en México.
+    """
+    if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
+        logger.info(f"Modo Desarrollo (Simulado): Devolviendo geocodificación simulada para query: '{direccion}'.")
+        # Devolver resultados simulados realistas para facilitar pruebas y desarrollo
+        return [
+            {
+                "direccion": f"{direccion}, Ciudad de México, México",
+                "latitud": 19.432608,
+                "longitud": -99.133208,
+            },
+            {
+                "direccion": f"Av. Benito Juárez, {direccion}, Guadalajara, Jal., México",
+                "latitud": 20.659698,
+                "longitud": -103.349609,
+            },
+        ]
+
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "address": direccion,
+        "key": GOOGLE_MAPS_API_KEY,
+        "language": "es",
+        "components": "country:MX",  # Forzar que la búsqueda ocurra en México
+    }
+
+    try:
+        logger.info(f"Consultando Google Geocoding (Directo) para dirección: '{direccion}'...")
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        resultados = []
+        if data.get("status") == "OK" and data.get("results"):
+            for result in data["results"]:
+                loc = result.get("geometry", {}).get("location", {})
+                resultados.append(
+                    {
+                        "direccion": result.get("formatted_address"),
+                        "latitud": loc.get("lat"),
+                        "longitud": loc.get("lng"),
+                    }
+                )
+        return resultados
+    except Exception as e:
+        logger.error(f"Error en llamada a Google Geocoding (Directo): {e}")
+        raise e

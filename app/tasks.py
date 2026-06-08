@@ -117,20 +117,23 @@ def generar_informe_task(orden_id: int):
             logger.error(f"[TASK] Error crítico en compilador de PDF: {pdf_err}")
             raise pdf_err
 
+        import re
+
+        rubro_slug = re.sub(r"[^a-zA-Z0-9_]+", "_", orden.rubro.lower()).strip("_")
         # Definir la clave S3 privada
-        s3_key = f"informes/{orden.cognito_user_id}/{orden.checkout_id}_reporte.pdf"
+        s3_key = f"informes/{orden.cognito_user_id}/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
 
         # 4. Guardar Reporte en Amazon S3 (o disco local si DEV_MODE)
         if DEV_MODE:
             logger.info("[TASK] Modo Desarrollo: Guardando PDF localmente para inspección...")
             os.makedirs("scratch/reports", exist_ok=True)
-            local_pdf_path = f"scratch/reports/{orden.checkout_id}_reporte.pdf"
+            local_pdf_path = f"scratch/reports/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
             with open(local_pdf_path, "wb") as f:
                 f.write(pdf_bytes)
             logger.info(f"[TASK] PDF de desarrollo persistido en: {local_pdf_path}")
 
             # Simulamos presigned URL de descarga local
-            presigned_url = f"http://localhost:8000/static/reports/{orden.checkout_id}_reporte.pdf"
+            presigned_url = f"http://localhost:8000/static/reports/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
         else:
             # Modo Producción: Subir realmente el objeto a S3 con encriptación ServerSide KMS
             try:
@@ -155,10 +158,14 @@ def generar_informe_task(orden_id: int):
                 logger.error(f"[TASK] Error al subir archivo a S3: {s3_err}")
                 presigned_url = "https://geoviabilidad.com/reportes/descarga-directa"
 
-        # 5. Actualizar estado de la orden a aprobado, guardar clave y registrar fecha
-        logger.info("[TASK] Actualizando registro transaccional en base de datos...")
+        # 5. Actualizar estado de la orden a aprobado, guardar clave, guardar caché del reporte y registrar fecha
+        logger.info("[TASK] Actualizando registro transaccional en base de datos con caché del reporte...")
+        import json
+
         orden.estado_pago = "approved"
         orden.s3_key_reporte = s3_key
+        orden.resultado_json = json.dumps(resultado, default=str)
+        orden.foda_json = json.dumps(analysis_result, default=str)
         orden.fecha_aprobacion = datetime.datetime.utcnow()
         db.commit()
 

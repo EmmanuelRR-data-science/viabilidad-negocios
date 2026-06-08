@@ -239,12 +239,14 @@ def test_webhook_processing_and_mock():
         db.refresh(orden)
         assert orden.estado_pago == "approved"
         assert orden.s3_key_reporte is not None
+        assert orden.resultado_json is not None
+        assert orden.foda_json is not None
 
         # Clean up database entry and generated reports/emails
         db.delete(orden)
         db.commit()
 
-        local_pdf = f"scratch/reports/{checkout_id}_reporte.pdf"
+        local_pdf = f"scratch/reports/{checkout_id}_reporte_cafeteria.pdf"
         if os.path.exists(local_pdf):
             os.remove(local_pdf)
 
@@ -418,3 +420,182 @@ def test_crear_preferencia_valida_pro_premium():
                 db.commit()
     finally:
         db.close()
+
+
+def test_obtener_resultado_analisis_cache_api():
+    """
+    Test that /api/analizar/resultado/{orden_id} endpoint loads cached results directly
+    from database (resultado_json and foda_json) when present.
+    """
+    import json
+
+    db = SessionLocal()
+    try:
+        # Create an approved order in database with custom cache data
+        checkout_id = f"chk_test_cache_{os.urandom(3).hex()}"
+        cached_resultado = {
+            "sva": 93,
+            "poblacion_ponderada": 45000,
+            "competidores_conteo": 2,
+            "competidores_listado": [],
+            "direccion": "Dirección de caché de prueba",
+        }
+        cached_foda = {
+            "fortalezas": ["Fortaleza de caché"],
+            "conclusion": "Conclusión de caché",
+        }
+
+        orden = OrdenPago(
+            cognito_user_id="usr_mock_123",
+            email="demo_sva@geoviabilidad.com",
+            checkout_id=checkout_id,
+            monto=Decimal("249.00"),
+            estado_pago="approved",
+            tier_adquirido="pro",
+            latitud=Decimal("19.432608"),
+            longitud=Decimal("-99.133208"),
+            radio_metros=1000,
+            rubro="cafeteria",
+            intenciones="Cafetería gourmet",
+            resultado_json=json.dumps(cached_resultado),
+            foda_json=json.dumps(cached_foda),
+        )
+        db.add(orden)
+        db.commit()
+        db.refresh(orden)
+
+        # Retrieve the analysis result
+        headers = {"Authorization": "Bearer test-jwt-token"}
+        response = client.get(f"/api/analizar/resultado/{orden.id}", headers=headers)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["metricas"]["sva"] == 93
+        assert data["metricas"]["poblacion_ponderada"] == 45000
+        assert data["metricas"]["direccion"] == "Dirección de caché de prueba"
+        assert data["analisis_estrategico_ia"]["conclusion"] == "Conclusión de caché"
+
+        # Clean up
+        db.delete(orden)
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_descargar_pdf_local_endpoint():
+    """
+    Test that the PDF download flow generates correct URLs in DEV_MODE
+    and that hitting the download endpoint returns the PDF with the correct filename.
+    """
+    import os
+
+    db = SessionLocal()
+    try:
+        checkout_id = f"chk_test_download_{os.urandom(3).hex()}"
+        orden = OrdenPago(
+            cognito_user_id="usr_mock_123",
+            email="demo_sva@geoviabilidad.com",
+            checkout_id=checkout_id,
+            monto=Decimal("499.00"),
+            estado_pago="approved",
+            tier_adquirido="premium",
+            latitud=Decimal("19.432608"),
+            longitud=Decimal("-99.133208"),
+            radio_metros=1000,
+            rubro="floreria",
+            intenciones="Florería premium",
+            s3_key_reporte=f"informes/usr_mock_123/{checkout_id}_reporte_floreria.pdf",
+        )
+        db.add(orden)
+        db.commit()
+        db.refresh(orden)
+
+        # 1. Get the download URL (requires auth headers)
+        headers = {"Authorization": "Bearer test-jwt-token"}
+        response = client.get(f"/api/analizar/pdf/{orden.id}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        expected_url = f"http://localhost:8000/api/analizar/pdf/{orden.id}/descargar"
+        assert data["url_descarga"] == expected_url
+
+        # Create dummy PDF file locally
+        os.makedirs("scratch/reports", exist_ok=True)
+        local_pdf = f"scratch/reports/{checkout_id}_reporte_floreria.pdf"
+        with open(local_pdf, "w") as f:
+            f.write("dummy pdf content")
+
+        try:
+            # 2. Access download URL (should NOT require auth headers)
+            dl_response = client.get(f"/api/analizar/pdf/{orden.id}/descargar")
+            assert dl_response.status_code == 200
+            assert dl_response.headers["content-type"] == "application/pdf"
+            assert (
+                'attachment; filename="Reporte_Viabilidad_floreria.pdf"' in dl_response.headers["content-disposition"]
+            )
+            assert dl_response.text == "dummy pdf content"
+        finally:
+            if os.path.exists(local_pdf):
+                os.remove(local_pdf)
+
+        # Clean up database
+        db.delete(orden)
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_procesar_calculo_analitico_aliados_adicionales():
+    """
+    Test that procesar_calculo_analitico handles text-input additional allies (aliados_adicionales)
+    by performing keyword-based Places searches and enriching the allies list.
+    """
+    from app.analytics import procesar_calculo_analitico
+
+    db = SessionLocal()
+    try:
+        resultado = procesar_calculo_analitico(
+            db=db,
+            lat=19.432608,
+            lng=-99.133208,
+            radio=1000,
+            rubro="cafeteria",
+            tier="premium",
+            aliados_adicionales="banco, hotel",
+        )
+
+        # Verify that allies contain search results for the keywords
+        aliados = resultado["aliados_listado"]
+        assert len(aliados) > 0
+
+        # Check that we have both "Banco" and "Hotel" in the type/giro field
+        tipos_detectados = [a["tipo"] for a in aliados]
+        assert "Banco" in tipos_detectados
+        assert "Hotel" in tipos_detectados
+
+        # Check that the conteos are updated with the counts
+        assert "banco" in resultado["aliados_conteos"]
+        assert "hotel" in resultado["aliados_conteos"]
+        assert resultado["aliados_conteos"]["banco"] > 0
+        assert resultado["aliados_conteos"]["hotel"] > 0
+
+    finally:
+        db.close()
+
+
+def test_buscar_direccion_api():
+    """
+    Test that the search endpoint `/api/analizar/buscar-direccion` works
+    correctly and returns mock coordinates in DEV_MODE.
+    """
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    response = client.get("/api/analizar/buscar-direccion?direccion=Reforma%20222", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert len(data["resultados"]) > 0
+    assert "latitud" in data["resultados"][0]
+    assert "longitud" in data["resultados"][0]
+    assert "direccion" in data["resultados"][0]
+    assert "Reforma 222" in data["resultados"][0]["direccion"]

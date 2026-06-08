@@ -28,8 +28,7 @@ const state = {
     
     // Gráficos activos de Chart.js (para destruirlos al actualizar)
     charts: {
-        competitors: null,
-        poi: null
+        competitors: null
     },
     
     // Transacciones y órdenes
@@ -173,6 +172,9 @@ function bindUIEvents() {
     
     // K. Enforzar límites de selección de checkboxes en el panel izquierdo (máximo 5 cada uno)
     setupLeftPanelCheckboxLimits();
+    
+    // L. Buscador de dirección flotante sobre el mapa
+    setupMapSearchBox();
 }
 
 function setupLeftPanelCheckboxLimits() {
@@ -201,6 +203,91 @@ function setupLeftPanelCheckboxLimits() {
     };
     enforceLimits("competidores-checkboxes", 5);
     enforceLimits("aliados-checkboxes", 5);
+}
+
+function setupMapSearchBox() {
+    const searchInput = document.getElementById("map-search-input");
+    const searchBtn = document.getElementById("map-search-btn");
+    const searchResults = document.getElementById("map-search-results");
+    
+    if (!searchInput || !searchBtn || !searchResults) return;
+    
+    // Función para disparar la búsqueda
+    const executeSearch = async () => {
+        const query = searchInput.value.trim();
+        if (!query) {
+            searchResults.innerHTML = "";
+            searchResults.classList.add("hidden");
+            return;
+        }
+        
+        logger(`Iniciando búsqueda de dirección en México para: '${query}'`);
+        
+        try {
+            const headers = getAuthHeaders();
+            const response = await fetch(`/api/analizar/buscar-direccion?direccion=${encodeURIComponent(query)}`, {
+                method: "GET",
+                headers: headers
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const resultados = data.resultados || [];
+                
+                if (resultados.length === 0) {
+                    searchResults.innerHTML = '<p style="cursor: default; text-align: center; color: var(--text-secondary);">Sin resultados en México</p>';
+                } else {
+                    searchResults.innerHTML = resultados.map(item => `
+                        <p data-lat="${item.latitud}" data-lng="${item.longitud}" title="${item.direccion}">${item.direccion}</p>
+                    `).join("");
+                    
+                    // Agregar event listeners a cada opción
+                    searchResults.querySelectorAll("p[data-lat]").forEach(p => {
+                        p.addEventListener("click", (e) => {
+                            const lat = parseFloat(e.target.getAttribute("data-lat"));
+                            const lng = parseFloat(e.target.getAttribute("data-lng"));
+                            const address = e.target.textContent;
+                            
+                            logger(`Ubicación seleccionada en buscador: ${address} en (${lat}, ${lng})`);
+                            
+                            // Centrar mapa
+                            state.map.setView([lat, lng], 16);
+                            
+                            // Invocar al click handler estándar
+                            handleMapClick(lat, lng);
+                            
+                            // Actualizar input y ocultar dropdown
+                            searchInput.value = address;
+                            searchResults.classList.add("hidden");
+                        });
+                    });
+                }
+                searchResults.classList.remove("hidden");
+            } else {
+                logger("Error al buscar dirección en el servidor.");
+            }
+        } catch (err) {
+            logger("Error de red al geocodificar dirección:", err);
+        }
+    };
+    
+    // Buscar al dar clic al botón de lupa
+    searchBtn.addEventListener("click", executeSearch);
+    
+    // Buscar al presionar Enter en el input
+    searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            executeSearch();
+        }
+    });
+    
+    // Ocultar dropdown al hacer clic fuera
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#search-box-container")) {
+            searchResults.classList.add("hidden");
+        }
+    });
 }
 
 // --- DETECTAR Y APLICAR CAMBIO DE TEMA (Alternador de Temas) ---
@@ -343,64 +430,45 @@ function checkFormValidity() {
 
 // --- EJECUTAR VISTA PREVIA GRATUITA (RF-05.4 & RF-01.4) ---
 async function runPreviewAnalysis() {
-    logger("Detonando Vista Previa Gratuita...");
+    logger("Detonando Vista Previa (Modo de Compra Directo)...");
     
     // Cambiar estado visual del botón
     const btn = document.getElementById("analyze-btn");
-    btn.innerHTML = `<span class="btn-icon">⏳</span> PROCESANDO DATOS INEGI...`;
+    btn.innerHTML = `<span class="btn-icon">⏳</span> CARGANDO PLANES...`;
     btn.setAttribute("disabled", "true");
     
     try {
-        const headers = getAuthHeaders();
-        // Llamar a la Previa (POST /api/analizar/previa)
-        const url = `/api/analizar/previa?lat=${state.selectedLat}&lng=${state.selectedLng}&radio_metros=${state.selectedRadio}&rubro=${state.selectedGiro}`;
-        const response = await fetch(url, {
-            method: "POST",
-            headers: headers
-        });
+        // 1. Mostrar el Dashboard de Resultados
+        document.getElementById("results-dashboard").classList.remove("hidden");
         
-        if (response.ok) {
-            const data = await response.json();
-            logger("Resultados de Vista Previa recibidos exitosamente", data);
-            
-            // 1. Mostrar el Dashboard de Resultados
-            document.getElementById("results-dashboard").classList.remove("hidden");
-            
-            // 2. Rellenar los KPIs de la Vista Previa
-            document.getElementById("tier-badge").textContent = "VISTA PREVIA GRATUITA";
-            document.getElementById("tier-badge").className = "badge";
-            
-            document.getElementById("kpi-sva").textContent = `${data.score_viabilidad_sva}/100`;
-            document.getElementById("kpi-poblacion").textContent = data.poblacion_estimada.toLocaleString();
-            document.getElementById("kpi-competidores").textContent = data.competidores_conteo;
-            
-            // Estilo dinámico de la tarjeta del Score SVA
-            const kpiCard = document.getElementById("kpi-sva-card");
-            if (data.score_viabilidad_sva >= 80) {
-                kpiCard.style.borderLeft = "4px solid var(--success-color)";
-            } else if (data.score_viabilidad_sva >= 50) {
-                kpiCard.style.borderLeft = "4px solid var(--warning-color)";
-            } else {
-                kpiCard.style.borderLeft = "4px solid var(--danger-color)";
-            }
-            
-            // 3. Bloquear / Vaciar Paneles de Gráficos y FODA
-            lockAdvancedFeatures();
-            
-            // 4. Limpiar marcadores antiguos de competidores/POIs del mapa
-            clearMapPins();
-            
-            // Hacer scroll suave hacia el Dashboard
-            document.getElementById("results-dashboard").scrollIntoView({ behavior: 'smooth' });
-        } else {
-            alert("Error al procesar el análisis de la previa. Comprueba la conexión.");
-        }
+        // 2. Rellenar los placeholders bloqueados de los KPIs
+        document.getElementById("tier-badge").textContent = "VISTA PREVIA GRATUITA";
+        document.getElementById("tier-badge").className = "badge";
+        document.getElementById("dashboard-subtitle").textContent = "Selecciona un plan para desbloquear el score de viabilidad, la población estimada y el análisis de competencia.";
+        
+        document.getElementById("kpi-sva").textContent = "🔒 Bloqueado";
+        document.getElementById("kpi-poblacion").textContent = "🔒 Bloqueado";
+        document.getElementById("kpi-competidores").textContent = "🔒 Bloqueado";
+        
+        // Estilo neutro de la tarjeta del Score SVA
+        const kpiCard = document.getElementById("kpi-sva-card");
+        kpiCard.style.borderLeft = "4px solid var(--text-secondary)";
+        
+        // 3. Bloquear / Vaciar Paneles de Gráficos y FODA
+        lockAdvancedFeatures();
+        
+        // 4. Limpiar marcadores antiguos de competidores/POIs del mapa
+        clearMapPins();
+        
+        // Hacer scroll suave hacia el Dashboard
+        document.getElementById("results-dashboard").scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
-        logger("Error en petición a la previa:", err);
-        alert("Falla de red al conectar con el servidor FastAPI.");
+        logger("Error en la vista previa:", err);
     } finally {
-        btn.innerHTML = `<span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN`;
-        btn.removeAttribute("disabled");
+        setTimeout(() => {
+            btn.innerHTML = `<span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN`;
+            btn.removeAttribute("disabled");
+        }, 300);
     }
 }
 
@@ -437,9 +505,27 @@ function lockAdvancedFeatures() {
         state.charts.competitors.destroy();
         state.charts.competitors = null;
     }
-    if (state.charts.poi) {
-        state.charts.poi.destroy();
-        state.charts.poi = null;
+    
+    // Restablecer la tabla de atractores / POIs a su estado inicial de carga
+    const tbody = document.getElementById("poi-table-body");
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td>Transporte Público</td>
+                <td id="poi-count-transit">--</td>
+                <td><span class="badge info">Cargando...</span></td>
+            </tr>
+            <tr>
+                <td>Centros Educativos</td>
+                <td id="poi-count-school">--</td>
+                <td><span class="badge info">Cargando...</span></td>
+            </tr>
+            <tr>
+                <td>Bancos y Finanzas</td>
+                <td id="poi-count-bank">--</td>
+                <td><span class="badge info">Cargando...</span></td>
+            </tr>
+        `;
     }
 }
 
@@ -702,6 +788,34 @@ async function unlockPaidReport() {
             document.getElementById("kpi-sva").textContent = `${metricas.sva}/100`;
             document.getElementById("kpi-poblacion").textContent = metricas.poblacion_ponderada.toLocaleString();
             document.getElementById("kpi-competidores").textContent = metricas.competidores_conteo;
+
+            // Estilo dinámico de la tarjeta del Score SVA según el puntaje obtenido
+            const kpiCard = document.getElementById("kpi-sva-card");
+            if (kpiCard) {
+                if (metricas.sva >= 80) {
+                    kpiCard.style.borderLeft = "4px solid var(--success-color)";
+                } else if (metricas.sva >= 50) {
+                    kpiCard.style.borderLeft = "4px solid var(--warning-color)";
+                } else {
+                    kpiCard.style.borderLeft = "4px solid var(--danger-color)";
+                }
+            }
+
+            // Actualizar descripciones de KPIs con explicaciones claras para el usuario
+            const sva = metricas.sva || 0;
+            let svaDesc = "";
+            if (sva >= 80) {
+                svaDesc = "Obtuviste este puntaje alto porque la zona presenta un excelente balance: una sólida base de clientes potenciales cercanos y un nivel de competencia controlado que te facilitará crecer rápidamente.";
+            } else if (sva >= 60) {
+                svaDesc = "Tu puntaje es favorable. La zona tiene buena demanda residencial, aunque existe competencia activa con la que deberás competir ofreciendo un valor agregado o mejor servicio.";
+            } else {
+                svaDesc = "Tu puntaje es moderado o bajo debido a que la población en la zona es limitada para este rubro, o bien, existe una alta saturación de competidores disputándose a los mismos clientes.";
+            }
+            document.getElementById("kpi-sva-desc").textContent = svaDesc;
+
+            document.getElementById("kpi-pob-desc").textContent = "Representa la cantidad de personas que viven a la redonda de tu local. Son tus clientes potenciales más valiosos porque, al residir en el área, comprarán de forma constante y recurrente.";
+            
+            document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
             
             // Ocultar botones de compra y mostrar el botón de descarga
             document.getElementById("dashboard-actions").classList.add("hidden");
@@ -722,8 +836,8 @@ async function unlockPaidReport() {
                 // Generar Gráfico de Competidores
                 renderCompetitorsChart(metricas.competidores_listado);
                 
-                // Generar Gráfico de Atractores/POIs
-                renderPOIChart();
+                // Generar Tabla de Atractores/POIs
+                renderPOITable(metricas);
             }
             
             // 4. Rellenar finanzas y ROI (si PREMIUM)
@@ -828,14 +942,19 @@ function renderCompetitorsChart(competidores) {
         state.charts.competitors.destroy();
     }
     
-    // Clasificar competidores por rating
-    const ratings = { "5.0 - 4.5": 0, "4.4 - 4.0": 0, "3.9 - 3.0": 0, "< 3.0 / Sin Rating": 0 };
+    // Clasificar competidores por rating (de menor a mayor valorados: menos valorados a la izquierda, más a la derecha)
+    const ratings = {
+        "< 3.0 o Sin Rating": 0,
+        "3.0 - 3.9": 0,
+        "4.0 - 4.4": 0,
+        "4.5 - 5.0": 0
+    };
     competidores.forEach(c => {
         const r = c.rating || 0;
-        if (r >= 4.5) ratings["5.0 - 4.5"]++;
-        else if (r >= 4.0) ratings["4.4 - 4.0"]++;
-        else if (r >= 3.0) ratings["3.9 - 3.0"]++;
-        else ratings["< 3.0 / Sin Rating"]++;
+        if (r >= 4.5) ratings["4.5 - 5.0"]++;
+        else if (r >= 4.0) ratings["4.0 - 4.4"]++;
+        else if (r >= 3.0) ratings["3.0 - 3.9"]++;
+        else ratings["< 3.0 o Sin Rating"]++;
     });
     
     const ctx = document.getElementById("competitors-chart").getContext("2d");
@@ -873,43 +992,65 @@ function renderCompetitorsChart(competidores) {
     });
 }
 
-// --- GRÁFICO 2: ATRACTORES / POIs (Chart.js Doughnut) ---
-function renderPOIChart() {
-    if (state.charts.poi) {
-        state.charts.poi.destroy();
+// --- TABLA 2: ATRACTORES / POIs (Aliados Comerciales) ---
+function renderPOITable(metricas) {
+    const tbody = document.getElementById("poi-table-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    
+    const categoryMap = {
+        "bank": "Bancos y Finanzas",
+        "school": "Centros Educativos",
+        "transit_station": "Transporte Público",
+        "cafe": "Cafeterías",
+        "restaurant": "Restaurantes",
+        "fast_food": "Comida Rápida",
+        "gym": "Gimnasios",
+        "pharmacy": "Farmacias",
+        "bakery": "Panaderías",
+        "beauty_salon": "Estéticas",
+        "laundry": "Lavanderías",
+        "doctor": "Consultorios Médicos",
+        "supermarket": "Supermercados",
+        "shopping_mall": "Centros Comerciales",
+        "convenience_store": "Abarrotes y Conveniencia",
+        "park": "Parques"
+    };
+    
+    let counts = {};
+    if (state.activeTier === "premium" && metricas.aliados_conteos) {
+        counts = metricas.aliados_conteos;
+    } else {
+        // Fallback de atractores generales para Básico y Pro
+        counts = {
+            "transit_station": metricas.transporte_conteo || 4,
+            "school": metricas.escuelas_conteo || 2,
+            "bank": metricas.bancos_conteo || 1
+        };
     }
     
-    const dataValues = state.activeTier === "premium" ? [5, 4, 2] : [4, 2, 0];
-    
-    const ctx = document.getElementById("poi-chart").getContext("2d");
-    state.charts.poi = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Transporte Público', 'Escuelas Privadas', 'Bancos'],
-            datasets: [{
-                data: dataValues,
-                backgroundColor: [
-                    'rgba(16, 185, 129, 0.65)', // Verde
-                    'rgba(245, 158, 11, 0.65)', // Ámbar
-                    'rgba(239, 68, 68, 0.65)'  // Rojo
-                ],
-                borderColor: [
-                    '#10b981', '#f59e0b', '#ef4444'
-                ],
-                borderWidth: 1.5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#94a3b8', font: { size: 11 } }
-                }
-            }
+    for (const [key, count] of Object.entries(counts)) {
+        const label = categoryMap[key] || key.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+        
+        let impactHtml = "";
+        if (count >= 5) {
+            impactHtml = '<span class="badge success">Muy Favorable</span>';
+        } else if (count >= 2) {
+            impactHtml = '<span class="badge success">Favorable</span>';
+        } else if (count >= 1) {
+            impactHtml = '<span class="badge info">Moderado</span>';
+        } else {
+            impactHtml = '<span class="badge secondary">Sin Impacto</span>';
         }
-    });
+        
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><b>${label}</b></td>
+            <td>${count} establecimientos</td>
+            <td>${impactHtml}</td>
+        `;
+        tbody.appendChild(tr);
+    }
 }
 
 // --- DESCARGA DE REPORTE PDF (GET /api/analizar/pdf/{orden_id}) ---

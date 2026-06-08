@@ -62,4 +62,43 @@ Este documento define los requerimientos funcionales y no funcionales para permi
 * El concepto de "Huff Gravity Model" debe ser denominado "Modelo de Atracción Comercial".
 * El descriptor "SCIAN" debe reemplazarse por "descriptores oficiales" o "giros comerciales oficiales".
 
+### RF-11: Consistencia de Puntuaciones y Caché de Reportes
+* El Score de Viabilidad SVA y todos los indicadores cuantitativos/estratégicos deben ser exactamente iguales en el Dashboard Web que en el reporte PDF descargable.
+* Una vez que la orden ha sido pagada y procesada por primera vez por la tarea en segundo plano (`generar_informe_task`), todos los datos de métricas y la conclusión de IA (FODA) deben persistir de forma estructurada en la base de datos PostgreSQL.
+* El endpoint de visualización de resultados de pago (`/api/analizar/resultado/{orden_id}`) debe recuperar los datos directamente del caché almacenado en la base de datos, eliminando la duplicación en la ejecución de cálculos geoespaciales y llamadas a modelos cognitivos (LLM).
+
+## 3. Requerimientos No Funcionales
+
+### RNF-01: Rendimiento
+* Las consultas a la API de Google Places para múltiples categorías deben realizarse de forma segura, y el backend asíncrono debe manejar fallos parciales sin abortar el reporte.
+
+### RNF-02: Persistencia
+* Las elecciones del usuario deben guardarse en formato JSON serializado en la tabla `ordenes_pagos`.
+
+### RNF-03: Optimización de Costos y Latencia (Consistencia de APIs)
+* Se debe evitar la consulta redundante de APIs de terceros (Google Places, BestTime) y del motor LLM (AWS Bedrock) al recargar o consultar repetidamente el dashboard de resultados. La recuperación del reporte almacenado debe tardar menos de 100 ms tras el precalculo.
+
+## 5. Requerimientos para Búsqueda de Direcciones (Geocodificación Directa)
+
+### RF-12: Entrada de Búsqueda de Dirección (Buscador)
+* Se debe proporcionar un campo de entrada de texto (`#map-search-input`) y un botón de búsqueda (`#map-search-btn`) posicionados en la interfaz de la aplicación, preferentemente sobre el visor de mapa.
+* Debe permitir al usuario escribir cualquier dirección, calle, colonia o código postal en lenguaje natural.
+
+### RF-13: Autocompletado y Sugerencias de Ubicaciones
+* Al iniciar la búsqueda, la aplicación consultará al backend de forma segura para obtener una lista de ubicaciones posibles que coincidan con la entrada.
+* Los resultados se mostrarán de forma visual en un listado desplegable (`#map-search-results`) bajo el input de búsqueda.
+
+### RF-14: Restricción a Territorio Nacional
+* El servicio de geocodificación directa en el backend debe restringir los resultados estrictamente a la República Mexicana (usando filtros de componentes de Google `country:MX`), evitando que términos de búsqueda ambiguos devuelvan coordenadas de otros países.
+
+### RF-15: Sincronización y Centrado del Mapa
+* Al seleccionar cualquiera de las sugerencias devueltas por el buscador:
+  * El mapa Leaflet debe centrarse con una animación fluida (`setView`) en la coordenada seleccionada con un zoom apropiado (nivel 16).
+  * Debe dispararse el flujo de colocación de pin principal, cálculo del círculo de radio de influencia y resolución de dirección postal estructurada para el banner superior (exactamente igual a si se hubiese hecho clic directo).
+
+### RF-16: Coexistencia de Interacción Map-Buscador
+* La funcionalidad de hacer clic en cualquier punto del mapa debe continuar operativa y sin alteraciones, conviviendo plenamente con la búsqueda por dirección de texto.
+
+
+
 

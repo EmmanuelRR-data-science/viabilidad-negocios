@@ -17,6 +17,8 @@ services:
     volumes:
       # Mount the local fuentes directory to read raw state shapefiles for demography ingestion
       - ./fuentes:/app/fuentes
+      - ./app:/app/app
+      - ./admin_app.py:/app/admin_app.py
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -29,7 +31,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: viabilidad-hook-api
-    entrypoint: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    entrypoint: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
     environment:
@@ -47,6 +49,9 @@ services:
       - BESTTIME_API_KEY=${BEST_TIME_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GROQ_MODEL=${GROQ_MODEL:-}
+    volumes:
+      - ./frontend:/app/frontend
+      - ./app:/app/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

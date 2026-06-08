@@ -410,7 +410,6 @@ body.light-theme .slider {
 .font-glow {
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.25);
 }
-
 /* --- PANEL DERECHO: MAPA DE LEAFLET --- */
 .map-panel {
     border-radius: 16px;
@@ -431,7 +430,7 @@ body.light-theme .slider {
 .address-banner {
     position: absolute;
     top: 20px;
-    left: 20px;
+    left: 390px; /* Al lado del buscador */
     right: 20px;
     display: flex;
     align-items: center;
@@ -439,12 +438,12 @@ body.light-theme .slider {
     border-radius: 10px;
     gap: 15px;
     z-index: 999;
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 body.light-theme .address-banner {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     border-color: rgba(0, 0, 0, 0.08);
 }
 
@@ -459,6 +458,117 @@ body.light-theme .address-banner {
     text-transform: uppercase;
     color: var(--accent-color);
     letter-spacing: 0.5px;
+}
+
+/* Buscador de Dirección Flotante */
+.map-search-box {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 350px;
+    height: 48px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+body.light-theme .map-search-box {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+#map-search-input {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+}
+
+#map-search-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+#map-search-btn:hover {
+    transform: scale(1.05);
+    background: #1d4ed8;
+}
+
+/* Dropdown de sugerencias de autocompletado */
+.search-results-dropdown {
+    position: absolute;
+    top: 54px;
+    left: 0;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1001;
+}
+
+body.light-theme .search-results-dropdown {
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.search-results-dropdown p {
+    padding: 12px 16px;
+    margin: 0;
+    font-size: 12.5px;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+body.light-theme .search-results-dropdown p {
+    border-bottom-color: rgba(0, 0, 0, 0.04);
+}
+
+.search-results-dropdown p:last-child {
+    border-bottom: none;
+}
+
+.search-results-dropdown p:hover {
+    background: var(--glass-bg-hover);
+    color: var(--accent-color);
+}
+
+/* Responsividad para pantallas pequeñas */
+@media (max-width: 768px) {
+    .address-banner {
+        top: 80px;
+        left: 20px;
+        right: 20px;
+    }
 }
 
 .address-val {
@@ -982,4 +1092,75 @@ body.light-theme .checkbox-group {
 .checkbox-item input[type="checkbox"] {
     cursor: pointer;
     accent-color: var(--accent-color);
+}
+
+/* --- TABLA LIMPIA DE ATRACTORES Y POIs --- */
+.table-wrapper {
+    overflow-x: auto;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.clean-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+    color: var(--text-primary);
+}
+
+.clean-table th, .clean-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.clean-table th {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .clean-table th {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.clean-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+body.light-theme .clean-table tr:hover {
+    background: rgba(0, 0, 0, 0.01);
+}
+
+.clean-table td span.badge {
+    text-transform: uppercase;
+    font-size: 9.5px;
+    letter-spacing: 0.3px;
+}
+
+.clean-table td span.badge.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.clean-table td span.badge.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.clean-table td span.badge.info {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.clean-table td span.badge.secondary {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
 }

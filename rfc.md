@@ -146,4 +146,38 @@ Los usuarios finales son dueños de negocios e inversionistas inmobiliarios que 
 4. **Reemplazo de resolvedores sectoriales**:
    * "SCIAN de INEGI" -> "descriptores comerciales oficiales".
 
+---
+
+## 10. Caché de Reportes y Consistencia de Score SVA
+
+### Problema Detectado
+Actualmente, el Score de Viabilidad SVA y el diagnóstico FODA se calculan de manera independiente en dos flujos síncronos y asíncronos distintos:
+1. **Background Task (`generar_informe_task`)**: Al aprobar la orden, ejecuta el motor analítico y LLM para compilar el PDF final.
+2. **Dashboard API Route (`obtener_resultado_analisis`)**: Al ingresar a la visualización de resultados en la web, re-ejecuta el motor analítico y LLM en caliente.
+
+Esto causa los siguientes inconvenientes:
+- **Discrepancia de datos**: Al re-calcularlos en momentos diferentes, variaciones en APIs externas (Google Places, BestTime) o el comportamiento estocástico del LLM (Bedrock) provocan que el score y los textos en el panel web no coincidan exactamente con los que se encuentran impresos en el PDF compilado.
+- **Rendimiento e Ineficiencia**: Cada carga del Dashboard web genera llamadas costosas de red y cobros de consumo a APIs propietarias.
+- **Diferencia entre Vista Previa y Reporte de Pago**: La vista previa se calcula siempre bajo el Tier "Básico" por defecto (donde la afluencia peatonal BestTime se ignora, usando una constante de 55.0 puntos). Cuando el usuario adquiere un Tier Premium o personaliza competidores, el motor recalcula el score incorporando estos factores avanzados (afluencia real, competidores y aliados elegidos), lo que altera legítimamente la puntuación de viabilidad para reflejar las preferencias específicas de su plan.
+
+### Solución Técnica
+1. **Persistencia del Reporte**: Agregar columnas `resultado_json` y `foda_json` a la tabla `ordenes_pagos` en la base de datos PostgreSQL.
+2. **Registro Único (Single Source of Truth)**: Modificar la tarea asíncrona de compilación (`generar_informe_task`) para guardar el resultado serializado de las analíticas geoespaciales y la respuesta del LLM en la base de datos.
+3. **Lectura Inmediata**: Modificar el endpoint del dashboard para retornar directamente este JSON si está disponible, sirviendo como caché definitivo y asegurando 100% de consistencia entre la vista digital y el reporte PDF.
+
+---
+
+## 11. Búsqueda de Direcciones (Geocodificación Directa)
+
+### 11.1 Metas
+* Permitir al usuario teclear una dirección en lenguaje natural (calle, número, colonia, etc.) en lugar de depender únicamente de clics en el mapa.
+* Autocompletar u ofrecer sugerencias coincidentes en una lista desplegable interactiva.
+* Centrar automáticamente la vista del mapa e iniciar el análisis de viabilidad al seleccionar una dirección.
+
+### 11.2 Diseño Detallado
+* **Búsqueda Geográfica**: Se integra la API de Google Geocoding directa en el archivo [google_places.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/google_places.py) con el filtro `components=country:MX` para acotar los resultados de forma estricta a México.
+* **API Route**: Se añade el endpoint `GET /api/analizar/buscar-direccion` en [routes_analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/routes_analytics.py) que retorna una lista de candidatos `{"direccion": formatted_address, "latitud": lat, "longitud": lng}`.
+* **Componente de UI Flotante**: Se inyecta un buscador `.map-search-box` con posicionamiento absoluto sobre la esquina superior izquierda del mapa `#map`.
+* **Eventos Leaflet**: Al hacer clic en un resultado de búsqueda, el frontend actualiza el marcador con `state.centerMarker.setLatLng([lat, lng])` y llama a la función unificada `handleMapClick(lat, lng)`.
+* **Coexistencia**: El mapa continúa escuchando clics con normalidad, de forma que el usuario puede usar ambos métodos indistintamente.
 

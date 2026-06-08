@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="index.css?v=1.0.1">
+    <link rel="stylesheet" href="index.css?v=1.0.2">
 </head>
 <body class="light-theme" id="body-app">
 
@@ -193,6 +193,13 @@
                     <p id="address-text" class="address-val">Cargando ubicación...</p>
                 </div>
             </div>
+
+            <!-- Buscador de Dirección Flotante -->
+            <div class="map-search-box glass-card" id="search-box-container">
+                <input type="text" id="map-search-input" placeholder="Busca una dirección en México...">
+                <button id="map-search-btn" title="Buscar dirección">🔍</button>
+                <div id="map-search-results" class="search-results-dropdown hidden"></div>
+            </div>
             
             <!-- Div del Mapa de Leaflet -->
             <div id="map" class="map-canvas"></div>
@@ -229,7 +236,7 @@
                 <div class="kpi-info">
                     <h3>Score Viabilidad SVA</h3>
                     <p class="kpi-value" id="kpi-sva">--</p>
-                    <p class="kpi-desc" id="kpi-sva-desc">Ponderación de demanda y competencia.</p>
+                    <p class="kpi-desc" id="kpi-sva-desc">Evaluación del 0 al 100 sobre qué tan viable es abrir tu negocio en este punto, considerando clientes, competencia y paso de peatones.</p>
                 </div>
             </div>
             
@@ -239,7 +246,7 @@
                 <div class="kpi-info">
                     <h3>Demanda Residente</h3>
                     <p class="kpi-value" id="kpi-poblacion">--</p>
-                    <p class="kpi-desc" id="kpi-pob-desc">Población residente estimada en el radio.</p>
+                    <p class="kpi-desc" id="kpi-pob-desc">Cantidad de personas que viven cerca y representan tus clientes potenciales del día a día, quienes te visitarán de forma regular.</p>
                 </div>
             </div>
             
@@ -249,7 +256,7 @@
                 <div class="kpi-info">
                     <h3>Competidores Locales</h3>
                     <p class="kpi-value" id="kpi-competidores">--</p>
-                    <p class="kpi-desc" id="kpi-comp-desc">Establecimientos del mismo giro en la zona.</p>
+                    <p class="kpi-desc" id="kpi-comp-desc">Negocios similares en la zona con los que compartirás el mercado. Menos competencia significa mayor facilidad para captar clientes.</p>
                 </div>
             </div>
         </div>
@@ -266,12 +273,37 @@
                 </div>
             </div>
             
-            <!-- Gráfico Atractores / POIs -->
+            <!-- Tabla Atractores / POIs -->
             <div class="chart-card glass-card" id="poi-chart-card">
                 <h3>Atractores de Tráfico y Aliados</h3>
-                <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver la distribución de POIs aliados en la zona.</p>
-                <div class="canvas-wrapper">
-                    <canvas id="poi-chart"></canvas>
+                <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver los atractores de tráfico locales.</p>
+                <div class="table-wrapper" id="poi-table-container">
+                    <table class="clean-table" id="poi-table">
+                        <thead>
+                            <tr>
+                                <th>Atractor / Tipo de Aliado</th>
+                                <th>Establecimientos en la Zona</th>
+                                <th>Impacto en Tráfico</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poi-table-body">
+                            <tr>
+                                <td>Transporte Público</td>
+                                <td id="poi-count-transit">--</td>
+                                <td><span class="badge info">Cargando...</span></td>
+                            </tr>
+                            <tr>
+                                <td>Centros Educativos</td>
+                                <td id="poi-count-school">--</td>
+                                <td><span class="badge info">Cargando...</span></td>
+                            </tr>
+                            <tr>
+                                <td>Bancos y Finanzas</td>
+                                <td id="poi-count-bank">--</td>
+                                <td><span class="badge info">Cargando...</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -443,6 +475,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Lógica de la Aplicación -->
-    <script src="app.js?v=1.0.1"></script>
+    <script src="app.js?v=1.0.2"></script>
 </body>
 </html>

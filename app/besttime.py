@@ -70,7 +70,7 @@ def obtener_afluencia_simulada(rubro: str) -> dict:
     }
 
 
-def obtener_afluencia(lat: float, lng: float, rubro: str) -> dict:
+def obtener_afluencia(lat: float, lng: float, rubro: str, competidores: list | None = None) -> dict:
     """
     Consume la API de BestTime (Foot Traffic Analysis) para recuperar la saturación de
     personas y afluencia por hora para el nicho correspondiente en la coordenada seleccionada.
@@ -83,13 +83,25 @@ def obtener_afluencia(lat: float, lng: float, rubro: str) -> dict:
             logger.warning("BestTime API key no configurada en producción. Sección de Afluencia se omitirá.")
             return _sin_cobertura_besttime()
 
+    # Si hay competidores reales, usar el más cercano para obtener telemetría real representativa de la zona
+    venue_name = f"Zona {rubro}"
+    venue_address = f"{lat},{lng}"
+    if competidores and len(competidores) > 0:
+        nearest = competidores[0]
+        comp_name = nearest.get("nombre")
+        comp_addr = nearest.get("direccion")
+        if comp_name and comp_addr and comp_addr != "Dirección no disponible":
+            venue_name = comp_name
+            venue_address = comp_addr
+            logger.info(f"Usando competidor más cercano para BestTime: '{venue_name}' en '{venue_address}'")
+
     # Llamada real a BestTime API para registrar y generar un forecast de un nuevo venue
     url = "https://besttime.app/api/v1/forecasts"
-    params = {"api_key_private": BESTTIME_API_KEY, "venue_name": f"Zona {rubro}", "venue_address": f"{lat},{lng}"}
+    query_params = {"api_key_private": BESTTIME_API_KEY, "venue_name": venue_name, "venue_address": venue_address}
 
     try:
         logger.info(f"Consultando BestTime API para coordenadas ({lat}, {lng}) y rubro '{rubro}'...")
-        response = requests.post(url, data=params, timeout=10)
+        response = requests.post(url, params=query_params, timeout=10)
         response.raise_for_status()
         data = response.json()
 

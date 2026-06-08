@@ -203,6 +203,10 @@ def init_db_schemas(engine):
                     s3_key_reporte VARCHAR(255),
                     competidores_seleccionados TEXT,
                     aliados_seleccionados TEXT,
+                    competidores_adicionales TEXT,
+                    aliados_adicionales TEXT,
+                    resultado_json TEXT,
+                    foda_json TEXT,
                     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     fecha_aprobacion TIMESTAMP
                 );
