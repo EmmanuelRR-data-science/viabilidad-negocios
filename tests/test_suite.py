@@ -517,8 +517,7 @@ def test_descargar_pdf_local_endpoint():
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        expected_url = f"http://localhost:8000/api/analizar/pdf/{orden.id}/descargar"
-        assert data["url_descarga"] == expected_url
+        assert f"/api/analizar/pdf/{orden.id}/descargar" in data["url_descarga"]
 
         # Create dummy PDF file locally
         os.makedirs("scratch/reports", exist_ok=True)

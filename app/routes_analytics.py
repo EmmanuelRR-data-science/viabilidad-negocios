@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.analytics import procesar_calculo_analitico
@@ -178,7 +178,10 @@ def obtener_resultado_analisis(
 
 @router.get("/pdf/{orden_id}", status_code=status.HTTP_200_OK)
 def obtener_url_descarga_pdf(
-    orden_id: int, db: Session = Depends(get_db), user: UserContext = Depends(get_current_user)
+    request: Request,
+    orden_id: int,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
 ):
     """
     Genera una URL firmada de descarga segura (Presigned URL) de 10 minutos
@@ -214,7 +217,8 @@ def obtener_url_descarga_pdf(
         if DEV_MODE:
             # Modo Desarrollo: Retornamos el link local que expone la descarga directa
             logger.info("[ROUTES] Modo Desarrollo: Retornando URL de descarga directa local.")
-            url_descarga = f"http://localhost:8000/api/analizar/pdf/{orden.id}/descargar"
+            base = str(request.base_url).rstrip("/")
+            url_descarga = f"{base}/api/analizar/pdf/{orden.id}/descargar"
         else:
             # Modo Producción: Generar URL firmada real de Amazon S3
             import re
