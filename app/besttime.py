@@ -6,6 +6,78 @@ from app.config import BESTTIME_API_KEY, DEV_MODE
 
 logger = logging.getLogger("besttime")
 
+DIAS_SEMANA_ESP = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+# BestTime entrega 'day_raw' con 24 valores horarios que inician a las 6:00 AM
+# (no a medianoche), por lo que se requiere desplazar los índices al normalizar.
+_BESTTIME_HORA_INICIO_DIA = 6
+
+
+def _normalizar_curva_a_medianoche(day_raw: list) -> list:
+    """
+    Convierte la curva 'day_raw' de BestTime (24 valores iniciando a las 6:00 AM)
+    a una curva indexada por hora real del día (índice 0 = 00:00, ..., 23 = 23:00).
+    """
+    curva = [0] * 24
+    for i, val in enumerate(day_raw[:24]):
+        hora_real = (_BESTTIME_HORA_INICIO_DIA + i) % 24
+        curva[hora_real] = int(val) if isinstance(val, (int, float)) else 0
+    return curva
+
+
+def _parsear_analysis_besttime(analysis: list) -> dict | None:
+    """
+    Parsea la lista 'analysis' del forecast de BestTime: un objeto por día de la semana,
+    cada uno con 'day_info' (day_int 0=Lunes..6=Domingo, day_mean) y 'day_raw'.
+    Retorna la estructura interna midnight-based, o None si no hay curvas utilizables.
+    """
+    afluencia_semanal: dict[str, list] = {}
+    medias_por_dia: dict[str, float] = {}
+    hora_pico_por_dia: dict[str, int | None] = {}
+
+    for day_data in analysis:
+        if not isinstance(day_data, dict):
+            continue
+        day_info = day_data.get("day_info") or {}
+        day_int = day_info.get("day_int")
+        day_raw = day_data.get("day_raw")
+        if not isinstance(day_int, int) or not (0 <= day_int <= 6):
+            continue
+        if not isinstance(day_raw, list) or len(day_raw) < 24:
+            continue
+
+        dia_esp = DIAS_SEMANA_ESP[day_int]
+        curva = _normalizar_curva_a_medianoche(day_raw)
+        afluencia_semanal[dia_esp] = curva
+
+        media = day_info.get("day_mean")
+        medias_por_dia[dia_esp] = float(media) if isinstance(media, (int, float)) else sum(curva) / 24.0
+
+        # 'peak_hours' trae horas en reloj de 24h (ej. peak_max = 13 → 13:00)
+        peak_hours = day_data.get("peak_hours") or []
+        peak_max = peak_hours[0].get("peak_max") if peak_hours and isinstance(peak_hours[0], dict) else None
+        hora_pico_por_dia[dia_esp] = peak_max if isinstance(peak_max, int) and 0 <= peak_max <= 23 else None
+
+    if not afluencia_semanal:
+        return None
+
+    dia_pico = max(medias_por_dia, key=lambda d: medias_por_dia[d])
+    curva_dia_pico = afluencia_semanal[dia_pico]
+
+    hora_pico = hora_pico_por_dia.get(dia_pico)
+    if hora_pico is None:
+        hora_pico = curva_dia_pico.index(max(curva_dia_pico))
+
+    saturacion_promedio = round(sum(medias_por_dia.values()) / len(medias_por_dia), 1)
+
+    return {
+        "afluencia_horaria": curva_dia_pico,
+        "afluencia_semanal": afluencia_semanal,
+        "dia_pico": dia_pico,
+        "hora_pico": f"{hora_pico:02d}:00",
+        "saturación_promedio": saturacion_promedio,
+    }
+
 
 def _sin_cobertura_besttime() -> dict:
     """
@@ -85,10 +157,49 @@ def obtener_afluencia_simulada(rubro: str) -> dict:
     }
 
 
+# Máximo de venues a intentar por consulta para controlar el consumo de créditos
+_BESTTIME_MAX_INTENTOS = 3
+
+
+def _solicitar_forecast_besttime(venue_name: str, venue_address: str) -> dict | None:
+    """
+    Solicita un forecast a BestTime para un venue específico y lo parsea.
+    Retorna el dict interno de afluencia, o None si el venue no tiene telemetría
+    (404 venue not found, curvas vacías, errores de red, etc.).
+    """
+    url = "https://besttime.app/api/v1/forecasts"
+    query_params = {"api_key_private": BESTTIME_API_KEY, "venue_name": venue_name, "venue_address": venue_address}
+
+    try:
+        logger.info(f"Solicitando forecast BestTime para venue '{venue_name}' en '{venue_address}'...")
+        response = requests.post(url, params=query_params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        # BestTime entrega 'analysis' como lista de 7 objetos (uno por día de la semana)
+        if data.get("status") == "OK" and isinstance(data.get("analysis"), list):
+            parsed = _parsear_analysis_besttime(data["analysis"])
+            if parsed:
+                return {
+                    "status": "success",
+                    "venue_name": data.get("venue_info", {}).get("venue_name", venue_name),
+                    **parsed,
+                }
+        logger.warning(f"BestTime sin curvas utilizables para venue '{venue_name}'. Probando siguiente candidato.")
+        return None
+
+    except Exception as e:
+        logger.warning(f"BestTime falló para venue '{venue_name}': {e}. Probando siguiente candidato.")
+        return None
+
+
 def obtener_afluencia(lat: float, lng: float, rubro: str, competidores: list | None = None) -> dict:
     """
     Consume la API de BestTime (Foot Traffic Analysis) para recuperar la saturación de
     personas y afluencia por hora para el nicho correspondiente en la coordenada seleccionada.
+
+    BestTime solo tiene telemetría para venues con suficiente popularidad, por lo que se
+    intenta con varios competidores de la zona (los más reseñados primero) hasta obtener datos.
     """
     if not BESTTIME_API_KEY or BESTTIME_API_KEY.startswith("pega_tu") or "tu_token" in BESTTIME_API_KEY:
         if DEV_MODE:
@@ -98,83 +209,32 @@ def obtener_afluencia(lat: float, lng: float, rubro: str, competidores: list | N
             logger.warning("BestTime API key no configurada en producción. Sección de Afluencia se omitirá.")
             return _sin_cobertura_besttime()
 
-    # Si hay competidores reales, usar el más cercano para obtener telemetría real representativa de la zona
-    venue_name = f"Zona {rubro}"
-    venue_address = f"{lat},{lng}"
-    if competidores and len(competidores) > 0:
-        nearest = competidores[0]
-        comp_name = nearest.get("nombre")
-        comp_addr = nearest.get("direccion")
-        if comp_name and comp_addr and comp_addr != "Dirección no disponible":
-            venue_name = comp_name
-            venue_address = comp_addr
-            logger.info(f"Usando competidor más cercano para BestTime: '{venue_name}' en '{venue_address}'")
+    # Construir candidatos: competidores con nombre y dirección utilizables, ordenados por
+    # popularidad (user_ratings_total) — los venues populares son los que BestTime conoce.
+    candidatos: list[tuple[str, str]] = []
+    if competidores:
+        utilizables = [
+            c
+            for c in competidores
+            if c.get("nombre") and c.get("direccion") and c.get("direccion") != "Dirección no disponible"
+        ]
+        utilizables.sort(key=lambda c: c.get("user_ratings_total", 0), reverse=True)
+        candidatos = [(c["nombre"], c["direccion"]) for c in utilizables[:_BESTTIME_MAX_INTENTOS]]
 
-    # Llamada real a BestTime API para registrar y generar un forecast de un nuevo venue
-    url = "https://besttime.app/api/v1/forecasts"
-    query_params = {"api_key_private": BESTTIME_API_KEY, "venue_name": venue_name, "venue_address": venue_address}
+    if not candidatos:
+        candidatos = [(f"Zona {rubro}", f"{lat},{lng}")]
 
-    try:
-        logger.info(f"Consultando BestTime API para coordenadas ({lat}, {lng}) y rubro '{rubro}'...")
-        response = requests.post(url, params=query_params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+    logger.info(
+        f"Consultando BestTime API para coordenadas ({lat}, {lng}) y rubro '{rubro}' "
+        f"con {len(candidatos)} venue(s) candidato(s)..."
+    )
+    for venue_name, venue_address in candidatos:
+        resultado = _solicitar_forecast_besttime(venue_name, venue_address)
+        if resultado:
+            return resultado
 
-        if data.get("status") == "OK" and "analysis" in data:
-            analysis = data["analysis"]
-
-            # Extraer las curvas del día de hoy
-            # BestTime entrega arrays por día de la semana, mapeamos un promedio
-            day_raw = analysis.get("day_raw", [])
-            afluencia_horaria = day_raw if len(day_raw) == 24 else [0] * 24
-
-            # Generar afluencia semanal
-            dias_eng = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-            dias_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-            afluencia_semanal = {}
-            try:
-                week_raw = analysis.get("week_raw")
-                if isinstance(week_raw, list) and len(week_raw) == 7:
-                    for idx, day_data in enumerate(week_raw):
-                        if isinstance(day_data, list) and len(day_data) == 24:
-                            afluencia_semanal[dias_esp[idx]] = day_data
-                elif isinstance(week_raw, dict):
-                    for eng, esp in zip(dias_eng, dias_esp, strict=False):
-                        day_data = week_raw.get(eng)
-                        if isinstance(day_data, list) and len(day_data) == 24:
-                            afluencia_semanal[esp] = day_data
-            except Exception as e:
-                logger.warning(f"No se pudo extraer week_raw de BestTime: {e}. Usando generador fallback.")
-
-            # Fallback si está vacío o incompleto
-            if not afluencia_semanal:
-                for idx, esp in enumerate(dias_esp):
-                    shift = idx % 3
-                    factor = 1.15 if esp in ["Viernes", "Sábado"] else (0.75 if esp == "Domingo" else 1.0)
-                    daily_curve = []
-                    for val in afluencia_horaria:
-                        new_val = min(100, int(val * factor))
-                        daily_curve.append(new_val)
-                    if shift > 0:
-                        daily_curve = daily_curve[shift:] + daily_curve[:shift]
-                    afluencia_semanal[esp] = daily_curve
-
-            return {
-                "status": "success",
-                "venue_name": data.get("venue_info", {}).get("venue_name", "Zona Comercial"),
-                "afluencia_horaria": afluencia_horaria,
-                "afluencia_semanal": afluencia_semanal,
-                "dia_pico": analysis.get("busy_hours_day"),
-                "hora_pico": f"{analysis.get('peak_hour')}:00",
-                "saturación_promedio": float(analysis.get("day_intensity", 50)),
-            }
-        else:
-            logger.warning(
-                "La respuesta de BestTime API no tiene la estructura de análisis requerida. "
-                "Se omitirá la sección de Afluencia Peatonal en el reporte."
-            )
-            return _sin_cobertura_besttime()
-
-    except Exception as e:
-        logger.error(f"Error en llamada a BestTime API: {e}. La sección de Afluencia Peatonal será omitida.")
-        return _sin_cobertura_besttime()
+    logger.error(
+        f"Ningún venue candidato de BestTime tiene telemetría en la zona ({lat}, {lng}). "
+        "La sección de Afluencia Peatonal será omitida."
+    )
+    return _sin_cobertura_besttime()
