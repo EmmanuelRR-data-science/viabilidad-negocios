@@ -17,7 +17,7 @@ logger = logging.getLogger("payments")
 router = APIRouter(prefix="/api/pagos", tags=["Transacciones y Pagos"])
 
 # Mapeo de precios por Tier de análisis comercial (Pesos Mexicanos MXN)
-PRECIOS_TIER = {"basico": 99.00, "pro": 249.00, "premium": 499.00}
+PRECIOS_TIER = {"basico": 299.00, "pro": 649.00, "premium": 799.00}
 
 
 @router.post("/preferencia", response_model=PreferenciaResponse, status_code=status.HTTP_201_CREATED)

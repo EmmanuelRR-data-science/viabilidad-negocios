@@ -23,7 +23,7 @@ def run_tier_test(tier: str, radio: int):
     try:
         # 1. Crear una orden de prueba en estado 'pending'
         checkout_id = f"chk_test_{tier}_{os.urandom(3).hex()}"
-        monto = Decimal("99.00") if tier == "basico" else (Decimal("249.00") if tier == "pro" else Decimal("499.00"))
+        monto = Decimal("299.00") if tier == "basico" else (Decimal("649.00") if tier == "pro" else Decimal("799.00"))
 
         orden = OrdenPago(
             cognito_user_id="usr_test_999",

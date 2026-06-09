@@ -279,3 +279,16 @@ Esto causa los siguientes inconvenientes:
 * Si se encuentra en aliados, se busca la tríada por defecto (bancos, escuelas, transporte), pero se mantiene la bandera `aliados_ia_auto = True`.
 * La tarea de fondo pasa estas banderas a `generar_analisis_foda` en `bedrock.py`.
 * El prompt del LLM recibe la instrucción de autodetectar, justificar y redactar dinámicamente qué comercios del entorno son aliados o competidores de alto impacto comercial en la sección de FODA y conclusión.
+
+---
+
+## 15. Actualización de Precios de Planes de Geomarketing
+* **Objetivo:** Adecuar las tarifas comerciales a la nueva propuesta de valor que integra información real del INEGI desde la versión gratuita y autodetección por IA en reportes avanzados.
+* **Nuevas Tarifas:**
+  - **Plan Básico:** $299.00 MXN
+  - **Plan Pro:** $649.00 MXN
+  - **Plan Premium:** $799.00 MXN
+* **Impacto en Sistemas:**
+  - **Backend (`payments.py`):** Modificar el diccionario `PRECIOS_TIER` de mapeo de precios.
+  - **Frontend (`index.html` y `app.js`):** Ajustar leyendas y botones de compra, así como el importe dinámico desplegado en el modal de confirmación de compra.
+  - **Tests (`test_suite.py` y mocks):** Adecuar las validaciones y aserciones de precios esperados para los endpoints de transacciones.

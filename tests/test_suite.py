@@ -147,7 +147,7 @@ def test_crear_preferencia_cobro_api():
 
     data = response.json()
     assert "orden_id" in data
-    assert data["monto"] == 99.00
+    assert data["monto"] == 299.00
     assert data["estado_pago"] == "pending"
     assert "checkout_id" in data
     assert "init_point" in data
@@ -214,7 +214,7 @@ def test_webhook_processing_and_mock():
             cognito_user_id="usr_mock_123",
             email="demo_sva@geoviabilidad.com",
             checkout_id=checkout_id,
-            monto=Decimal("249.00"),
+            monto=Decimal("649.00"),
             estado_pago="pending",
             tier_adquirido="pro",
             latitud=Decimal("19.432608"),
@@ -449,7 +449,7 @@ def test_obtener_resultado_analisis_cache_api():
             cognito_user_id="usr_mock_123",
             email="demo_sva@geoviabilidad.com",
             checkout_id=checkout_id,
-            monto=Decimal("249.00"),
+            monto=Decimal("649.00"),
             estado_pago="approved",
             tier_adquirido="pro",
             latitud=Decimal("19.432608"),
@@ -497,7 +497,7 @@ def test_descargar_pdf_local_endpoint():
             cognito_user_id="usr_mock_123",
             email="demo_sva@geoviabilidad.com",
             checkout_id=checkout_id,
-            monto=Decimal("499.00"),
+            monto=Decimal("799.00"),
             estado_pago="approved",
             tier_adquirido="premium",
             latitud=Decimal("19.432608"),

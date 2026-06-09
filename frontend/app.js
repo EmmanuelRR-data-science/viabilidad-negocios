@@ -700,13 +700,13 @@ async function openPaymentModal(tier) {
     // Asignar conceptos en base al Tier
     if (tier === "basico") {
         billingTitle.textContent = "Reporte Comercial BÁSICO (6 Páginas)";
-        billingPrice.textContent = "$99.00 MXN";
+        billingPrice.textContent = "$299.00 MXN";
     } else if (tier === "pro") {
         billingTitle.textContent = "Reporte Comercial PRO (10 Páginas + Mapas + Atracción)";
-        billingPrice.textContent = "$249.00 MXN";
+        billingPrice.textContent = "$649.00 MXN";
     } else {
         billingTitle.textContent = "Reporte PREMIUM (14 Páginas + ROI + Afluencia)";
-        billingPrice.textContent = "$499.00 MXN";
+        billingPrice.textContent = "$799.00 MXN";
     }
     
     // Ocultar barra de carga anterior
