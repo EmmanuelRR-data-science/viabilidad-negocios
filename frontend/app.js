@@ -1073,6 +1073,16 @@ function renderCompetitorPins(competidores, aliados) {
 }
 
 // --- RENDERIZAR MAPA DE CALOR (HEATMAP) ---
+// Escala térmica para el heatmap: interpola tono dorado (45°) → rojo (0°) según la afluencia,
+// con opacidad creciente para que las horas muertas se desvanezcan y los picos resalten.
+function heatColor(val) {
+    const intensity = Math.max(0, Math.min(100, val)) / 100;
+    if (intensity === 0) return "rgba(148, 163, 184, 0.08)";
+    const hue = 45 - intensity * 45;
+    const alpha = 0.18 + intensity * 0.82;
+    return `hsla(${hue}, 95%, 55%, ${alpha.toFixed(2)})`;
+}
+
 function renderHeatmap(afluencia) {
     const gridContainer = document.getElementById("heatmap-grid-container");
     if (!gridContainer) return;
@@ -1132,9 +1142,11 @@ function renderHeatmap(afluencia) {
             const cellDiv = document.createElement("div");
             cellDiv.className = "heatmap-cell";
             
-            // Opacidad en base a valor (0 a 100)
-            const alpha = (val / 100).toFixed(2);
-            cellDiv.style.background = `rgba(37, 99, 235, ${alpha})`;
+            // Escala térmica vibrante: dorado (poca afluencia) → naranja → rojo intenso (pico)
+            cellDiv.style.background = heatColor(val);
+            if (val >= 75) {
+                cellDiv.style.boxShadow = "0 0 8px rgba(239, 68, 68, 0.45)";
+            }
             
             // Tooltip nativo interactivo (title)
             cellDiv.setAttribute("title", `${dia} ${h.toString().padStart(2, '0')}:00 — Tránsito: ${val}%`);
@@ -1169,6 +1181,17 @@ function renderCompetitorsChart(competidores) {
         else ratings["< 3.0 o Sin Rating"]++;
     });
     
+    // Paleta vibrante semántica: rojo (mal valorados) → naranja → ámbar → verde (mejor valorados)
+    const ratingColors = {
+        backgrounds: [
+            'rgba(244, 63, 94, 0.8)',   // rose - "< 3.0 o Sin Rating"
+            'rgba(249, 115, 22, 0.8)',  // orange - "3.0 - 3.9"
+            'rgba(251, 191, 36, 0.8)',  // amber - "4.0 - 4.4"
+            'rgba(34, 197, 94, 0.8)'    // green - "4.5 - 5.0"
+        ],
+        borders: ['#f43f5e', '#f97316', '#fbbf24', '#22c55e']
+    };
+
     const ctx = document.getElementById("competitors-chart").getContext("2d");
     state.charts.competitors = new Chart(ctx, {
         type: 'bar',
@@ -1177,8 +1200,8 @@ function renderCompetitorsChart(competidores) {
             datasets: [{
                 label: 'Número de Comercios',
                 data: Object.values(ratings),
-                backgroundColor: 'rgba(59, 130, 246, 0.65)',
-                borderColor: '#3b82f6',
+                backgroundColor: ratingColors.backgrounds,
+                borderColor: ratingColors.borders,
                 borderWidth: 1.5,
                 borderRadius: 6
             }]
