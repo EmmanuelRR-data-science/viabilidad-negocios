@@ -507,33 +507,41 @@ function checkFormValidity() {
 function applyBlurRules(tier) {
     const compWrapper = document.querySelector("#competitor-chart-card .canvas-wrapper");
     const poiWrapper = document.querySelector("#poi-chart-card .table-wrapper");
+    const heatWrapper = document.getElementById("heatmap-grid-container");
     
     const compMsg = document.getElementById("comp-chart-locked-msg");
     const poiMsg = document.getElementById("poi-chart-locked-msg");
+    const heatMsg = document.getElementById("heatmap-locked-msg");
 
     if (!compWrapper || !poiWrapper || !compMsg || !poiMsg) return;
 
     if (tier === "gratuito" || tier === "basico") {
-        // Blur en ambos
+        // Blur en todos
         compWrapper.classList.add("blurred-premium");
         poiWrapper.classList.add("blurred-premium");
+        if (heatWrapper) heatWrapper.classList.add("blurred-premium");
         
         compMsg.classList.remove("hidden");
         poiMsg.classList.remove("hidden");
+        if (heatMsg) heatMsg.classList.remove("hidden");
     } else if (tier === "pro") {
-        // Competidores nítido, atractores blur
+        // Competidores y Heatmap nítido, atractores blur
         compWrapper.classList.remove("blurred-premium");
         poiWrapper.classList.add("blurred-premium");
+        if (heatWrapper) heatWrapper.classList.remove("blurred-premium");
         
         compMsg.classList.add("hidden");
         poiMsg.classList.remove("hidden");
+        if (heatMsg) heatMsg.classList.add("hidden");
     } else if (tier === "premium") {
-        // Ambos nítidos
+        // Todos nítidos
         compWrapper.classList.remove("blurred-premium");
         poiWrapper.classList.remove("blurred-premium");
+        if (heatWrapper) heatWrapper.classList.remove("blurred-premium");
         
         compMsg.classList.add("hidden");
         poiMsg.classList.add("hidden");
+        if (heatMsg) heatMsg.classList.add("hidden");
     }
 }
 
@@ -611,6 +619,7 @@ async function runPreviewAnalysis() {
             // Generar Gráficos Avanzados
             renderCompetitorsChart(data.competidores_listado);
             renderPOITable(data);
+            renderHeatmap(data.afluencia_peatonal);
 
             // Aplicar las reglas de blur para la vista previa
             applyBlurRules("gratuito");
@@ -644,26 +653,25 @@ function lockAdvancedFeatures() {
     // Mensajes de bloqueo
     document.getElementById("comp-chart-locked-msg").classList.remove("hidden");
     document.getElementById("poi-chart-locked-msg").classList.remove("hidden");
-    document.getElementById("foda-locked-msg").classList.remove("hidden");
     
-    // Ocultar proyecciones financieras y descargas
-    document.getElementById("financial-section").classList.add("hidden");
+    const heatmapMsg = document.getElementById("heatmap-locked-msg");
+    if (heatmapMsg) heatmapMsg.classList.remove("hidden");
+    
+    // Ocultar descargas
     document.getElementById("download-section").classList.add("hidden");
     
     // Mostrar botones de compra
     document.getElementById("dashboard-actions").classList.remove("hidden");
-    
-    // Desactivar FODA textos
-    document.getElementById("foda-f-text").textContent = "🔒 Requiere plan Básico o Pro.";
-    document.getElementById("foda-o-text").textContent = "🔒 Requiere plan Básico o Pro.";
-    document.getElementById("foda-d-text").textContent = "🔒 Requiere plan Básico o Pro.";
-    document.getElementById("foda-a-text").textContent = "🔒 Requiere plan Básico o Pro.";
     
     // Destruir gráficos de Chart.js si existían
     if (state.charts.competitors) {
         state.charts.competitors.destroy();
         state.charts.competitors = null;
     }
+    
+    // Limpiar contenedor de mapa de calor
+    const heatContainer = document.getElementById("heatmap-grid-container");
+    if (heatContainer) heatContainer.innerHTML = "";
     
     // Restablecer la tabla de atractores / POIs a su estado inicial de carga
     const tbody = document.getElementById("poi-table-body");
@@ -981,10 +989,6 @@ async function unlockPaidReport() {
             document.getElementById("dashboard-actions").classList.add("hidden");
             document.getElementById("download-section").classList.remove("hidden");
             
-            // 2. Rellenar FODA
-            document.getElementById("foda-locked-msg").classList.add("hidden");
-            renderFODA(iaAnalisis.foda_analisis || iaAnalisis);
-            
             // Pintar pines de competidores y aliados en el mapa (solo si Pro o Premium para el mapa físico)
             if (state.activeTier === "pro" || state.activeTier === "premium") {
                 renderCompetitorPins(metricas.competidores_listado, metricas.aliados_listado);
@@ -995,18 +999,10 @@ async function unlockPaidReport() {
             // Generar Gráficos Avanzados siempre (el blur controla su visualización)
             renderCompetitorsChart(metricas.competidores_listado);
             renderPOITable(metricas);
+            renderHeatmap(metricas.afluencia_peatonal);
 
             // Aplicar las reglas de blur y visibilidad de mensajes según el Tier activo
             applyBlurRules(state.activeTier);
-            
-            // 4. Rellenar finanzas y ROI (si PREMIUM)
-            if (state.activeTier === "premium") {
-                document.getElementById("financial-section").classList.remove("hidden");
-                document.getElementById("financial-ticket").textContent = iaAnalisis.ticket_recomendado || "$180 - $250 MXN";
-                document.getElementById("financial-roi").textContent = iaAnalisis.roi_estimado || "14 a 18 Meses";
-            } else {
-                document.getElementById("financial-section").classList.add("hidden");
-            }
             
             // Scroll suave a los gráficos
             document.getElementById("advanced-charts-section").scrollIntoView({ behavior: 'smooth' });
@@ -1063,36 +1059,80 @@ function renderCompetitorPins(competidores, aliados) {
     }
 }
 
-// --- RENDERIZAR FODA ---
-function renderFODA(fodaData) {
-    const cardF = document.getElementById("foda-f-text");
-    const cardO = document.getElementById("foda-o-text");
-    const cardD = document.getElementById("foda-d-text");
-    const cardA = document.getElementById("foda-a-text");
+// --- RENDERIZAR MAPA DE CALOR (HEATMAP) ---
+function renderHeatmap(afluencia) {
+    const gridContainer = document.getElementById("heatmap-grid-container");
+    if (!gridContainer) return;
     
-    if (typeof fodaData === "string") {
-        // En caso de que Bedrock devuelva texto crudo plano en lugar de JSON
-        const lines = fodaData.split("\n");
-        let f = "", o = "", d = "", a = "";
-        
-        lines.forEach(line => {
-            if (line.includes("Fortalezas") || line.includes("💪")) f += line + "<br/>";
-            else if (line.includes("Oportunidades") || line.includes("🚀")) o += line + "<br/>";
-            else if (line.includes("Debilidades") || line.includes("⚠️")) d += line + "<br/>";
-            else if (line.includes("Amenazas") || line.includes("🔥")) a += line + "<br/>";
-        });
-        
-        cardF.innerHTML = f || "La densidad de población proporciona un excelente colchón de demanda.";
-        cardO.innerHTML = o || "Alianza estratégica con atractores viales cercanos.";
-        cardD.innerHTML = d || "Presencia de competidores consolidados en el mismo radio.";
-        cardA.innerHTML = a || "Riesgo de saturación por apertura rápida de franquicias.";
-    } else {
-        // Formato JSON limpio esperado
-        cardF.innerHTML = fodaData.fortalezas || "Suficiente densidad de población residente.";
-        cardO.innerHTML = fodaData.oportunidades || "Alta tracción en horas de comida/salida laboral.";
-        cardD.innerHTML = fodaData.debilidades || "Existencia de competidores directos en la avenida.";
-        cardA.innerHTML = fodaData.amenazas || "Saturación del nicho a mediano plazo.";
+    // Limpiar contenedor anterior
+    gridContainer.innerHTML = "";
+    
+    // Si no hay datos, mostrar aviso
+    if (!afluencia || afluencia.status === "no_data" || !afluencia.afluencia_semanal) {
+        gridContainer.innerHTML = `<p class="chart-helper-text" style="padding: 20px;">⚠️ No hay datos de telemetría peatonal disponibles en esta zona.</p>`;
+        return;
     }
+    
+    const afluenciaSemanal = afluencia.afluencia_semanal;
+    const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    
+    // Crear tabla HTML
+    const table = document.createElement("table");
+    table.className = "heatmap-table";
+    
+    // 1. Cabecera (Horas: de 08:00 a 22:00)
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    
+    const dayHeader = document.createElement("th");
+    dayHeader.className = "day-col-header";
+    dayHeader.textContent = "Día";
+    headerRow.appendChild(dayHeader);
+    
+    for (let h = 8; h <= 22; h++) {
+        const th = document.createElement("th");
+        th.textContent = `${h.toString().padStart(2, '0')}:00`;
+        headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // 2. Filas (Días x Horas)
+    const tbody = document.createElement("tbody");
+    dias.forEach(dia => {
+        const row = document.createElement("tr");
+        
+        // Celda del nombre del día
+        const dayCell = document.createElement("td");
+        dayCell.className = "day-name-cell";
+        dayCell.textContent = dia;
+        row.appendChild(dayCell);
+        
+        const curve = afluenciaSemanal[dia] || new Array(24).fill(0);
+        
+        // Celdas de horas (de 8 a 22)
+        for (let h = 8; h <= 22; h++) {
+            const val = curve[h] !== undefined ? curve[h] : 0;
+            const td = document.createElement("td");
+            
+            // Celda interna con color y tooltip
+            const cellDiv = document.createElement("div");
+            cellDiv.className = "heatmap-cell";
+            
+            // Opacidad en base a valor (0 a 100)
+            const alpha = (val / 100).toFixed(2);
+            cellDiv.style.background = `rgba(37, 99, 235, ${alpha})`;
+            
+            // Tooltip nativo interactivo (title)
+            cellDiv.setAttribute("title", `${dia} ${h.toString().padStart(2, '0')}:00 — Tránsito: ${val}%`);
+            
+            td.appendChild(cellDiv);
+            row.appendChild(td);
+        }
+        tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    gridContainer.appendChild(table);
 }
 
 // --- GRÁFICO 1: COMPETIDORES (Chart.js Bar) ---

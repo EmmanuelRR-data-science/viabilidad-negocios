@@ -292,3 +292,16 @@ Esto causa los siguientes inconvenientes:
   - **Backend (`payments.py`):** Modificar el diccionario `PRECIOS_TIER` de mapeo de precios.
   - **Frontend (`index.html` y `app.js`):** Ajustar leyendas y botones de compra, así como el importe dinámico desplegado en el modal de confirmación de compra.
   - **Tests (`test_suite.py` y mocks):** Adecuar las validaciones y aserciones de precios esperados para los endpoints de transacciones.
+
+---
+
+## 16. Reemplazo de FODA y ROI por Mapa de Calor Peatonal (BestTime) en el Dashboard
+* **Objetivo:** Reemplazar el análisis estratégico cualitativo (FODA) y las tarjetas financieras (ROI) en el Dashboard Web por una visualización de ciencia de datos: un mapa de calor dinámico semanal por horas que muestre los picos de tránsito peatonal de la zona de estudio.
+* **Especificaciones del Mapa de Calor:**
+  - **Formato:** Tabla de 7 días (Lunes a Domingo) y 15 columnas de horas (08:00 a 22:00) para asegurar responsividad.
+  - **Gradiente:** Celdas con opacidad de fondo proporcional al porcentaje de tránsito obtenido de la API de BestTime (`rgba(37, 99, 235, alpha)`).
+  - **Tooltips:** Hover en cada celda muestra detalles (ej. "Lunes 12:00 - Tránsito: 70%").
+* **Impacto en Sistemas:**
+  - **Backend (`besttime.py` y `analytics.py`):** Recuperar o calcular la matriz `afluencia_semanal` (7x24 horas) en la respuesta del análisis de afluencia peatonal, implementando un extractor seguro y fallback generativo.
+  - **Frontend (`index.html`, `index.css`, `app.js`):** Remover elementos de FODA y ROI, inyectar el contenedor `#heatmap-container`, estilizar la cuadrícula del mapa de calor, renderizar los datos y aplicar las reglas de desenfoque (`applyBlurRules(tier)`) para bloquearlo en Gratuito y Básico (desbloqueado en Pro y Premium).
+  - **Consistencia:** Mantener intacta la lógica de generación del PDF descargable (que conserva FODA y ROI en el reporte impreso) y las pruebas del backend para proteger la validez del producto de pago y compatibilidad.

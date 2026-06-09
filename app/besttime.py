@@ -60,10 +60,25 @@ def obtener_afluencia_simulada(rubro: str) -> dict:
         # Gimnasios tienen picos muy fuertes en la mañana (7-9am) y tarde (6-8pm)
         curva_afluencia = [0, 0, 0, 0, 0, 15, 75, 90, 65, 30, 25, 20, 20, 25, 35, 45, 60, 85, 95, 70, 40, 20, 10, 0]
 
+    # Generar afluencia semanal
+    dias_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    afluencia_semanal = {}
+    for idx, esp in enumerate(dias_esp):
+        shift = idx % 3
+        factor = 1.15 if esp in ["Viernes", "Sábado"] else (0.75 if esp == "Domingo" else 1.0)
+        daily_curve = []
+        for val in curva_afluencia:
+            new_val = min(100, int(val * factor))
+            daily_curve.append(new_val)
+        if shift > 0:
+            daily_curve = daily_curve[shift:] + daily_curve[:shift]
+        afluencia_semanal[esp] = daily_curve
+
     return {
         "status": "success",
         "venue_name": f"Zona Comercial - {rubro.capitalize()}",
         "afluencia_horaria": curva_afluencia,
+        "afluencia_semanal": afluencia_semanal,
         "dia_pico": "Viernes",
         "hora_pico": "18:00",
         "saturación_promedio": 68.5,
@@ -113,10 +128,42 @@ def obtener_afluencia(lat: float, lng: float, rubro: str, competidores: list | N
             day_raw = analysis.get("day_raw", [])
             afluencia_horaria = day_raw if len(day_raw) == 24 else [0] * 24
 
+            # Generar afluencia semanal
+            dias_eng = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            dias_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            afluencia_semanal = {}
+            try:
+                week_raw = analysis.get("week_raw")
+                if isinstance(week_raw, list) and len(week_raw) == 7:
+                    for idx, day_data in enumerate(week_raw):
+                        if isinstance(day_data, list) and len(day_data) == 24:
+                            afluencia_semanal[dias_esp[idx]] = day_data
+                elif isinstance(week_raw, dict):
+                    for eng, esp in zip(dias_eng, dias_esp, strict=False):
+                        day_data = week_raw.get(eng)
+                        if isinstance(day_data, list) and len(day_data) == 24:
+                            afluencia_semanal[esp] = day_data
+            except Exception as e:
+                logger.warning(f"No se pudo extraer week_raw de BestTime: {e}. Usando generador fallback.")
+
+            # Fallback si está vacío o incompleto
+            if not afluencia_semanal:
+                for idx, esp in enumerate(dias_esp):
+                    shift = idx % 3
+                    factor = 1.15 if esp in ["Viernes", "Sábado"] else (0.75 if esp == "Domingo" else 1.0)
+                    daily_curve = []
+                    for val in afluencia_horaria:
+                        new_val = min(100, int(val * factor))
+                        daily_curve.append(new_val)
+                    if shift > 0:
+                        daily_curve = daily_curve[shift:] + daily_curve[:shift]
+                    afluencia_semanal[esp] = daily_curve
+
             return {
                 "status": "success",
                 "venue_name": data.get("venue_info", {}).get("venue_name", "Zona Comercial"),
                 "afluencia_horaria": afluencia_horaria,
+                "afluencia_semanal": afluencia_semanal,
                 "dia_pico": analysis.get("busy_hours_day"),
                 "hora_pico": f"{analysis.get('peak_hour')}:00",
                 "saturación_promedio": float(analysis.get("day_intensity", 50)),

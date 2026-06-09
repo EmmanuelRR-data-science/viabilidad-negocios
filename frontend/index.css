@@ -1454,3 +1454,80 @@ body.light-theme .checkbox-item.checkbox-ia-auto:hover {
     transition: var(--transition-smooth);
     opacity: 0.7;
 }
+
+/* --- ESTILOS DEL MAPA DE CALOR (HEATMAP) --- */
+.heatmap-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-top: 15px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--glass-border);
+    padding: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--glass-border) transparent;
+}
+
+body.light-theme .heatmap-wrapper {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.heatmap-table {
+    width: 100%;
+    min-width: 700px;
+    border-collapse: separate;
+    border-spacing: 4px;
+}
+
+.heatmap-table th {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    text-align: center;
+    padding: 6px 2px;
+    user-select: none;
+}
+
+.heatmap-table th.day-col-header {
+    text-align: left;
+    width: 90px;
+    padding-left: 5px;
+}
+
+.heatmap-table td {
+    padding: 0;
+    text-align: center;
+}
+
+.heatmap-table td.day-name-cell {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: left;
+    padding-left: 5px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.heatmap-cell {
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: crosshair;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+                box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+body.light-theme .heatmap-cell:hover {
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+    border-color: rgba(15, 23, 42, 0.15);
+}

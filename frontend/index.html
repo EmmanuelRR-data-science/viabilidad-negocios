@@ -391,61 +391,26 @@
             </div>
         </div>
 
-        <!-- Fila 3: Diagnóstico Estratégico FODA de la IA (Amazon Bedrock) -->
-        <div class="foda-section glass-card" id="foda-container">
-            <div class="section-title-foda">
-                <h3>
-                    ⚡ Diagnóstico Estratégico Inteligente con IA
-                    <span class="info-tooltip-wrapper tooltip-right">
-                        <span class="info-icon">i</span>
-                        <span class="tooltip-text">Diagnóstico FODA cruzado situacional y cuantitativo elaborado a la medida por nuestro motor de Inteligencia Artificial.</span>
-                    </span>
-                </h3>
-                <p id="foda-locked-msg">💡 Desbloquea un reporte de pago para obtener las recomendaciones, ROI y análisis FODA cruzado inteligente.</p>
+        <!-- Fila 3: Mapa de Calor de Afluencia Peatonal y Horarios Pico (BestTime) -->
+        <div class="chart-card glass-card" id="heatmap-container" style="grid-column: 1 / -1; margin-top: 20px; position: relative;">
+            <h3>
+                📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
+                <span class="info-tooltip-wrapper tooltip-right">
+                    <span class="info-icon">i</span>
+                    <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
+                </span>
+            </h3>
+            <p class="chart-helper-text" id="heatmap-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver el mapa de calor de horarios y días pico.</p>
+            <div class="heatmap-wrapper" id="heatmap-grid-container">
+                <!-- Se generará dinámicamente con JS -->
             </div>
-            
-            <div class="foda-grid" id="foda-cards-grid">
-                <!-- Fortalezas -->
-                <div class="foda-card glass-card fortalezas" id="foda-f">
-                    <h4>💪 Fortalezas (F)</h4>
-                    <p id="foda-f-text">--</p>
-                </div>
-                
-                <!-- Oportunidades -->
-                <div class="foda-card glass-card oportunidades" id="foda-o">
-                    <h4>🚀 Oportunidades (O)</h4>
-                    <p id="foda-o-text">--</p>
-                </div>
-                
-                <!-- Debilidades -->
-                <div class="foda-card glass-card debilidades" id="foda-d">
-                    <h4>⚠️ Debilidades (D)</h4>
-                    <p id="foda-d-text">--</p>
-                </div>
-                
-                <!-- Amenazas -->
-                <div class="foda-card glass-card amenazas" id="foda-a">
-                    <h4>🔥 Amenazas (A)</h4>
-                    <p id="foda-a-text">--</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Fila 4: Recomendación de ROI, Precios e Informe Descargable -->
-        <div class="premium-financial-section glass-card hidden" id="financial-section">
-            <h3>📈 Proyecciones de Retorno de Inversión (ROI) y Precios</h3>
-            
-            <div class="financial-grid">
-                <div class="financial-card glass-card">
-                    <h5>Ticket Promedio Sugerido</h5>
-                    <p class="financial-value" id="financial-ticket">--</p>
-                    <p class="helper-text">Rango recomendado según nivel socioeconómico de la zona.</p>
-                </div>
-                
-                <div class="financial-card glass-card">
-                    <h5>Período de Recuperación (Payback)</h5>
-                    <p class="financial-value" id="financial-roi">--</p>
-                    <p class="helper-text">Tiempo estimado de recuperación de inversión del punto.</p>
+            <div class="heatmap-legend" id="heatmap-legend-container" style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 15px; font-size: 11px; color: var(--text-secondary);">
+                <span>Tránsito de personas:</span>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <span style="display: inline-block; width: 12px; height: 12px; background: rgba(37, 99, 235, 0.05); border-radius: 2px; border: 1px solid var(--glass-border);"></span><span>Bajo</span>
+                    <span style="display: inline-block; width: 12px; height: 12px; background: rgba(37, 99, 235, 0.3); border-radius: 2px;"></span><span>Medio</span>
+                    <span style="display: inline-block; width: 12px; height: 12px; background: rgba(37, 99, 235, 0.6); border-radius: 2px;"></span><span>Alto</span>
+                    <span style="display: inline-block; width: 12px; height: 12px; background: rgba(37, 99, 235, 0.95); border-radius: 2px;"></span><span>Pico</span>
                 </div>
             </div>
         </div>
