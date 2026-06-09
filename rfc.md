@@ -181,3 +181,101 @@ Esto causa los siguientes inconvenientes:
 * **Eventos Leaflet**: Al hacer clic en un resultado de búsqueda, el frontend actualiza el marcador con `state.centerMarker.setLatLng([lat, lng])` y llama a la función unificada `handleMapClick(lat, lng)`.
 * **Coexistencia**: El mapa continúa escuchando clics con normalidad, de forma que el usuario puede usar ambos métodos indistintamente.
 
+---
+
+## 12. Consistencia y Calidad de Reportes (FODA, Competidores y Atractores)
+
+### 12.1 Unificación de Criterios (SVA y IA)
+* Se modificará la función `generar_analisis_foda` en [bedrock.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/bedrock.py):
+  * En `DEV_MODE` (Mocks), las llaves `conclusion`, `recomendacion_roi`, `viabilidad_financiera`, `dictamen_final`, `inversion_estimada`, `tir_proyectada` y `roi_estimado` se calcularán de manera condicional basada en el valor de la clave `sva`.
+  * En modo de producción, se inyectará una sección explícita en `system_prompt` que instruya al LLM a ajustar la viabilidad comercial y proyecciones financieras en base al score `SVA` enviado (ej: desaconsejar si es <50).
+* Se simplificarán tecnicismos en [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py):
+  * "Áreas Geoestadísticas Básicas (AGEBs)" -> "cartografía urbana oficial del INEGI".
+  * "Pilar Atractores e Inferencia" -> "Pilar de Atractores y Zonas de Interés".
+  * "Índice de Saturación Comercial (ISC)" -> "Saturación de Competencia".
+  * "Fricción Espacial Inmediata" -> "Competencia muy cercana".
+  * "Fricción" en tablas de horarios -> "Competencia".
+
+### 12.2 Mapeo Correcto de "Fast Food"
+* En la función `buscar_competidores` de [google_places.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/google_places.py):
+  * Se agregará un bloque de control condicional para interceptar `google_type == "fast_food"`.
+  * Si coincide, se reasignará `google_type = "restaurant"` e inyectará `keyword = "fast food"` (si keyword es nulo). Esto forzará una búsqueda semántica de comida rápida en Google Places en vez de disparar una consulta sin tipo que regrese comercios ajenos como iglesias y estéticas.
+
+### 12.3 Dinamismo en Atractores y Forecast
+* En [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py):
+  * Se calculará el estatus `inf_est` de la Página 4 sumando dinámicamente los aliados elegidos del usuario si se personalizaron.
+  * Se evaluará la suma total de atractores en la Página 10. Si es igual a 0, se reemplazará la frase predeterminada por una advertencia de que la zona carece de atractores significativos y que el negocio dependerá de demanda local y atracción autónoma.
+
+### 12.4 Desglose de Competidores Adicionales en la Página 8
+* En [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py):
+  * Al pie de la tabla de competidores directos, si `len(comp_list) > 4`, se añadirá un párrafo en letra pequeña (`fontSize=7.5`, `leading=9.5`) listando de forma explícita el nombre y tipo comercial de los primeros 15 competidores que no cupieron en la tabla, finalizando con un indicador de remanentes (ej. "y X más" si aplica).
+  * Esto asegura la total transparencia del cálculo numérico del score sin impactar el límite de páginas de cada tier.
+
+### 12.5 Estimación e Integración de Nivel Socioeconómico (NSE)
+* **Nueva Función en `analytics.py`**:
+  * Se implementará la consulta espacial a `ageb_demographics` con pesos proporcionales de población para variables de censo 2020: `graproes`, `vivpar_hab`, `vph_autom`, `vph_inter` y `vph_pc`.
+  * Se calculará el `nse_score` con ponderación de educación (40%) y equipamientos (60%).
+  * Se definirá un fallback determinista para coordenadas basadas en un hash modular de 100 de latitud y longitud.
+* **Integración del Prompt Estratégico (`bedrock.py`)**:
+  * El LLM recibirá las métricas socioeconómicas estimadas del entorno (nivel, escolaridad promedio e internet %) para adaptar su FODA y estrategias recomendadas de precios.
+  * Los textos de mock en `DEV_MODE` también variarán sus tickets recomendados y dictámenes según el NSE obtenido (ej: A/B = ticket $220-$350, D+ = ticket $55-$90).
+* **Integración en PDF (`reports.py`)**:
+  * La tabla de la Página 2 se expande a 4 columnas: `[SCORE VIABILIDAD, POBLACIÓN RESIDENTE, NIVEL SOCIOECONÓMICO, COMPETIDORES]`.
+  * La tabla demográfica de la Página 3 agregará 4 filas para detallar la estimación de NSE, grado de escolaridad, % de internet y % de automóviles.
+* **Integración en Web (`index.html` y `app.js`)**:
+  * Se creará la cuarta tarjeta de KPI en la interfaz con ID `#kpi-nse-card`.
+  * En `app.js` se bloqueará en la vista previa gratuita y se actualizará a la respuesta real de la orden aprobada.
+
+---
+
+## 13. Experiencia de Usuario: Contexto de la Aplicación y Ayudas Contextuales (Tooltips)
+
+### 13.1 Objetivos de Negocio y UX
+* Facilitar que usuarios no técnicos (inversionistas, emprendedores) entiendan el flujo operativo y el valor añadido de la geointeligencia comercial inmediatamente al abrir la SPA.
+* Proveer explicaciones rápidas en lenguaje de negocio (evitando jerga técnica como "Leaflet", "PostgreSQL", "Bedrock" o "APIs") en cada input de configuración y tarjeta de KPI/gráficos del dashboard, mejorando la retención de usuarios y reduciendo la fricción en la conversión de ventas.
+
+### 13.2 Especificación del Diseño de Componentes
+
+#### A. Tarjeta de Contexto Introductorio
+* **Posición**: En la parte superior de la barra de configuración izquierda (`#config-panel`), antes del formulario.
+* **Componente**: `.intro-card` con estilo glassmorphic, bordes de `12px` y fondo translúcido.
+* **Comportamiento**:
+  * Incluye un botón de cierre superior derecho (`#close-intro-btn`).
+  * Al hacer clic, se contrae suavemente (`max-height: 0`, `opacity: 0`, `padding: 0`) y desaparece del flujo visual.
+  * El estado se registra en `localStorage.setItem("hide_intro_card", "true")`.
+  * Al inicializar la página, la lógica de `app.js` lee el estado en `localStorage` y oculta inmediatamente el elemento si ya fue cerrado anteriormente.
+
+#### B. Tooltips de Información
+* **Estructura HTML**:
+  ```html
+  <span class="info-tooltip-wrapper">
+      <span class="info-icon" aria-label="Información">ℹ️</span>
+      <span class="tooltip-text">Texto descriptivo en lenguaje amigable...</span>
+  </span>
+  ```
+* **Estilos CSS Puros**:
+  * Se evitan scripts de JavaScript o librerías de terceros (como Popper.js o Tippy) para optimizar el rendimiento y peso de la SPA.
+  * El contenedor `.info-tooltip-wrapper` actúa como el disparador relativo (`position: relative; display: inline-flex; align-items: center; margin-left: 5px; vertical-align: middle;`).
+  * El `.info-icon` es un elemento interactivo con cursor `help`.
+  * El globo `.tooltip-text` se dibuja en posición absoluta arriba del icono por defecto, centrado, con una micro-animación en hover (transición de opacidad y desplazamiento de 5px a 0px en 0.25s).
+  * Soporte dinámico para temas:
+    * En **Modo Oscuro** (por defecto): fondo oscuro (`rgba(15, 23, 42, 0.95)`), borde blanco translúcido y texto blanco.
+    * En **Modo Claro** (bajo `body.light-theme`): fondo claro (`rgba(255, 255, 255, 0.98)`), borde oscuro translúcido y texto oscuro (`#0f172a`).
+  * **Manejo de Bordes y Desbordamientos**:
+    * Para evitar desbordamientos en los tooltips que están cerca del borde de la pantalla (como las tarjetas KPI laterales), se utilizarán clases de orientación `.tooltip-left`, `.tooltip-right`, y `.tooltip-bottom` que modifican las propiedades de alineación absoluta y el posicionamiento del pseudo-elemento flecha (`::after`).
+
+---
+
+## 14. Extensión de RFC: Autodetección de Competidores y Aliados por IA
+
+### 14.1 Arquitectura e Interfaces
+* Se inyectan en el HTML checkboxes de ID `#competidores-ia-auto` y `#aliados-ia-auto`.
+* Al enviar el formulario, si la opción está activa, la lista enviada incluye la palabra clave `"ia_auto"`.
+* La base de datos guarda este valor serializado en JSON en la columna `competidores_seleccionados` o `aliados_seleccionados` de `ordenes_pagos`.
+
+### 14.2 Flujo Backend
+* `procesar_calculo_analitico` intercepta la palabra `"ia_auto"` en las listas.
+* Si se encuentra `"ia_auto"` en competidores, se remueve de la lista de Places y se busca por defecto según el rubro, pero se mantiene la bandera `competidores_ia_auto = True`.
+* Si se encuentra en aliados, se busca la tríada por defecto (bancos, escuelas, transporte), pero se mantiene la bandera `aliados_ia_auto = True`.
+* La tarea de fondo pasa estas banderas a `generar_analisis_foda` en `bedrock.py`.
+* El prompt del LLM recibe la instrucción de autodetectar, justificar y redactar dinámicamente qué comercios del entorno son aliados o competidores de alto impacto comercial en la sección de FODA y conclusión.

@@ -171,6 +171,19 @@ def procesar_calculo_analitico(
     aliados_listado: list = []
     aliados_conteos: dict = {}
 
+    competidores_sel_orig = competidores_seleccionados
+    aliados_sel_orig = aliados_seleccionados
+
+    ia_autodetect_competidores = False
+    if competidores_seleccionados and "ia_auto" in competidores_seleccionados:
+        ia_autodetect_competidores = True
+        competidores_seleccionados = None
+
+    ia_autodetect_aliados = False
+    if aliados_seleccionados and "ia_auto" in aliados_seleccionados:
+        ia_autodetect_aliados = True
+        aliados_seleccionados = None
+
     if tier in ["basico", "pro", "premium"]:
         if competidores_seleccionados:
             logger.info(f"Buscando competidores personalizados por Places: {competidores_seleccionados}...")
@@ -208,7 +221,7 @@ def procesar_calculo_analitico(
         # Ordenar competidores por distancia (de más cercano a más lejano)
         competidores.sort(key=lambda x: x.get("distancia_metros", 999999.0))
 
-        if tier == "premium":
+        if True:
             if aliados_seleccionados or aliados_adicionales:
                 if aliados_seleccionados:
                     logger.info(f"Buscando aliados personalizados por Places: {aliados_seleccionados}...")
@@ -307,7 +320,7 @@ def procesar_calculo_analitico(
 
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
-    if tier == "premium":
+    if True:
         afluencia = obtener_afluencia(lat, lng, rubro, competidores=competidores)
 
     # 5. Calcular Score SVA de Viabilidad (0 a 100)
@@ -360,6 +373,8 @@ def procesar_calculo_analitico(
         "transporte_conteo": transporte_conteo,
         "aliados_listado": aliados_listado,
         "aliados_conteos": aliados_conteos,
-        "competidores_seleccionados": competidores_seleccionados,
-        "aliados_seleccionados": aliados_seleccionados,
+        "competidores_seleccionados": competidores_sel_orig,
+        "aliados_seleccionados": aliados_sel_orig,
+        "competidores_ia_auto": ia_autodetect_competidores,
+        "aliados_ia_auto": ia_autodetect_aliados,
     }

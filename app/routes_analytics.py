@@ -48,10 +48,9 @@ def obtener_vista_previa_gratuita(
     """
     logger.info(f"Generando Vista Previa Gratuita para usuario {user.cognito_user_id}")
     try:
-        # Procesar cálculos básicos bajo el tier gratuito / basico
-        resultado = procesar_calculo_analitico(db, lat, lng, radio_metros, rubro, tier="basico")
+        # Procesar cálculos analíticos completos bajo el tier premium para habilitar gráficos en vista previa
+        resultado = procesar_calculo_analitico(db, lat, lng, radio_metros, rubro, tier="premium")
 
-        # Filtramos la respuesta para cumplir estrictamente con los límites de la Vista Previa (RF-05.4)
         return {
             "status": "success",
             "coordenadas": {"lat": lat, "lng": lng},
@@ -62,9 +61,11 @@ def obtener_vista_previa_gratuita(
             "competidores_conteo": resultado["competidores_conteo"],
             "score_viabilidad_sva": resultado["sva"],
             "direccion": obtener_direccion(lat, lng)["formato_completo"],
-            # Bloqueamos listados individuales y análisis avanzados en el Tier gratuito
-            "competidores_listado": [],
-            "afluencia_peatonal": {},
+            # Enviamos listados completos para que el frontend los dibuje con blur
+            "competidores_listado": resultado["competidores_listado"],
+            "aliados_listado": resultado["aliados_listado"],
+            "aliados_conteos": resultado["aliados_conteos"],
+            "afluencia_peatonal": resultado["afluencia_peatonal"],
             "mensaje_tier": "¡Estás viendo la vista previa gratuita! Compra el reporte Básico o Pro para desbloquear mapas detallados de competencia, o Premium para afluencia y diagnóstico estratégico inteligente con IA.",
         }
     except Exception as e:
@@ -147,14 +148,7 @@ def obtener_resultado_analisis(
             orden.foda_json = json.dumps(foda_inteligente, default=str)
             db.commit()
 
-        # 4. Ajustar y omitir campos en base al Tier adquirido para respetar los privilegios (RF-05.4)
-        if orden.tier_adquirido == "basico":
-            # Básico no muestra mapa de competidores individuales ni afluencia
-            analisis_cuant["competidores_listado"] = []
-            analisis_cuant["afluencia_peatonal"] = {}
-        elif orden.tier_adquirido == "pro":
-            # Pro muestra competidores pero no afluencia peatonal BestTime
-            analisis_cuant["afluencia_peatonal"] = {}
+        # Los campos se calculan y envían siempre; el frontend controlará si se muestran nítidos o con blur según el Tier.
 
         return {
             "status": "success",

@@ -1164,3 +1164,293 @@ body.light-theme .clean-table tr:hover {
     color: #94a3b8;
     border: 1px solid rgba(148, 163, 184, 0.3);
 }
+
+/* --- TARJETA INTRODUCTORIA --- */
+.intro-card {
+    position: relative;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    background: rgba(37, 99, 235, 0.05);
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    max-height: 500px;
+    opacity: 1;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.intro-card.collapsed {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-top: none !important;
+    border-bottom: none !important;
+}
+
+body.light-theme .intro-card {
+    background: rgba(37, 99, 235, 0.04);
+    border-color: rgba(37, 99, 235, 0.15);
+}
+
+.intro-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.intro-card p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.intro-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.intro-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.intro-step strong {
+    color: var(--text-primary);
+}
+
+.close-intro-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+    transition: var(--transition-fast);
+}
+
+.close-intro-btn:hover {
+    color: var(--text-primary);
+    transform: rotate(90deg);
+}
+
+/* --- SISTEMA DE TOOLTIPS --- */
+.info-tooltip-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.info-icon {
+    font-size: 11px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    font-style: normal;
+    font-weight: 700;
+    transition: var(--transition-fast);
+}
+
+body.light-theme .info-icon {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+.info-icon:hover {
+    background: var(--primary-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.tooltip-text {
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%) translateY(5px);
+    width: 220px;
+    padding: 10px 12px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #f8fafc;
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 500;
+    box-shadow: var(--shadow-premium);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1010;
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: normal;
+}
+
+/* Triángulo indicador (Flecha) */
+.tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+}
+
+/* Mostrar tooltip al hacer hover */
+.info-tooltip-wrapper:hover .tooltip-text {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Adaptación para Tema Claro */
+body.light-theme .tooltip-text {
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #0f172a;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+body.light-theme .tooltip-text::after {
+    border-color: rgba(255, 255, 255, 0.98) transparent transparent transparent;
+}
+
+/* MODIFICADORES DE DIRECCIÓN (Prevenir desbordamiento de bordes) */
+
+/* Tooltip orientado a la izquierda */
+.tooltip-left .tooltip-text {
+    bottom: auto;
+    left: auto;
+    right: 130%;
+    top: 50%;
+    transform: translateY(-50%) translateX(-5px);
+}
+.tooltip-left .tooltip-text::after {
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+    border-color: transparent transparent transparent rgba(15, 23, 42, 0.95);
+}
+body.light-theme .tooltip-left .tooltip-text::after {
+    border-color: transparent transparent transparent rgba(255, 255, 255, 0.98);
+}
+.tooltip-left:hover .tooltip-text {
+    transform: translateY(-50%) translateX(0);
+}
+
+/* Tooltip orientado a la derecha */
+.tooltip-right .tooltip-text {
+    bottom: auto;
+    left: 130%;
+    top: 50%;
+    transform: translateY(-50%) translateX(5px);
+}
+.tooltip-right .tooltip-text::after {
+    top: 50%;
+    left: auto;
+    right: 100%;
+    transform: translateY(-50%);
+    border-color: transparent rgba(15, 23, 42, 0.95) transparent transparent;
+}
+body.light-theme .tooltip-right .tooltip-text::after {
+    border-color: transparent rgba(255, 255, 255, 0.98) transparent transparent;
+}
+.tooltip-right:hover .tooltip-text {
+    transform: translateY(-50%) translateX(0);
+}
+
+/* Tooltip orientado hacia abajo */
+.tooltip-bottom .tooltip-text {
+    bottom: auto;
+    top: 130%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-5px);
+}
+.tooltip-bottom .tooltip-text::after {
+    top: auto;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: transparent transparent rgba(15, 23, 42, 0.95) transparent;
+}
+body.light-theme .tooltip-bottom .tooltip-text::after {
+    border-color: transparent transparent rgba(255, 255, 255, 0.98) transparent;
+}
+.tooltip-bottom:hover .tooltip-text {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* --- OPCIÓN DE AUTODETECCIÓN POR IA (Competidores y Aliados) --- */
+.checkbox-item.checkbox-ia-auto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-color);
+    font-weight: 700;
+    border: 1px dashed var(--accent-color);
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.08);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    margin-bottom: 4px;
+}
+.checkbox-item.checkbox-ia-auto:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: var(--primary-color);
+}
+body.light-theme .checkbox-item.checkbox-ia-auto {
+    background: rgba(29, 78, 216, 0.06);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+body.light-theme .checkbox-item.checkbox-ia-auto:hover {
+    background: rgba(29, 78, 216, 0.12);
+}
+
+/* Efecto de atenuación e inhabilitación por IA */
+.disabled-by-ia {
+    opacity: 0.35 !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    filter: grayscale(80%);
+    transition: var(--transition-smooth);
+}
+
+/* Efecto de desenfoque de marketing (Blur Premium) */
+.blurred-premium {
+    filter: blur(8px) grayscale(20%);
+    pointer-events: none !important;
+    user-select: none !important;
+    transition: var(--transition-smooth);
+    opacity: 0.7;
+}

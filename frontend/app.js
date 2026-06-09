@@ -175,34 +175,108 @@ function bindUIEvents() {
     
     // L. Buscador de dirección flotante sobre el mapa
     setupMapSearchBox();
+
+    // M. Configurar la tarjeta introductoria de contexto
+    setupIntroCard();
+}
+
+function setupIntroCard() {
+    const introCard = document.getElementById("app-intro-card");
+    const closeBtn = document.getElementById("close-intro-btn");
+    if (!introCard || !closeBtn) return;
+
+    // Verificar localStorage
+    if (localStorage.getItem("hide_intro_card") === "true") {
+        introCard.classList.add("collapsed");
+        introCard.classList.add("hidden");
+    }
+
+    // Event listener
+    closeBtn.addEventListener("click", () => {
+        logger("Ocultando tarjeta de descripción de la app...");
+        introCard.classList.add("collapsed");
+        localStorage.setItem("hide_intro_card", "true");
+        
+        // Esperar a que termine la animación de transición CSS antes de aplicar hidden
+        setTimeout(() => {
+            introCard.classList.add("hidden");
+        }, 400);
+    });
 }
 
 function setupLeftPanelCheckboxLimits() {
-    const enforceLimits = (containerId, maxLimit) => {
+    const enforceLimits = (containerId, maxLimit, textInputId, iaCheckboxId) => {
         const container = document.getElementById(containerId);
         if (!container) return;
         const checkboxes = container.querySelectorAll("input[type='checkbox']");
-        
+        const iaCheckbox = document.getElementById(iaCheckboxId);
+        const textInput = document.getElementById(textInputId);
+
         const updateState = () => {
-            const checkedCount = container.querySelectorAll("input[type='checkbox']:checked").length;
-            checkboxes.forEach(c => {
-                if (!c.checked) {
-                    c.disabled = checkedCount >= maxLimit;
-                } else {
-                    c.disabled = false;
+            if (iaCheckbox && iaCheckbox.checked) {
+                // Si la IA está activa, desmarcar y deshabilitar todos los demás
+                checkboxes.forEach(c => {
+                    if (c !== iaCheckbox) {
+                        c.checked = false;
+                        c.disabled = true;
+                        c.parentElement.classList.add("disabled-by-ia");
+                    }
+                });
+                if (textInput) {
+                    textInput.disabled = true;
+                    textInput.value = "";
+                    textInput.classList.add("disabled-by-ia");
                 }
-            });
+            } else {
+                // Si la IA no está activa, habilitar de acuerdo al límite
+                // Contar seleccionados (excluyendo el checkbox de IA)
+                const normalCheckboxes = Array.from(checkboxes).filter(c => c !== iaCheckbox);
+                const checkedCount = normalCheckboxes.filter(c => c.checked).length;
+
+                normalCheckboxes.forEach(c => {
+                    c.disabled = checkedCount >= maxLimit && !c.checked;
+                    if (c.disabled) {
+                        c.parentElement.classList.add("disabled-by-ia");
+                    } else {
+                        c.parentElement.classList.remove("disabled-by-ia");
+                    }
+                });
+
+                if (iaCheckbox) {
+                    iaCheckbox.disabled = false;
+                    iaCheckbox.parentElement.classList.remove("disabled-by-ia");
+                }
+                if (textInput) {
+                    textInput.disabled = false;
+                    textInput.classList.remove("disabled-by-ia");
+                }
+            }
         };
 
         checkboxes.forEach(cb => {
-            cb.addEventListener("change", updateState);
+            cb.addEventListener("change", () => {
+                // Si se selecciona un checkbox normal y el de IA estaba marcado, desmarcar IA
+                if (iaCheckbox && cb !== iaCheckbox && cb.checked && iaCheckbox.checked) {
+                    iaCheckbox.checked = false;
+                }
+                updateState();
+            });
         });
-        
+
+        if (textInput) {
+            textInput.addEventListener("input", () => {
+                if (textInput.value.trim() !== "" && iaCheckbox && iaCheckbox.checked) {
+                    iaCheckbox.checked = false;
+                    updateState();
+                }
+            });
+        }
+
         // Ejecutar inicialmente
         updateState();
     };
-    enforceLimits("competidores-checkboxes", 5);
-    enforceLimits("aliados-checkboxes", 5);
+    enforceLimits("competidores-checkboxes", 5, "competidores-adicionales-input", "competidores-ia-auto");
+    enforceLimits("aliados-checkboxes", 5, "aliados-adicionales-input", "aliados-ia-auto");
 }
 
 function setupMapSearchBox() {
@@ -429,30 +503,61 @@ function checkFormValidity() {
 }
 
 // --- EJECUTAR VISTA PREVIA GRATUITA (RF-05.4 & RF-01.4) ---
+// --- APLICAR REGLAS DE BLUR Y CANDADO SEGÚN TIER ---
+function applyBlurRules(tier) {
+    const compWrapper = document.querySelector("#competitor-chart-card .canvas-wrapper");
+    const poiWrapper = document.querySelector("#poi-chart-card .table-wrapper");
+    
+    const compMsg = document.getElementById("comp-chart-locked-msg");
+    const poiMsg = document.getElementById("poi-chart-locked-msg");
+
+    if (!compWrapper || !poiWrapper || !compMsg || !poiMsg) return;
+
+    if (tier === "gratuito" || tier === "basico") {
+        // Blur en ambos
+        compWrapper.classList.add("blurred-premium");
+        poiWrapper.classList.add("blurred-premium");
+        
+        compMsg.classList.remove("hidden");
+        poiMsg.classList.remove("hidden");
+    } else if (tier === "pro") {
+        // Competidores nítido, atractores blur
+        compWrapper.classList.remove("blurred-premium");
+        poiWrapper.classList.add("blurred-premium");
+        
+        compMsg.classList.add("hidden");
+        poiMsg.classList.remove("hidden");
+    } else if (tier === "premium") {
+        // Ambos nítidos
+        compWrapper.classList.remove("blurred-premium");
+        poiWrapper.classList.remove("blurred-premium");
+        
+        compMsg.classList.add("hidden");
+        poiMsg.classList.add("hidden");
+    }
+}
+
+// --- EJECUTAR VISTA PREVIA GRATUITA (RF-05.4 & RF-01.4) ---
 async function runPreviewAnalysis() {
     logger("Detonando Vista Previa (Modo de Compra Directo)...");
     
     // Cambiar estado visual del botón
     const btn = document.getElementById("analyze-btn");
-    btn.innerHTML = `<span class="btn-icon">⏳</span> CARGANDO PLANES...`;
+    btn.innerHTML = `<span class="btn-icon">⏳</span> CALCULANDO DATOS...`;
     btn.setAttribute("disabled", "true");
     
     try {
         // 1. Mostrar el Dashboard de Resultados
         document.getElementById("results-dashboard").classList.remove("hidden");
         
-        // 2. Rellenar los placeholders bloqueados de los KPIs
+        // 2. Rellenar placeholders visuales iniciales
         document.getElementById("tier-badge").textContent = "VISTA PREVIA GRATUITA";
         document.getElementById("tier-badge").className = "badge";
-        document.getElementById("dashboard-subtitle").textContent = "Selecciona un plan para desbloquear el score de viabilidad, la población estimada y el análisis de competencia.";
-        
-        document.getElementById("kpi-sva").textContent = "🔒 Bloqueado";
-        document.getElementById("kpi-poblacion").textContent = "🔒 Bloqueado";
-        document.getElementById("kpi-competidores").textContent = "🔒 Bloqueado";
+        document.getElementById("dashboard-subtitle").textContent = "Estás viendo información real del INEGI y conteos de competencia en la zona de estudio.";
         
         // Estilo neutro de la tarjeta del Score SVA
         const kpiCard = document.getElementById("kpi-sva-card");
-        kpiCard.style.borderLeft = "4px solid var(--text-secondary)";
+        if (kpiCard) kpiCard.style.borderLeft = "4px solid var(--text-secondary)";
         
         // 3. Bloquear / Vaciar Paneles de Gráficos y FODA
         lockAdvancedFeatures();
@@ -460,8 +565,62 @@ async function runPreviewAnalysis() {
         // 4. Limpiar marcadores antiguos de competidores/POIs del mapa
         clearMapPins();
         
-        // Hacer scroll suave hacia el Dashboard
-        document.getElementById("results-dashboard").scrollIntoView({ behavior: 'smooth' });
+        // 5. Consumir endpoint real de Vista Previa en caliente
+        const headers = getAuthHeaders();
+        const queryParams = `lat=${state.selectedLat}&lng=${state.selectedLng}&radio_metros=${state.selectedRadio}&rubro=${encodeURIComponent(state.selectedGiro)}`;
+        
+        const response = await fetch(`/api/analizar/previa?${queryParams}`, {
+            method: "POST",
+            headers: headers
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            logger("Datos de vista previa recibidos del backend:", data);
+            
+            // Rellenar los KPIs con los valores reales calculados
+            document.getElementById("kpi-sva").textContent = `${data.score_viabilidad_sva}/100`;
+            document.getElementById("kpi-poblacion").textContent = data.poblacion_estimada.toLocaleString();
+            document.getElementById("kpi-competidores").textContent = data.competidores_conteo;
+
+            // Actualizar descripciones de KPIs con explicaciones comerciales
+            const sva = data.score_viabilidad_sva || 0;
+            let svaDesc = "";
+            if (sva >= 80) {
+                svaDesc = "Obtuviste este puntaje alto porque la zona presenta un excelente balance: una sólida base de clientes potenciales cercanos y un nivel de competencia controlado que te facilitará crecer rápidamente.";
+            } else if (sva >= 60) {
+                svaDesc = "Tu puntaje es favorable. La zona tiene buena demanda residencial, aunque existe competencia activa con la que deberás competir ofreciendo un valor agregado o mejor servicio.";
+            } else {
+                svaDesc = "Tu puntaje es moderado o bajo debido a que la población en la zona es limitada para este rubro, o bien, existe una alta saturación de competidores disputándose a los mismos clientes.";
+            }
+            document.getElementById("kpi-sva-desc").textContent = svaDesc;
+            document.getElementById("kpi-pob-desc").textContent = "Representa la cantidad de personas que viven a la redonda de tu local. Son tus clientes potenciales más valiosos porque, al residir en el área, comprarán de forma constante y recurrente.";
+            document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
+
+            // Estilo dinámico de la tarjeta del Score SVA según el puntaje obtenido
+            if (kpiCard) {
+                if (sva >= 80) {
+                    kpiCard.style.borderLeft = "4px solid var(--success-color)";
+                } else if (sva >= 50) {
+                    kpiCard.style.borderLeft = "4px solid var(--warning-color)";
+                } else {
+                    kpiCard.style.borderLeft = "4px solid var(--danger-color)";
+                }
+            }
+
+            // Generar Gráficos Avanzados
+            renderCompetitorsChart(data.competidores_listado);
+            renderPOITable(data);
+
+            // Aplicar las reglas de blur para la vista previa
+            applyBlurRules("gratuito");
+            
+            // Hacer scroll suave hacia el Dashboard
+            document.getElementById("results-dashboard").scrollIntoView({ behavior: 'smooth' });
+        } else {
+            logger("Error al calcular la vista previa gratuita en el servidor.");
+        }
+        
     } catch (err) {
         logger("Error en la vista previa:", err);
     } finally {
@@ -571,6 +730,7 @@ async function openPaymentModal(tier) {
         const aliadosAdicionales = document.getElementById("aliados-adicionales-input").value.trim();
 
         const categoryMap = {
+            "ia_auto": "🤖 Determinar automáticamente por IA",
             "cafe": "Cafetería",
             "restaurant": "Restaurante",
             "fast_food": "Comida Rápida",
@@ -825,20 +985,19 @@ async function unlockPaidReport() {
             document.getElementById("foda-locked-msg").classList.add("hidden");
             renderFODA(iaAnalisis.foda_analisis || iaAnalisis);
             
-            // 3. Rellenar gráficos dinámicos (si PRO o PREMIUM)
+            // Pintar pines de competidores y aliados en el mapa (solo si Pro o Premium para el mapa físico)
             if (state.activeTier === "pro" || state.activeTier === "premium") {
-                document.getElementById("comp-chart-locked-msg").classList.add("hidden");
-                document.getElementById("poi-chart-locked-msg").classList.add("hidden");
-                
-                // Pintar pines de competidores y aliados en el mapa
                 renderCompetitorPins(metricas.competidores_listado, metricas.aliados_listado);
-                
-                // Generar Gráfico de Competidores
-                renderCompetitorsChart(metricas.competidores_listado);
-                
-                // Generar Tabla de Atractores/POIs
-                renderPOITable(metricas);
+            } else {
+                clearMapPins();
             }
+            
+            // Generar Gráficos Avanzados siempre (el blur controla su visualización)
+            renderCompetitorsChart(metricas.competidores_listado);
+            renderPOITable(metricas);
+
+            // Aplicar las reglas de blur y visibilidad de mensajes según el Tier activo
+            applyBlurRules(state.activeTier);
             
             // 4. Rellenar finanzas y ROI (si PREMIUM)
             if (state.activeTier === "premium") {

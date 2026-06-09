@@ -56,6 +56,27 @@
         
         <!-- Panel Izquierdo: Configuración e Inputs -->
         <section class="control-panel glass-card" id="config-panel">
+            <!-- Tarjeta de Contexto y Descripción de la Aplicación -->
+            <div class="intro-card glass-card" id="app-intro-card">
+                <button class="close-intro-btn" id="close-intro-btn" title="Ocultar descripción">&times;</button>
+                <h3>📍 ¿Qué es GeoViabilidad Hook?</h3>
+                <p>Es una plataforma avanzada de geointeligencia y geomarketing en México. Permite evaluar la viabilidad de tu negocio analizando la demografía del INEGI, la competencia en el área y los flujos de tránsito peatonal.</p>
+                <div class="intro-steps">
+                    <div class="intro-step">
+                        <span>1️⃣</span>
+                        <span><strong>Ubica tu punto:</strong> Haz clic en el mapa de México o ingresa una dirección física en el buscador superior.</span>
+                    </div>
+                    <div class="intro-step">
+                        <span>2️⃣</span>
+                        <span><strong>Configura variables:</strong> Elige tu giro, ajusta el radio de influencia y detalla tus intenciones comerciales en lenguaje natural.</span>
+                    </div>
+                    <div class="intro-step">
+                        <span>3️⃣</span>
+                        <span><strong>Analiza la viabilidad:</strong> Ejecuta el análisis preliminar y adquiere reportes ejecutivos en PDF de alta definición.</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="panel-header">
                 <h2>1. Configuración del Negocio</h2>
                 <p>Ingresa las variables operativas y tus intenciones comerciales.</p>
@@ -64,7 +85,13 @@
             <form id="analytics-form" class="panel-form" onsubmit="event.preventDefault();">
                 <!-- Selector de Categoría (Giro Comercial) -->
                 <div class="form-group">
-                    <label for="giro-select">Giro / Rubro del Negocio</label>
+                    <label for="giro-select">
+                        Giro / Rubro del Negocio
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Determina el tipo de competidores comerciales y clientes objetivos que analizaremos en la zona.</span>
+                        </span>
+                    </label>
                     <div class="select-wrapper">
                         <select id="giro-select" required>
                             <option value="" disabled selected>Selecciona un rubro...</option>
@@ -94,7 +121,13 @@
                 <!-- Slider de Radio de Búfer -->
                 <div class="form-group">
                     <div class="label-row">
-                        <label for="radio-slider">Radio de Influencia</label>
+                        <label for="radio-slider">
+                            Radio de Influencia
+                            <span class="info-tooltip-wrapper">
+                                <span class="info-icon">i</span>
+                                <span class="tooltip-text">Define el alcance en metros del círculo de estudio para consultar la demografía y los comercios locales.</span>
+                            </span>
+                        </label>
                         <span id="radio-val" class="badge">1,000 m</span>
                     </div>
                     <input type="range" id="radio-slider" min="500" max="5000" step="500" value="1000" class="slider">
@@ -107,15 +140,28 @@
                 
                 <!-- Textarea de Intenciones en Lenguaje Natural -->
                 <div class="form-group">
-                    <label for="intenciones-textarea">Intenciones Específicas del Negocio</label>
+                    <label for="intenciones-textarea">
+                        Intenciones Específicas del Negocio
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Describe tus metas y el perfil de tu local para que nuestra Inteligencia Artificial personalice el diagnóstico estratégico.</span>
+                        </span>
+                    </label>
                     <textarea id="intenciones-textarea" rows="4" placeholder="Ej: Quiero abrir una cafetería gourmet con zona infantil, enfocada a familias de clase media-alta, que ofrezca servicio rápido y café veracruzano de especialidad..."></textarea>
                     <span class="helper-text">La Inteligencia Artificial cruzará tus intenciones con los datos demográficos y la competencia para darte una recomendación detallada.</span>
                 </div>
 
                 <!-- Personalización de Competidores (Pro / Premium) -->
                 <div class="form-group">
-                    <label>Competidores Personalizados (Pro/Premium)</label>
+                    <label>
+                        Competidores Personalizados (Pro/Premium)
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Elige marcas o giros que compiten por los mismos clientes. El reporte los evaluará en detalle.</span>
+                        </span>
+                    </label>
                     <div class="checkbox-group glass-card" id="competidores-checkboxes">
+                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="competidores-ia-auto" value="ia_auto"> 🤖 Autodetectar competidores por IA</label>
                         <label class="checkbox-item"><input type="checkbox" value="cafe"> Cafetería</label>
                         <label class="checkbox-item"><input type="checkbox" value="restaurant"> Restaurante</label>
                         <label class="checkbox-item"><input type="checkbox" value="fast_food"> Comida Rápida</label>
@@ -139,8 +185,15 @@
 
                 <!-- Personalización de Aliados (Premium) -->
                 <div class="form-group">
-                    <label>Aliados Estratégicos (Sólo Premium)</label>
+                    <label>
+                        Aliados Estratégicos (Sólo Premium)
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Elige giros complementarios que atraen público a la zona, generando sinergia para tu local.</span>
+                        </span>
+                    </label>
                     <div class="checkbox-group glass-card" id="aliados-checkboxes">
+                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="aliados-ia-auto" value="ia_auto"> 🤖 Autodetectar aliados por IA</label>
                         <label class="checkbox-item"><input type="checkbox" value="bank"> Bancos</label>
                         <label class="checkbox-item"><input type="checkbox" value="school"> Escuelas</label>
                         <label class="checkbox-item"><input type="checkbox" value="transit_station"> Transporte Público</label>
@@ -234,7 +287,13 @@
             <div class="kpi-card glass-card" id="kpi-sva-card">
                 <div class="kpi-icon">📊</div>
                 <div class="kpi-info">
-                    <h3>Score Viabilidad SVA</h3>
+                    <h3>
+                        Score Viabilidad SVA
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Evaluación matemática de idoneidad del punto (0 a 100). Integra concentración de personas, competencia y confluencia.</span>
+                        </span>
+                    </h3>
                     <p class="kpi-value" id="kpi-sva">--</p>
                     <p class="kpi-desc" id="kpi-sva-desc">Evaluación del 0 al 100 sobre qué tan viable es abrir tu negocio en este punto, considerando clientes, competencia y paso de peatones.</p>
                 </div>
@@ -244,7 +303,13 @@
             <div class="kpi-card glass-card" id="kpi-demog-card">
                 <div class="kpi-icon">👥</div>
                 <div class="kpi-info">
-                    <h3>Demanda Residente</h3>
+                    <h3>
+                        Demanda Residente
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Cantidad estimada de habitantes residentes dentro de la zona de estudio (Censo de Población oficial).</span>
+                        </span>
+                    </h3>
                     <p class="kpi-value" id="kpi-poblacion">--</p>
                     <p class="kpi-desc" id="kpi-pob-desc">Cantidad de personas que viven cerca y representan tus clientes potenciales del día a día, quienes te visitarán de forma regular.</p>
                 </div>
@@ -254,7 +319,13 @@
             <div class="kpi-card glass-card" id="kpi-comp-card">
                 <div class="kpi-icon">🏬</div>
                 <div class="kpi-info">
-                    <h3>Competidores Locales</h3>
+                    <h3>
+                        Competidores Locales
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">Número total de establecimientos del mismo giro detectados dentro de tu radio de influencia.</span>
+                        </span>
+                    </h3>
                     <p class="kpi-value" id="kpi-competidores">--</p>
                     <p class="kpi-desc" id="kpi-comp-desc">Negocios similares en la zona con los que compartirás el mercado. Menos competencia significa mayor facilidad para captar clientes.</p>
                 </div>
@@ -266,7 +337,13 @@
             
             <!-- Gráfico Competencia -->
             <div class="chart-card glass-card" id="competitor-chart-card">
-                <h3>Distribución de Competidores por Rating</h3>
+                <h3>
+                    Distribución de Competidores por Rating
+                    <span class="info-tooltip-wrapper tooltip-right">
+                        <span class="info-icon">i</span>
+                        <span class="tooltip-text">Muestra la calidad percibida de tus competidores directos en la zona basada en las valoraciones de los clientes.</span>
+                    </span>
+                </h3>
                 <p class="chart-helper-text" id="comp-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver las calificaciones de competidores locales.</p>
                 <div class="canvas-wrapper">
                     <canvas id="competitors-chart"></canvas>
@@ -275,7 +352,13 @@
             
             <!-- Tabla Atractores / POIs -->
             <div class="chart-card glass-card" id="poi-chart-card">
-                <h3>Atractores de Tráfico y Aliados</h3>
+                <h3>
+                    Atractores de Tráfico y Aliados
+                    <span class="info-tooltip-wrapper tooltip-left">
+                        <span class="info-icon">i</span>
+                        <span class="tooltip-text">Lista de magnetos comerciales principales (transporte, bancos, escuelas) y su grado de atracción de flujo peatonal.</span>
+                    </span>
+                </h3>
                 <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver los atractores de tráfico locales.</p>
                 <div class="table-wrapper" id="poi-table-container">
                     <table class="clean-table" id="poi-table">
@@ -311,7 +394,13 @@
         <!-- Fila 3: Diagnóstico Estratégico FODA de la IA (Amazon Bedrock) -->
         <div class="foda-section glass-card" id="foda-container">
             <div class="section-title-foda">
-                <h3>⚡ Diagnóstico Estratégico Inteligente con IA</h3>
+                <h3>
+                    ⚡ Diagnóstico Estratégico Inteligente con IA
+                    <span class="info-tooltip-wrapper tooltip-right">
+                        <span class="info-icon">i</span>
+                        <span class="tooltip-text">Diagnóstico FODA cruzado situacional y cuantitativo elaborado a la medida por nuestro motor de Inteligencia Artificial.</span>
+                    </span>
+                </h3>
                 <p id="foda-locked-msg">💡 Desbloquea un reporte de pago para obtener las recomendaciones, ROI y análisis FODA cruzado inteligente.</p>
             </div>
             

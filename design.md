@@ -160,3 +160,155 @@ Se expondrá un nuevo endpoint GET `/api/analizar/buscar-direccion`:
   2. Se mueve la vista del mapa con `state.map.setView([lat, lng], 16)`.
   3. Se invoca a `handleMapClick(lat, lng)`, reutilizando toda la lógica del marcador, círculo e INEGI.
   4. Se oculta el dropdown.
+
+---
+
+## 10. Diseño de Consistencia y Calidad de Reportes (FODA, Competidores y Atractores)
+
+### 10.1 Unificación de Criterios en el Diagnóstico
+* En `bedrock.py`, el prompt de sistema y la simulación local (`DEV_MODE`) se modificarán para obligar al LLM a ajustar sus textos de salida (conclusión, recomendación de ROI, viabilidad financiera y dictamen final) en función de la escala del score `SVA` recibido:
+  * `SVA < 50` (Bajo/Riesgoso): El tono debe ser de advertencia clara y diagnóstico desfavorable/reservado, estimando ROI de 24 a 36 meses y TIR anual baja (<12%).
+  * `50 <= SVA <= 79` (Moderado): El tono debe ser equilibrado y prudente, destacando que es factible pero requiere estrategias fuertes de diferenciación comercial para mitigar el riesgo.
+  * `SVA >= 80` (Alto/Excelente): El tono debe ser favorable y promotor, con estimación de ROI de 12 a 15 meses y TIR anual alta.
+
+### 10.2 Ajuste del Pilar Atractores
+* En `reports.py`, el texto dinámico de estatus en el Pilar de Atractores (Pág. 4) se construirá sumando y detallando los aliados personalizados del usuario si `aliados_seleccionados` o `aliados_adicionales` están definidos, en lugar de recurrir al conteo estático de bancos/escuelas/transporte por defecto.
+* La conclusión del Forecast (Pág. 10) leerá la suma total de atractores reales detectados. Si es 0, en vez de imprimir el texto estático de "confluencia de atractores consolidados", inyectará un párrafo alternativo aclarando que la zona carece de atractores significativos y que el éxito dependerá enteramente de la captación autónoma de la demanda local.
+
+### 10.3 Mapeo del Tipo "Fast Food"
+* En `google_places.py`, la función `buscar_competidores` interceptará el tipo `fast_food` y lo transformará internamente a `restaurant` con la palabra clave `"fast food"`. Esto evitará que la API de Google ignore el parámetro de tipo y devuelva comercios de cualquier giro, resolviendo la inclusión de establecimientos no alimentarios en la lista.
+
+### 10.4 Desglose Compacto de Competidores Adicionales
+* En `reports.py`, al pie de la tabla de la Página 8 (Competidores Detallados), si el número de competidores directos en la lista devuelta es mayor a 4, se calculará y agregará un párrafo con tipografía compacta (`fontSize=7.5`, `leading=9.5`) listando de forma explícita los nombres de hasta 15 establecimientos adicionales, previniendo el overflow de la página y respetando la maquetación exacta.
+
+### 10.5 Estimación e Integración de Nivel Socioeconómico (NSE)
+* **Consulta Geoespacial en `analytics.py`**:
+  * Se realizará una consulta a la tabla `ageb_demographics` cruzándola con el búfer geodésico de radio.
+  * Se calcularán los promedios ponderados de población para las variables: `graproes`, `vivpar_hab`, `vph_autom`, `vph_inter` y `vph_pc`.
+* **Cálculo Heurístico del Score de NSE**:
+  * `nse_score = (escolaridad_promedio / 18.0 * 40.0) + (internet_pct * 0.3) + (autos_pct * 0.3)`
+  * Mapeo de Niveles AMAI:
+    * `nse_score >= 70` -> `"A/B (Alto / Alto Medio)"`
+    * `55 <= nse_score < 70` -> `"C+ (Medio Alto)"`
+    * `40 <= nse_score < 55` -> `"C / C- (Medio / Medio Bajo)"`
+    * `25 <= nse_score < 40` -> `"D+ (Bajo Alto)"`
+    * `nse_score < 25` -> `"D / E (Bajo / Muy Bajo)"`
+* **Mecanismo de Fallback Determinista**:
+  * Si la consulta retorna NULL (debido a falta de datos en la tabla para esa zona), se computa un valor determinista usando el hash: `hash_val = int(abs(lat * 1000 + lng * 1000)) % 100`.
+  * Se asignará un nivel ficticio consistente (A/B para <10, C+ para <35, C para <70, D+ para <90, D/E para el resto) y porcentajes realistas proporcionales a dicho nivel.
+* **Integración en PDF (`reports.py`)**:
+  * **Página 2**: La tabla de KPIs sintéticos ahora tendrá 4 columnas (`colWidths=[126, 126, 126, 126]`), incorporando "NIVEL SOCIOECONÓMICO" con su respectivo valor y estilo.
+  * **Página 3**: Se insertarán 4 filas nuevas en la tabla `demo_table_data` para desglosar el nivel socioeconómico y los porcentajes reales/fallbacks de equipamiento/escolaridad.
+* **Integración en Frontend (`index.html` y `app.js`)**:
+  * Se inyectará el elemento `#kpi-nse-card` en la rejilla de KPIs en `index.html`.
+  * En `app.js`, `runPreviewAnalysis` bloqueará el valor como `"🔒 Bloqueado"`.
+  * `unlockPaidReport` desbloqueará y renderizará el nivel devuelto por el API (ej. `"C+ (Medio Alto)"`).
+
+---
+
+## 11. Diseño de Experiencia de Usuario: Contexto y Ayudas Contextuales (Tooltips)
+
+### 11.1 Tarjeta Introductoria de Contexto (HTML, CSS y JS)
+* **HTML (`index.html`)**:
+  * Se agregará un bloque `<div class="intro-card glass-card" id="app-intro-card">` en la parte superior del panel de configuración (`.control-panel`), antes de la sección `.panel-header`.
+  * Contenido estructurado:
+    * Un botón de cierre discreto `<button class="close-intro-btn" id="close-intro-btn" title="Ocultar descripción">&times;</button>`.
+    * Un título de sección: `📍 ¿Qué es GeoViabilidad Hook?`.
+    * Un párrafo explicativo premium de geointeligencia.
+    * Un listado ordenado o estructurado en tres pasos con iconos para detallar el flujo de uso.
+* **CSS (`index.css`)**:
+  * Estilos premium glassmorphic para `.intro-card`: fondo translúcido con desenfoque de fondo, bordes suaves y sombra.
+  * Transición suave para el colapsado (`max-height`, `opacity`, `margin-bottom` con transiciones de 0.4s).
+  * Estilos del botón de cierre (`.close-intro-btn`): flotante a la derecha, sin bordes ni fondo, con efecto de rotación y opacidad en hover.
+* **JavaScript (`app.js`)**:
+  * Al iniciar la app: verificar si `localStorage.getItem("hide_intro_card") === "true"`. Si es así, ocultar la tarjeta añadiendo la clase `.hidden` o `.collapsed`.
+  * Escuchador de clic en `#close-intro-btn`: añade la clase de colapsado a la tarjeta y registra `localStorage.setItem("hide_intro_card", "true")`.
+
+### 11.2 Tooltips de Información (CSS Puro y HTML)
+* **CSS (`index.css`)**:
+  * Se usará una solución robusta basada en CSS para evitar scripts innecesarios y optimizar el rendimiento.
+  * Clase del contenedor del tooltip: `.info-tooltip-wrapper` con posición relativa.
+  * Clase del icono: `.info-icon` (diseñado como un círculo discreto con fondo translúcido, borde suave, color del texto secundario, centrado, tamaño de 14px, que muestra el símbolo `i` o `ℹ️` y cursor `pointer` / `help`).
+  * Clase del tooltip: `.tooltip-text` posicionado de manera absoluta (`position: absolute;`).
+    * **Alineación por defecto**: Arriba del icono, centrado horizontalmente (`bottom: 125%; left: 50%; transform: translateX(-50%);`).
+    * **Estética**: `background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-size: 11px; padding: 10px 12px; width: 220px; box-shadow: var(--shadow-premium); opacity: 0; pointer-events: none; transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1010; transform: translateX(-50%) translateY(5px);`.
+    * **Flecha del Tooltip**: Pseudo-elemento `::after` para dibujar un pequeño triángulo indicador en la base.
+    * **Hover**: `.info-tooltip-wrapper:hover .tooltip-text` cambia a `opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0);`.
+    * **Temas**: Adaptación dinámica para `body.light-theme .tooltip-text` para usar fondo claro (`rgba(255, 255, 255, 0.95)`) y borde oscuro suave, garantizando un contraste del 100%.
+    * **Excepciones de posicionamiento**: Para tooltips situados cerca de los bordes (ej: KPIs del panel de control o extremos del mapa/dashboard), se definirán modificadores `.tooltip-right`, `.tooltip-left` o `.tooltip-bottom` para reposicionar el globo y su flecha de forma segura.
+* **HTML (`index.html`)**:
+  * Se inyectarán los wrappers de tooltip `.info-tooltip-wrapper` junto a los textos de etiqueta y encabezados correspondientes.
+  * **Textos Explicativos (Sin Jergas Técnicas)**:
+    * *Giro*: "Determina el tipo de competidores comerciales y clientes objetivos que analizaremos en la zona."
+    * *Radio*: "Define el alcance en metros del círculo de estudio para consultar la demografía y los comercios locales."
+    * *Intenciones*: "Describe tus metas y el perfil de tu local para que nuestra Inteligencia Artificial personalice el diagnóstico estratégico."
+    * *Competidores*: "Elige marcas o giros que compiten por los mismos clientes. El reporte los evaluará en detalle."
+    * *Aliados*: "Elige giros complementarios que atraen público a la zona, generando sinergia para tu local."
+    * *Score SVA*: "Evaluación matemática de idoneidad del punto (0 a 100). Integra concentración de personas, competencia y confluencia."
+    * *Población*: "Cantidad estimada de habitantes residentes dentro de la zona de estudio (Censo de Población oficial)."
+    * *Competidores*: "Número total de establecimientos del mismo giro detectados dentro de tu radio de influencia."
+    * *NSE*: "Nivel socioeconómico promedio de la zona (AMAI). Mide el poder adquisitivo familiar y equipamiento del hogar."
+
+---
+
+## 12. Diseño Técnico de Autodetección por IA
+
+### 12.1 Diseño del Formulario Interactivo (Frontend)
+* Se añadirán dos checkboxes con estilo distintivo (clase `.checkbox-ia-auto` y bordes de acento):
+  - `#competidores-ia-auto` (dentro de `#competidores-checkboxes`, valor `"ia_auto"`).
+  - `#aliados-ia-auto` (dentro de `#aliados-checkboxes`, valor `"ia_auto"`).
+* Lógica JS de exclusión mutua en `setupLeftPanelCheckboxLimits()`:
+  - Cuando se hace check en `#competidores-ia-auto`:
+    1. Se recorren los demás checkboxes en `#competidores-checkboxes`, se desmarcan y se les añade la propiedad `disabled = true`.
+    2. Se añade la clase `.disabled-by-ia` a sus contenedores `label` para atenuar su opacidad al 40% y quitar los eventos del puntero (`pointer-events: none`).
+    3. Se deshabilita `#competidores-adicionales-input` aplicando la clase `.disabled-by-ia`.
+  - Si se desmarca, se habilita todo de nuevo y se recalcula el límite tradicional de selección.
+  - Comportamiento idéntico para aliados estratégicos usando `#aliados-ia-auto` y `#aliados-adicionales-input`.
+
+### 12.2 Intercepción y Adaptación en el Backend (`analytics.py`)
+* En `procesar_calculo_analitico()`, antes de ejecutar la llamada a Google Places:
+  - Si `competidores_seleccionados` contiene `"ia_auto"`:
+    - Se establece internamente una variable de contexto `ia_autodetect_competidores = True`.
+    - Se limpia la lista de `competidores_seleccionados` (dejándola en `None` o eliminando `"ia_auto"`) para que el buscador geográfico de Places realice la consulta estándar basándose en el rubro/giro resuelto.
+  - Si `aliados_seleccionados` contiene `"ia_auto"`:
+    - Se establece `ia_autodetect_aliados = True`.
+    - Se limpia la lista de `aliados_seleccionados` para que el buscador geográfico realice la consulta estándar (bancos, escuelas, transporte).
+
+### 12.3 Modificación del Prompt LLM (`bedrock.py`)
+* Si `ia_autodetect_competidores` o `ia_autodetect_aliados` son verdaderas, se añade una directiva al `user_prompt` de Groq/Bedrock:
+  - `"CRITICAL: El usuario ha delegado la determinación de competidores y aliados estratégicos a la Inteligencia Artificial de forma automática. En tus respuestas JSON ('conclusion', 'dictamen_final' y el FODA), debes identificar de manera proactiva qué comercios, marcas o tipos de negocios del entorno actúan como competidores o aliados clave para el éxito del local y justificar por qué."`
+    * *Distribución Competidores*: "Muestra la calidad percibida de tus competidores directos en la zona basada en las valoraciones de los clientes."
+    * *Atractores*: "Lista de magnetos comerciales principales (transporte, bancos, escuelas) y su grado de atracción de flujo peatonal."
+    * *IA (FODA)*: "Diagnóstico FODA cruzado situacional y cuantitativo elaborado a la medida por nuestro motor de Inteligencia Artificial."
+
+---
+
+## 13. Diseño Técnico de KPIs Reales y Blur de Marketing (Dashboard)
+
+### 13.1 Habilitación del Cálculo Completo en Backend
+* **`analytics.py`:** Se eliminó la restricción `if tier == "premium"` para la búsqueda de atractores/aliados y la obtención de afluencia peatonal (`obtener_afluencia()`), haciendo que el motor analítico calcule toda la información avanzada para todos los tiers.
+* **`routes_analytics.py`:**
+  - El endpoint `/api/analizar/previa` ahora ejecuta `procesar_calculo_analitico` con `tier="premium"` y devuelve las listas completas de competidores, aliados y afluencia.
+  - El endpoint `/api/analizar/resultado/{orden_id}` ya no vacía ni limpia `"competidores_listado"` ni `"afluencia_peatonal"`.
+
+### 13.2 Visualización Nítida de KPIs e Interacción
+* **`app.js`:** `runPreviewAnalysis()` realiza un POST asíncrono a `/previa` y puebla los 3 KPIs tradicionales (`kpi-sva`, `kpi-poblacion`, `kpi-competidores`) con los datos reales del INEGI, en lugar de bloquearlos con `"🔒 Bloqueado"`.
+
+### 13.3 Aplicación de Blur en Frontend
+* **`index.css`:** Definición de la clase `.blurred-premium` que aplica:
+  ```css
+  .blurred-premium {
+      filter: blur(8px) grayscale(20%);
+      pointer-events: none !important;
+      user-select: none !important;
+      opacity: 0.7;
+  }
+  ```
+* **`app.js`:** Implementación de `applyBlurRules(tier)`. Esta función localiza `.canvas-wrapper` (Competidores) y `.table-wrapper` (Atractores) y les aplica o remueve la clase `.blurred-premium`, así como oculta o muestra los carteles `#comp-chart-locked-msg` y `#poi-chart-locked-msg` correspondientes en base a las reglas de negocio de los planes:
+  - `gratuito` / `basico`: Ambos blurreados y con carteles visibles.
+  - `pro`: Competidores nítido (sin cartel), atractores blurreado (con cartel).
+  - `premium`: Ambos nítidos y sin carteles.
+
+
+
+

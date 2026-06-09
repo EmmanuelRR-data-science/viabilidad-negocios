@@ -254,8 +254,16 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         logger.info("[BEDROCK] Modo Desarrollo: Devolviendo análisis FODA simulatido para el reporte.")
         comp_sel = datos_entorno.get("competidores_seleccionados")
         aliados_sel = datos_entorno.get("aliados_seleccionados")
-        comp_sel_str = f" ({', '.join(comp_sel)})" if comp_sel else ""
-        aliados_sel_str = f" ({', '.join(aliados_sel)})" if aliados_sel else ""
+        comp_ia = comp_sel and "ia_auto" in comp_sel
+        aliados_ia = aliados_sel and "ia_auto" in aliados_sel
+        comp_sel_clean = [c for c in comp_sel if c != "ia_auto"] if comp_sel else []
+        aliados_sel_clean = [a for a in aliados_sel if a != "ia_auto"] if aliados_sel else []
+
+        comp_desc = "determinados automáticamente por IA" if comp_ia else ", ".join(comp_sel_clean)
+        aliados_desc = "determinados automáticamente por IA" if aliados_ia else ", ".join(aliados_sel_clean)
+
+        comp_sel_str = f" ({comp_desc})" if (comp_sel_clean or comp_ia) else ""
+        aliados_sel_str = f" ({aliados_desc})" if (aliados_sel_clean or aliados_ia) else ""
 
         fortalezas_list = [
             f"Sólida base demográfica con {poblacion:,} personas residentes directas en el búfer.",
@@ -264,7 +272,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         ]
         if aliados_sel:
             fortalezas_list.append(
-                f"Presencia de aliados estratégicos clave de tipo {', '.join(aliados_sel)} en la zona."
+                f"Presencia de aliados estratégicos clave de tipo {aliados_desc} en la zona."
             )
 
         oportunidades_list = [
@@ -274,7 +282,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         ]
         if aliados_sel:
             oportunidades_list.append(
-                f"Alianzas comerciales directas con establecimientos locales de tipo {', '.join(aliados_sel)}."
+                f"Alianzas comerciales directas con establecimientos locales de tipo {aliados_desc}."
             )
         if aliados_adicionales:
             oportunidades_list.append(
@@ -412,12 +420,39 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     comp_sel = datos_entorno.get("competidores_seleccionados")
     aliados_sel = datos_entorno.get("aliados_seleccionados")
-    comp_sel_str = ", ".join(comp_sel) if comp_sel else "Ninguna (giro estándar)"
-    aliados_sel_str = (
-        ", ".join(aliados_sel) if aliados_sel else "Ninguna (atractores estándar: bancos, escuelas, transporte)"
-    )
+
+    competidores_ia_auto = datos_entorno.get("competidores_ia_auto", False) or (comp_sel and "ia_auto" in comp_sel)
+    aliados_ia_auto = datos_entorno.get("aliados_ia_auto", False) or (aliados_sel and "ia_auto" in aliados_sel)
+
+    comp_sel_clean = [c for c in comp_sel if c != "ia_auto"] if comp_sel else []
+    aliados_sel_clean = [a for a in aliados_sel if a != "ia_auto"] if aliados_sel else []
+
+    if competidores_ia_auto:
+        comp_sel_str = "Autodetección inteligente por Inteligencia Artificial (basada en el rubro)"
+    elif comp_sel_clean:
+        comp_sel_str = ", ".join(comp_sel_clean)
+    else:
+        comp_sel_str = "Ninguna (giro estándar)"
+
+    if aliados_ia_auto:
+        aliados_sel_str = "Autodetección inteligente por Inteligencia Artificial (basada en el rubro)"
+    elif aliados_sel_clean:
+        aliados_sel_str = ", ".join(aliados_sel_clean)
+    else:
+        aliados_sel_str = "Ninguna (atractores estándar: bancos, escuelas, transporte)"
+
     comp_adicionales_str = comp_adicionales if comp_adicionales else "Ninguno"
     aliados_adicionales_str = aliados_adicionales if aliados_adicionales else "Ninguno"
+
+    ia_directives = ""
+    if competidores_ia_auto or aliados_ia_auto:
+        ia_directives = (
+            "\n[INDICACIÓN ESPECIAL DE AUTODETECCIÓN POR IA]\n"
+            "El usuario ha solicitado que la Inteligencia Artificial determine qué comercios del entorno actúan como "
+            "competidores y/o aliados estratégicos críticos de forma dinámica. En tus campos 'conclusion', 'dictamen_final' y las "
+            "secciones del FODA, debes identificar explícitamente cuáles son estas marcas, giros o establecimientos del "
+            "entorno geográfico y fundamentar comercialmente por qué representan oportunidades o amenazas para el local.\n"
+        )
 
     user_prompt = (
         f"Giro del negocio: {rubro}\n"
@@ -431,6 +466,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         f"Aliados específicos o marcas a considerar (contexto adicional): {aliados_adicionales_str}\n"
         f"Score SVA de Viabilidad General: {sva}/100\n"
         f"Intenciones del emprendedor: {intenciones or 'Sin intenciones especiales escritas.'}\n\n"
+        f"{ia_directives}"
         f"Genera el análisis FODA adaptado específicamente para el éxito comercial de este giro en México."
     )
 
