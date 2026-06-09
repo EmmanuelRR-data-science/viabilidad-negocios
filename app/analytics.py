@@ -177,12 +177,26 @@ def procesar_calculo_analitico(
     ia_autodetect_competidores = False
     if competidores_seleccionados and "ia_auto" in competidores_seleccionados:
         ia_autodetect_competidores = True
-        competidores_seleccionados = None
 
     ia_autodetect_aliados = False
     if aliados_seleccionados and "ia_auto" in aliados_seleccionados:
         ia_autodetect_aliados = True
-        aliados_seleccionados = None
+
+    if ia_autodetect_competidores or ia_autodetect_aliados:
+        try:
+            from app.bedrock import determinar_categorias_ia
+            sugerencias = determinar_categorias_ia(rubro)
+            logger.info(f"Categorías sugeridas por IA para '{rubro}': {sugerencias}")
+            if ia_autodetect_competidores:
+                competidores_seleccionados = sugerencias.get("competidores", ["restaurant"])
+            if ia_autodetect_aliados:
+                aliados_seleccionados = sugerencias.get("aliados", ["transit_station"])
+        except Exception as ia_err:
+            logger.error(f"Error al determinar categorías por IA: {ia_err}. Usando fallbacks estándar.")
+            if ia_autodetect_competidores:
+                competidores_seleccionados = None
+            if ia_autodetect_aliados:
+                aliados_seleccionados = None
 
     if tier in ["basico", "pro", "premium"]:
         if competidores_seleccionados:

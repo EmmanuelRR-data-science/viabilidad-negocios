@@ -3,9 +3,10 @@ import logging
 import re
 
 import boto3
+import requests
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.config import AWS_REGION, BEDROCK_MODEL_ID, DEV_MODE
+from app.config import AWS_REGION, BEDROCK_MODEL_ID, DEV_MODE, GROQ_API_KEY, GROQ_MODEL
 
 logger = logging.getLogger("bedrock")
 
@@ -562,3 +563,174 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
                 '"No cuentan con servicio a domicilio ni opciones ágiles de pago digital."',
             ],
         }
+
+
+def determinar_categorias_ia(rubro: str) -> dict:
+    """
+    Determina de forma inteligente (usando el LLM) cuáles de las categorías
+    soportadas por Google Places/nuestro sistema representan competidores y aliados
+    adecuados para el rubro ingresado.
+    """
+    rub_sanitizado = sanitizar_input_usuario(rubro, field="rubro") or rubro
+    rub_lower = rub_sanitizado.lower()
+
+    # Fallbacks predefinidos en caso de falla o modo de desarrollo sin llaves
+    fallbacks = {
+        "cafe": {
+            "competidores": ["cafe", "bakery"],
+            "aliados": ["school", "transit_station", "shopping_mall", "bank"]
+        },
+        "cafeteria": {
+            "competidores": ["cafe", "bakery"],
+            "aliados": ["school", "transit_station", "shopping_mall", "bank"]
+        },
+        "comida": {
+            "competidores": ["restaurant", "fast_food", "cafe"],
+            "aliados": ["transit_station", "shopping_mall", "school", "park"]
+        },
+        "restaurante": {
+            "competidores": ["restaurant", "fast_food"],
+            "aliados": ["transit_station", "shopping_mall", "bank", "park"]
+        },
+        "gym": {
+            "competidores": ["gym"],
+            "aliados": ["pharmacy", "supermarket", "beauty_salon", "transit_station"]
+        },
+        "gimnasio": {
+            "competidores": ["gym"],
+            "aliados": ["pharmacy", "supermarket", "beauty_salon", "transit_station"]
+        },
+        "farmacia": {
+            "competidores": ["pharmacy"],
+            "aliados": ["doctor", "supermarket", "convenience_store", "transit_station"]
+        },
+        "panaderia": {
+            "competidores": ["bakery", "cafe"],
+            "aliados": ["supermarket", "school", "transit_station"]
+        },
+        "ropa": {
+            "competidores": ["clothing_store"],
+            "aliados": ["shopping_mall", "beauty_salon", "bank"]
+        },
+        "zapateria": {
+            "competidores": ["shoe_store"],
+            "aliados": ["shopping_mall", "clothing_store", "bank"]
+        },
+        "supermercado": {
+            "competidores": ["supermarket", "convenience_store"],
+            "aliados": ["bank", "transit_station", "pharmacy"]
+        },
+        "comida_rapida": {
+            "competidores": ["fast_food", "restaurant"],
+            "aliados": ["transit_station", "shopping_mall", "park", "convenience_store"]
+        },
+        "fast_food": {
+            "competidores": ["fast_food", "restaurant"],
+            "aliados": ["transit_station", "shopping_mall", "park", "convenience_store"]
+        }
+    }
+
+    # Buscar coincidencia simple de subcadena en fallbacks
+    sugerencia_fallback = {
+        "competidores": ["restaurant"],
+        "aliados": ["transit_station", "school", "bank"]
+    }
+    for key, val in fallbacks.items():
+        if key in rub_lower:
+            sugerencia_fallback = val
+            break
+
+    system_prompt = (
+        "Eres un experto en geomarketing y ciencia de datos. Tu tarea es mapear un giro comercial (rubro) "
+        "a una o más categorías oficiales de nuestro sistema para identificar competidores (negocios del mismo sector o sustitutos directos) "
+        "y aliados (establecimientos que generan flujo peatonal y confluencia de clientes potenciales para ese negocio).\n\n"
+        "Categorías permitidas (DEBES usar ÚNICAMENTE palabras de esta lista):\n"
+        '["cafe", "restaurant", "fast_food", "gym", "pharmacy", "bakery", "beauty_salon", '
+        '"laundry", "doctor", "bank", "school", "transit_station", "supermarket", '
+        '"shopping_mall", "convenience_store", "park"]\n\n'
+        "Debes responder estrictamente con un objeto JSON válido con la siguiente estructura:\n"
+        "{\n"
+        '  "competidores": ["categoria1", "categoria2"],\n'
+        '  "aliados": ["categoria3", "categoria4"]\n'
+        "}\n"
+        "Reglas:\n"
+        "1. No inventes categorías. Usa solo las de la lista anterior.\n"
+        "2. Incluye entre 1 y 4 categorías por lista.\n"
+        "3. No incluyas explicaciones ni texto fuera del JSON."
+    )
+
+    user_prompt = f"Determina competidores y aliados estratégicos para el giro comercial: '{rub_sanitizado}'"
+
+    # Intentar con Groq
+    if GROQ_API_KEY and not GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in GROQ_API_KEY:
+        try:
+            logger.info(f"[GROQ-CATEGORIAS] Invocando Groq ({GROQ_MODEL}) para clasificar giro '{rub_sanitizado}'...")
+            headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+            payload = {
+                "model": GROQ_MODEL,
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.1,
+            }
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=10
+            )
+            if response.status_code == 200:
+                content = response.json()["choices"][0]["message"]["content"]
+                res = json.loads(content)
+                # Validar que las llaves estén y las categorías sean permitidas
+                return filtrar_y_validar_categorias(res, sugerencia_fallback)
+        except Exception as e:
+            logger.error(f"[GROQ-CATEGORIAS] Error: {e}")
+
+    # Fallback a Bedrock
+    try:
+        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+        full_prompt = (
+            f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
+            f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
+            f"<|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
+        body_json = {"prompt": full_prompt, "max_gen_len": 500, "temperature": 0.1, "top_p": 0.9}
+        response = bedrock.invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            contentType="application/json",
+            accept="application/json",
+            body=json.dumps(body_json),
+        )
+        response_body = json.loads(response.get("body").read())
+        generation = response_body.get("generation", "{}").strip()
+        start_idx = generation.find("{")
+        end_idx = generation.rfind("}")
+        if start_idx != -1 and end_idx != -1:
+            res = json.loads(generation[start_idx : end_idx + 1])
+            return filtrar_y_validar_categorias(res, sugerencia_fallback)
+    except Exception as e:
+        logger.error(f"[BEDROCK-CATEGORIAS] Error: {e}")
+
+    logger.info(f"Usando fallback predefinido para categorías de '{rub_sanitizado}': {sugerencia_fallback}")
+    return sugerencia_fallback
+
+
+def filtrar_y_validar_categorias(res: dict, fallback: dict) -> dict:
+    categorias_permitidas = {
+        "cafe", "restaurant", "fast_food", "gym", "pharmacy", "bakery",
+        "beauty_salon", "laundry", "doctor", "bank", "school",
+        "transit_station", "supermarket", "shopping_mall",
+        "convenience_store", "park"
+    }
+    comps = res.get("competidores", [])
+    aliados = res.get("aliados", [])
+
+    comps_validos = [c for c in comps if c in categorias_permitidas]
+    aliados_validos = [a for a in aliados if a in categorias_permitidas]
+
+    if not comps_validos:
+        comps_validos = fallback.get("competidores", ["restaurant"])
+    if not aliados_validos:
+        aliados_validos = fallback.get("aliados", ["transit_station"])
+
+    return {
+        "competidores": comps_validos,
+        "aliados": aliados_validos
+    }

@@ -575,11 +575,24 @@ async function runPreviewAnalysis() {
         
         // 5. Consumir endpoint real de Vista Previa en caliente
         const headers = getAuthHeaders();
+        headers["Content-Type"] = "application/json";
         const queryParams = `lat=${state.selectedLat}&lng=${state.selectedLng}&radio_metros=${state.selectedRadio}&rubro=${encodeURIComponent(state.selectedGiro)}`;
         
+        // Recopilar selecciones de competidores/aliados del formulario (incluido ia_auto)
+        const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
+        const competidoresSel = Array.from(compCheckboxes).map(cb => cb.value);
+        const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
+        const aliadosSel = Array.from(aliadosCheckboxes).map(cb => cb.value);
+
+        const previewBody = {
+            competidores_seleccionados: competidoresSel.length > 0 ? competidoresSel : null,
+            aliados_seleccionados: aliadosSel.length > 0 ? aliadosSel : null
+        };
+
         const response = await fetch(`/api/analizar/previa?${queryParams}`, {
             method: "POST",
-            headers: headers
+            headers: headers,
+            body: JSON.stringify(previewBody)
         });
         
         if (response.ok) {
@@ -1217,10 +1230,10 @@ function renderPOITable(metricas) {
     };
     
     let counts = {};
-    if (state.activeTier === "premium" && metricas.aliados_conteos) {
+    if (metricas.aliados_conteos && Object.keys(metricas.aliados_conteos).length > 0) {
         counts = metricas.aliados_conteos;
     } else {
-        // Fallback de atractores generales para Básico y Pro
+        // Fallback de atractores generales en caso de no contar con aliados calculados
         counts = {
             "transit_station": metricas.transporte_conteo || 4,
             "school": metricas.escuelas_conteo || 2,

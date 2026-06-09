@@ -33,11 +33,12 @@ def geocodificar_coordenadas(lat: float, lng: float, user: UserContext = Depends
 
 
 @router.post("/previa", status_code=status.HTTP_200_OK)
-def obtener_vista_previa_gratuita(
+async def obtener_vista_previa_gratuita(
     lat: float,
     lng: float,
     radio_metros: int,
     rubro: str,
+    request: Request,
     db: Session = Depends(get_db),
     user: UserContext = Depends(get_current_user),
 ):
@@ -45,11 +46,30 @@ def obtener_vista_previa_gratuita(
     Vista Previa Gratuita: Retorna conteos e indicadores agregados básicos del INEGI
     y competencia en la zona de forma gratuita. Bloquea el listado detallado de competidores,
     análisis de afluencia BestTime y el razonamiento estratégico FODA del LLM (Bedrock).
+    Acepta opcionalmente un body JSON con las selecciones de competidores/aliados del formulario
+    para que la clasificación por IA funcione también en la vista previa.
     """
     logger.info(f"Generando Vista Previa Gratuita para usuario {user.cognito_user_id}")
+
+    # Extraer selecciones opcionales del body JSON (si el frontend las envía)
+    competidores_sel = None
+    aliados_sel = None
+    try:
+        body = await request.json()
+        competidores_sel = body.get("competidores_seleccionados")
+        aliados_sel = body.get("aliados_seleccionados")
+        logger.info(f"Selecciones recibidas en vista previa — Competidores: {competidores_sel} | Aliados: {aliados_sel}")
+    except Exception:
+        # No hay body o no es JSON válido — proceder con defaults
+        pass
+
     try:
         # Procesar cálculos analíticos completos bajo el tier premium para habilitar gráficos en vista previa
-        resultado = procesar_calculo_analitico(db, lat, lng, radio_metros, rubro, tier="premium")
+        resultado = procesar_calculo_analitico(
+            db, lat, lng, radio_metros, rubro, tier="premium",
+            competidores_seleccionados=competidores_sel,
+            aliados_seleccionados=aliados_sel,
+        )
 
         return {
             "status": "success",
