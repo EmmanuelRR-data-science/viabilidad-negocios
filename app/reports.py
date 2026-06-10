@@ -764,7 +764,7 @@ class ReportLabGenerator:
 
             if foda_dict.get("estrategia_precios"):
                 story.append(Spacer(1, 8))
-                story.append(Paragraph("<b>Gasto Estimado y Estrategia de Penetración:</b>", s_h2))
+                story.append(Paragraph("<b>Estrategia de Posicionamiento Comercial:</b>", s_h2))
                 story.append(Paragraph(foda_dict["estrategia_precios"], s_body))
 
         # =====================================================================
@@ -870,15 +870,6 @@ class ReportLabGenerator:
         bloque_diagnostico.append(Paragraph("Conclusión General del Diagnóstico:", s_h2_foda))
         bloque_diagnostico.append(
             Paragraph(foda_dict.get("conclusion", "Análisis de viabilidad concluido con éxito."), s_body_foda)
-        )
-
-        bloque_diagnostico.append(Spacer(1, 4))
-        bloque_diagnostico.append(Paragraph("Recomendación de Rentabilidad:", s_h2_foda))
-        bloque_diagnostico.append(
-            Paragraph(
-                foda_dict.get("recomendacion_roi", "Estudio de rentabilidad aceptable bajo modelo operativo base."),
-                s_body_foda,
-            )
         )
 
         # =====================================================================
@@ -1447,7 +1438,7 @@ class ReportLabGenerator:
             logger.info("ReportLab: Compilación Pro exitosa.")
             return _cerrar_reporte()
 
-        # Premium: afluencia peatonal + extras de diagnóstico (fricciones y ROI)
+        # Premium: afluencia peatonal + extras de diagnóstico (fricciones del sector)
         # PÁGINA (CONDICIONAL): AFLUENCIA PEATONAL DINÁMICA (BestTime API) (Premium)
         # Se incluye SOLO si la API de BestTime retornó datos reales de telemetría.
         # Si la API falló o no tiene cobertura en la zona, esta sección se omite completamente.
@@ -1576,7 +1567,7 @@ class ReportLabGenerator:
                 "Se omite la sección de Afluencia Peatonal del reporte."
             )
 
-        # Extras Premium en sección 5 (Diagnóstico IA): fricciones del sector y ROI
+        # Extras Premium en sección 5 (Diagnóstico IA): fricciones del sector
         bloque_diagnostico.append(Spacer(1, 10))
         bloque_diagnostico.append(Paragraph("<b>Fricciones Frecuentes del Sector (Análisis Generado por IA):</b>", s_h2))
         bloque_diagnostico.append(
@@ -1614,66 +1605,6 @@ class ReportLabGenerator:
             )
         )
         bloque_diagnostico.append(quejas_table)
-        bloque_diagnostico.append(Spacer(1, 12))
-        bloque_diagnostico.append(Paragraph("<b>Estimación de Retorno de Inversión (ROI):</b>", s_h2))
-        bloque_diagnostico.append(
-            Paragraph(
-                "Estimaciones orientativas generadas por Inteligencia Artificial a partir de la demanda "
-                "ponderada del INEGI, el índice de competidores directos y los rangos típicos del giro en México. "
-                "<b>No constituyen una proyección financiera auditada</b>; valídalas con tu plan de negocio.",
-                s_body,
-            )
-        )
-        bloque_diagnostico.append(Spacer(1, 10))
-
-        ticket_sugerido = foda_dict.get("ticket_recomendado") or "No estimado — valide con su plan de negocio"
-        roi_sugerido = foda_dict.get("roi_estimado") or "No estimado — valide con su plan de negocio"
-        inversion_val = foda_dict.get("inversion_estimada") or "No estimada — según acondicionamiento del local"
-        tir_val = foda_dict.get("tir_proyectada") or "No calculada sin modelo financiero del emprendedor"
-
-        roi_data = [
-            [
-                Paragraph("Variable Financiera", s_table_header),
-                Paragraph("Proyección Estimada", s_table_header),
-            ],
-            [
-                Paragraph("Ticket de Compra Promedio Recomendado", s_table_cell),
-                Paragraph(ticket_sugerido, s_table_cell),
-            ],
-            [
-                Paragraph("Inversión Inicial Estimada del Punto", s_table_cell),
-                Paragraph(inversion_val, s_table_cell),
-            ],
-            [
-                Paragraph("Período de Recuperación (Payback Period)", s_table_cell),
-                Paragraph(roi_sugerido, s_table_cell),
-            ],
-            [Paragraph("Tasa Interna de Retorno (TIR) Proyectada", s_table_cell), Paragraph(tir_val, s_table_cell)],
-        ]
-        roi_table = Table(roi_data, colWidths=[250, 254])
-        roi_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("PADDING", (0, 0), (-1, -1), 7),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ]
-            )
-        )
-
-        bloque_diagnostico.append(roi_table)
-        bloque_diagnostico.append(Spacer(1, 10))
-
-        bloque_diagnostico.append(Paragraph("<b>Justificación y Flujo de Viabilidad Financiera:</b>", s_h2))
-        bloque_diagnostico.append(
-            Paragraph(
-                foda_dict.get("viabilidad_financiera", "Viabilidad financiera aceptable y retorno estable."),
-                s_body,
-            )
-        )
 
         if foda_dict.get("dictamen_final"):
             bloque_diagnostico.append(Spacer(1, 8))

@@ -157,6 +157,53 @@ def validar_schema_foda(respuesta: dict) -> dict:
     return sanitizada
 
 
+_CAMPOS_CUALITATIVOS_LLM = frozenset({"fortalezas", "oportunidades", "debilidades", "amenazas"})
+
+
+def _aplicar_politica_honesta_foda(
+    foda_llm: dict,
+    datos_entorno: dict,
+    rubro: str,
+    *,
+    comp_adicionales: str | None,
+    aliados_adicionales: str | None,
+) -> dict:
+    """
+    Conserva la narrativa cualitativa del LLM (cuadrantes FODA) pero ancla
+    conclusiones, dictamen, fricciones y campos financieros a las mismas reglas
+    del respaldo cuantitativo (sin cifras inventadas).
+    """
+    respaldo = _foda_respaldo_cuantitativo(
+        datos_entorno, rubro, comp_adicionales=comp_adicionales, aliados_adicionales=aliados_adicionales
+    )
+    resultado = {k: v for k, v in respaldo.items() if k != "_fuente"}
+
+    for campo in _CAMPOS_CUALITATIVOS_LLM:
+        items = foda_llm.get(campo)
+        if isinstance(items, list) and items:
+            resultado[campo] = [str(x).strip() for x in items if str(x).strip()]
+
+    return resultado
+
+
+def _procesar_respuesta_foda_llm(
+    foda_raw: dict,
+    datos_entorno: dict,
+    rubro: str,
+    *,
+    comp_adicionales: str | None,
+    aliados_adicionales: str | None,
+) -> dict:
+    sanitizada = validar_schema_foda(foda_raw)
+    return _aplicar_politica_honesta_foda(
+        sanitizada,
+        datos_entorno,
+        rubro,
+        comp_adicionales=comp_adicionales,
+        aliados_adicionales=aliados_adicionales,
+    )
+
+
 def verificar_guardrail_groq(texto_usuario: str, api_key: str) -> tuple[bool, str]:
     """
     Llama al modelo Llama Guard 4 de Groq para verificar si el contenido
@@ -434,27 +481,24 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         '  "oportunidades": ["o1", "o2", ...],\n'
         '  "debilidades": ["d1", "d2", ...],\n'
         '  "amenazas": ["a1", "a2", ...],\n'
-        '  "conclusion": "resumen de viabilidad comercial general",\n'
-        '  "recomendacion_roi": "estimación y consejo sobre el Retorno de Inversión",\n'
-        '  "ticket_recomendado": "$180 - $250 MXN (ejemplo, estima según población, rubro e intenciones)",\n'
-        '  "roi_estimado": "14 a 18 Meses (ejemplo, estima según el pilar de competencia y la demanda)",\n'
-        '  "segmentacion_nicho": "Un párrafo detallado describiendo el nicho demográfico ideal y por qué este punto geográfico en México es atractivo para ellos, considerando la densidad demográfica real.",\n'
-        '  "estrategia_precios": "Un párrafo detallado sobre el posicionamiento de precios recomendado (bajo, medio, premium) y la tasa de penetración estimada del mercado.",\n'
-        '  "viabilidad_financiera": "Un párrafo formal que justifique financieramente el retorno de inversión sugerido y los flujos esperados.",\n'
-        '  "dictamen_final": "El dictamen formal del consultor en tres o cuatro oraciones sólidas, aprobando o condicionando la factibilidad comercial del proyecto basándose en todos los datos proporcionados.",\n'
-        '  "inversion_estimada": "$450,000 - $650,000 MXN (ejemplo, estima un rango realista en pesos mexicanos según el rubro y la magnitud del negocio)",\n'
-        '  "tir_proyectada": "28.4% Anual (ejemplo, calcula una Tasa Interna de Retorno anual realista basada en el nivel de riesgo y competencia)",\n'
+        '  "conclusion": "resumen de viabilidad comercial general (sin cifras financieras)",\n'
+        '  "recomendacion_roi": "Consejo operativo breve sin montos ni porcentajes de retorno",\n'
+        '  "ticket_recomendado": "Consultar rango típico del giro en la zona",\n'
+        '  "roi_estimado": "Estimar con plan de negocio local",\n'
+        '  "segmentacion_nicho": "Párrafo sobre el perfil demográfico usando solo población y ubicación proporcionadas (sin penetración de mercado ni porcentajes inventados).",\n'
+        '  "estrategia_precios": "Párrafo sobre posicionamiento bajo/medio/premium sin tasas de penetración ni proyecciones financieras.",\n'
+        '  "viabilidad_financiera": "Indicar que la proyección debe validarse con costos reales (sin TIR, payback ni montos en pesos).",\n'
+        '  "dictamen_final": "Dictamen formal coherente con el Score SVA (sin cifras financieras inventadas).",\n'
+        '  "inversion_estimada": "Estimar según acondicionamiento del local",\n'
+        '  "tir_proyectada": "No calculada sin modelo financiero del emprendedor",\n'
         '  "top_quejas_competidores": [\n'
-        "    \"Cita textual realista 1 de un cliente enojado sobre un competidor específico de este rubro (ej: 'El café de Starbucks es carísimo y siempre sabe quemado...')\",\n"
-        "    \"Cita textual realista 2 (ej: 'La atención en Cielito es súper lenta, tardan 20 minutos por un americano...')\",\n"
-        '    "Cita textual realista 3",\n'
-        '    "Cita textual realista 4",\n'
-        '    "Cita textual realista 5"\n'
+        '    "Fricción típica del sector 1 (sin citar reseñas reales ni personas)",\n'
+        '    "Fricción típica del sector 2",\n'
+        '    "Fricción típica del sector 3"\n'
         "  ]\n"
         "}\n"
-        "IMPORTANTE: Los valores numéricos mostrados entre paréntesis son SOLO ejemplos de formato. "
-        "NO los copies literalmente: calcula rangos propios y específicos para este caso usando la población, "
-        "el número de competidores, el rubro y el score proporcionados.\n"
+        "PROHIBIDO inventar montos en pesos, porcentajes de TIR, payback en meses, penetración de mercado "
+        "o tasas de conversión. Los campos financieros y el dictamen serán validados en servidor.\n"
         "No agregues texto explicativo fuera del JSON."
     )
 
@@ -534,8 +578,13 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
             foda_raw = json.loads(content)
-            # --- Validación de schema post-LLM (segunda línea de defensa) ---
-            return validar_schema_foda(foda_raw)
+            return _procesar_respuesta_foda_llm(
+                foda_raw,
+                datos_entorno,
+                rubro,
+                comp_adicionales=comp_adicionales,
+                aliados_adicionales=aliados_adicionales,
+            )
         except Exception as groq_err:
             logger.error(f"[GROQ] Error llamando a Groq API: {groq_err}.")
 
@@ -583,9 +632,16 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         end_idx = generation.rfind("}")
         if start_idx != -1 and end_idx != -1:
             json_str = generation[start_idx : end_idx + 1]
-            return json.loads(json_str)
+            foda_raw = json.loads(json_str)
         else:
-            return json.loads(generation)
+            foda_raw = json.loads(generation)
+        return _procesar_respuesta_foda_llm(
+            foda_raw,
+            datos_entorno,
+            rubro,
+            comp_adicionales=comp_adicionales,
+            aliados_adicionales=aliados_adicionales,
+        )
 
     except (BotoCoreError, ClientError) as aws_err:
         logger.error(
