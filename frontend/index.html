@@ -426,8 +426,8 @@
             </div>
         </div>
 
-        <!-- Fila 3: Mapa de Calor de Afluencia Peatonal y Horarios Pico (BestTime) -->
-        <div class="chart-card glass-card" id="heatmap-container" style="grid-column: 1 / -1; margin-top: 20px; position: relative;">
+        <!-- Fila 3: Mapa de Calor (solo visible con pago Pro/Premium y telemetría BestTime disponible) -->
+        <div class="chart-card glass-card hidden" id="heatmap-container" style="grid-column: 1 / -1; margin-top: 20px; position: relative;">
             <h3>
                 📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
                 <span class="info-tooltip-wrapper tooltip-right">
@@ -435,7 +435,6 @@
                     <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
                 </span>
             </h3>
-            <p class="chart-helper-text" id="heatmap-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver el mapa de calor de horarios y días pico.</p>
             <div class="heatmap-wrapper" id="heatmap-grid-container">
                 <!-- Se generará dinámicamente con JS -->
             </div>

@@ -544,44 +544,69 @@ function checkFormValidity() {
 
 // --- EJECUTAR VISTA PREVIA GRATUITA (RF-05.4 & RF-01.4) ---
 // --- APLICAR REGLAS DE BLUR Y CANDADO SEGÚN TIER ---
+function hasBestTimeHeatmapData(afluencia) {
+    return (
+        afluencia?.status === "success" &&
+        afluencia?.afluencia_semanal &&
+        Object.keys(afluencia.afluencia_semanal).length > 0
+    );
+}
+
+function tierIncluyeHeatmap(tier) {
+    return tier === "pro" || tier === "premium";
+}
+
+/** Muestra el bloque del heatmap solo si hay pago Pro/Premium y BestTime devolvió curvas reales. */
+function syncHeatmapSection(tier, afluencia) {
+    const section = document.getElementById("heatmap-container");
+    const grid = document.getElementById("heatmap-grid-container");
+    const legend = document.getElementById("heatmap-legend-container");
+    if (!section) return;
+
+    const shouldShow = tierIncluyeHeatmap(tier) && hasBestTimeHeatmapData(afluencia);
+
+    if (shouldShow) {
+        section.classList.remove("hidden");
+        if (legend) legend.style.display = "flex";
+        renderHeatmap(afluencia);
+        logger("Mapa de calor visible: tier pagado y telemetría BestTime disponible.");
+    } else {
+        section.classList.add("hidden");
+        if (grid) grid.innerHTML = "";
+        if (legend) legend.style.display = "none";
+        if (tierIncluyeHeatmap(tier) && !hasBestTimeHeatmapData(afluencia)) {
+            logger("Mapa de calor oculto: BestTime sin cobertura en esta coordenada.");
+        }
+    }
+}
+
 function applyBlurRules(tier) {
     const compWrapper = document.querySelector("#competitor-chart-card .canvas-wrapper");
     const poiWrapper = document.querySelector("#poi-chart-card .table-wrapper");
-    const heatWrapper = document.getElementById("heatmap-grid-container");
-    
+
     const compMsg = document.getElementById("comp-chart-locked-msg");
     const poiMsg = document.getElementById("poi-chart-locked-msg");
-    const heatMsg = document.getElementById("heatmap-locked-msg");
 
     if (!compWrapper || !poiWrapper || !compMsg || !poiMsg) return;
 
     if (tier === "gratuito" || tier === "basico") {
-        // Blur en todos
         compWrapper.classList.add("blurred-premium");
         poiWrapper.classList.add("blurred-premium");
-        if (heatWrapper) heatWrapper.classList.add("blurred-premium");
-        
+
         compMsg.classList.remove("hidden");
         poiMsg.classList.remove("hidden");
-        if (heatMsg) heatMsg.classList.remove("hidden");
     } else if (tier === "pro") {
-        // Competidores y Heatmap nítido, atractores blur
         compWrapper.classList.remove("blurred-premium");
         poiWrapper.classList.add("blurred-premium");
-        if (heatWrapper) heatWrapper.classList.remove("blurred-premium");
-        
+
         compMsg.classList.add("hidden");
         poiMsg.classList.remove("hidden");
-        if (heatMsg) heatMsg.classList.add("hidden");
     } else if (tier === "premium") {
-        // Todos nítidos
         compWrapper.classList.remove("blurred-premium");
         poiWrapper.classList.remove("blurred-premium");
-        if (heatWrapper) heatWrapper.classList.remove("blurred-premium");
-        
+
         compMsg.classList.add("hidden");
         poiMsg.classList.add("hidden");
-        if (heatMsg) heatMsg.classList.add("hidden");
     }
 }
 
@@ -672,7 +697,7 @@ async function runPreviewAnalysis() {
             // Generar Gráficos Avanzados
             renderCompetitorsChart(data.competidores_listado);
             renderPOITable(data);
-            renderHeatmap(data.afluencia_peatonal);
+            syncHeatmapSection("gratuito", data.afluencia_peatonal);
 
             // Aplicar las reglas de blur para la vista previa
             applyBlurRules("gratuito");
@@ -707,9 +732,8 @@ function lockAdvancedFeatures() {
     document.getElementById("comp-chart-locked-msg").classList.remove("hidden");
     document.getElementById("poi-chart-locked-msg").classList.remove("hidden");
     
-    const heatmapMsg = document.getElementById("heatmap-locked-msg");
-    if (heatmapMsg) heatmapMsg.classList.remove("hidden");
-    
+    syncHeatmapSection("gratuito", null);
+
     // Ocultar descargas
     document.getElementById("download-section").classList.add("hidden");
     
@@ -721,10 +745,6 @@ function lockAdvancedFeatures() {
         state.charts.competitors.destroy();
         state.charts.competitors = null;
     }
-    
-    // Limpiar contenedor de mapa de calor
-    const heatContainer = document.getElementById("heatmap-grid-container");
-    if (heatContainer) heatContainer.innerHTML = "";
     
     // Restablecer la tabla de atractores / POIs a su estado inicial de carga
     const tbody = document.getElementById("poi-table-body");
@@ -1052,9 +1072,9 @@ async function unlockPaidReport() {
             // Generar Gráficos Avanzados siempre (el blur controla su visualización)
             renderCompetitorsChart(metricas.competidores_listado);
             renderPOITable(metricas);
-            renderHeatmap(metricas.afluencia_peatonal);
+            syncHeatmapSection(state.activeTier, metricas.afluencia_peatonal);
 
-            // Aplicar las reglas de blur y visibilidad de mensajes según el Tier activo
+            // Aplicar las reglas de blur según el Tier activo
             applyBlurRules(state.activeTier);
             
             // Scroll suave a los gráficos
@@ -1130,9 +1150,7 @@ function renderHeatmap(afluencia) {
     // Limpiar contenedor anterior
     gridContainer.innerHTML = "";
     
-    // Si no hay datos, mostrar aviso
-    if (!afluencia || afluencia.status === "no_data" || !afluencia.afluencia_semanal) {
-        gridContainer.innerHTML = `<p class="chart-helper-text" style="padding: 20px;">⚠️ No hay datos de telemetría peatonal disponibles en esta zona.</p>`;
+    if (!hasBestTimeHeatmapData(afluencia)) {
         return;
     }
     
