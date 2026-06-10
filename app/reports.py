@@ -502,9 +502,22 @@ class ReportLabGenerator:
         # Composición del SVA integrada al resumen (antes era sección independiente)
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Composición del Score de Viabilidad (SVA):</b>", s_h2))
+        from app.analytics import DENSIDAD_MINIMA_HAB_KM2, DENSIDAD_OPTIMA_HAB_KM2
+
         story.append(
             Paragraph(
                 "Métrica compuesta de 0 a 100 que pondera demografía (40%), competencia (30%) y atractores de tráfico (30%).",
+                s_body,
+            )
+        )
+        story.append(Spacer(1, 6))
+        story.append(
+            Paragraph(
+                "<b>Nota metodológica — Pilar demográfico:</b> el score no compara la población absoluta del municipio "
+                "contra ciudades grandes, sino la <b>densidad de habitantes dentro del radio contratado</b> (hab/km²). "
+                f"Referencias calibradas para México: ≤{DENSIDAD_MINIMA_HAB_KM2:,.0f} hab/km² indica mercado disperso; "
+                f"≥{DENSIDAD_OPTIMA_HAB_KM2:,.0f} hab/km² indica demanda local sólida. Entre ambos umbrales se aplica "
+                "una escala logarítmica para que un pueblo compacto no quede penalizado frente a una metrópoli.",
                 s_body,
             )
         )
@@ -512,14 +525,15 @@ class ReportLabGenerator:
 
         pob_tot_val = analisis.get("poblacion_ponderada", 0)
         score_dem = analisis.get("score_demog", 50.0)
+        dens_dem = analisis.get("densidad_hab_km2", 0)
         comp_cont = analisis.get("competidores_conteo", 0)
 
         if score_dem >= 80:
-            dem_est = f"Excelente densidad ({pob_tot_val:,} hab.)"
+            dem_est = f"Excelente densidad ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
         elif score_dem >= 50:
-            dem_est = f"Densidad aceptable ({pob_tot_val:,} hab.)"
+            dem_est = f"Densidad aceptable ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
         else:
-            dem_est = f"Baja concentración ({pob_tot_val:,} hab.)"
+            dem_est = f"Baja concentración ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
 
         if comp_cont == 0:
             comp_est = "Sin competidores directos detectados"
@@ -545,29 +559,36 @@ class ReportLabGenerator:
         else:
             inf_est = "Zonificación comercial estimada"
 
+        score_comp = analisis.get("score_competencia", 50.0)
+        score_traf = analisis.get("score_trafico", 50.0)
+
         pilares_data = [
             [
                 Paragraph("Pilar Analítico", s_table_header),
                 Paragraph("Peso", s_table_header),
+                Paragraph("Score", s_table_header),
                 Paragraph("Estatus en la Zona", s_table_header),
             ],
             [
                 Paragraph("Pilar Demográfico", s_table_cell),
                 Paragraph("40%", s_table_cell),
+                Paragraph(f"{score_dem:.1f}/100", s_table_cell),
                 Paragraph(dem_est, s_table_cell),
             ],
             [
                 Paragraph("Pilar Competencia", s_table_cell),
                 Paragraph("30%", s_table_cell),
+                Paragraph(f"{score_comp:.1f}/100", s_table_cell),
                 Paragraph(comp_est, s_table_cell),
             ],
             [
                 Paragraph("Pilar Atractores e Inferencia", s_table_cell),
                 Paragraph("30%", s_table_cell),
+                Paragraph(f"{score_traf:.1f}/100", s_table_cell),
                 Paragraph(inf_est, s_table_cell),
             ],
         ]
-        pilares_table = Table(pilares_data, colWidths=[150, 80, 274])
+        pilares_table = Table(pilares_data, colWidths=[130, 55, 65, 254])
         pilares_table.setStyle(
             TableStyle(
                 [

@@ -7,12 +7,25 @@ from fastapi.testclient import TestClient
 # Configure python path to resolve imports from root directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.analytics import calcular_distancia_haversine, resolver_google_type
+from app.analytics import calcular_distancia_haversine, calcular_score_demografico, resolver_google_type
 from app.database import SessionLocal
 from app.main import app
 from app.models import OrdenPago
 
 client = TestClient(app)
+
+
+def test_calcular_score_demografico_por_densidad():
+    """El pilar demográfico debe basarse en hab/km² del radio, no en población absoluta."""
+    score_pueblo, dens_pueblo = calcular_score_demografico(4342, 1000)
+    score_rural, _ = calcular_score_demografico(300, 1000)
+    score_ciudad, dens_ciudad = calcular_score_demografico(12000, 1000)
+
+    assert dens_pueblo == 1382.1
+    assert score_pueblo >= 85
+    assert score_rural == 15.0
+    assert dens_ciudad > dens_pueblo
+    assert score_ciudad == 100.0
 
 
 def test_health_check():

@@ -37,6 +37,34 @@ def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
     }
 
 
+# Referencias de densidad (hab/km²) en el radio contratado — calibradas para contexto urbano mexicano.
+# No comparan población absoluta del municipio contra metrópolis; miden concentración en el área de captación.
+DENSIDAD_MINIMA_HAB_KM2 = 120.0   # Por debajo: mercado muy disperso (zona rural o periurbana)
+DENSIDAD_OPTIMA_HAB_KM2 = 2000.0  # A partir de aquí: demanda local sólida (centro urbano compacto)
+
+
+def calcular_score_demografico(poblacion: int, radio_metros: int) -> tuple[float, float]:
+    """
+    Pilar demográfico estandarizado por densidad en el radio de influencia (hab/km²),
+    no por población absoluta. Así un pueblo compacto no se compara contra una metrópoli entera.
+    """
+    radio_km = radio_metros / 1000.0
+    area_km2 = math.pi * radio_km * radio_km
+    densidad = (poblacion / area_km2) if area_km2 > 0 else 0.0
+
+    if densidad <= DENSIDAD_MINIMA_HAB_KM2:
+        score = 15.0
+    elif densidad >= DENSIDAD_OPTIMA_HAB_KM2:
+        score = 100.0
+    else:
+        log_d = math.log10(densidad)
+        log_min = math.log10(DENSIDAD_MINIMA_HAB_KM2)
+        log_opt = math.log10(DENSIDAD_OPTIMA_HAB_KM2)
+        score = 15.0 + ((log_d - log_min) / (log_opt - log_min)) * 85.0
+
+    return round(min(100.0, max(0.0, score)), 1), round(densidad, 1)
+
+
 def _agregar_aliados_al_listado(
     found_allies: list,
     tipo_nombre: str,
@@ -345,8 +373,8 @@ def procesar_calculo_analitico(
         afluencia = obtener_afluencia(lat, lng, rubro, competidores=competidores)
 
     # 5. Calcular Score SVA de Viabilidad (0 a 100)
-    # A. Score Demográfico (Normalizado a 100, óptimo si poblacion > 15,000)
-    score_demog = min((pob_total / 15000.0) * 100.0, 100.0)
+    # A. Score Demográfico por densidad en el radio (hab/km²), no por población absoluta
+    score_demog, densidad_hab_km2 = calcular_score_demografico(pob_total, radio)
 
     # B. Score de Competencia (A menor saturación, mayor score)
     if not competidores:
@@ -385,7 +413,8 @@ def procesar_calculo_analitico(
         "distancia_competidor_cercano": distancia_cercana_res,
         "isc": isc,
         "afluencia_peatonal": afluencia,
-        "score_demog": round(score_demog, 1),
+        "densidad_hab_km2": densidad_hab_km2,
+        "score_demog": score_demog,
         "score_competencia": round(score_competencia, 1),
         "score_trafico": round(score_trafico, 1),
         "sva": sva_final,

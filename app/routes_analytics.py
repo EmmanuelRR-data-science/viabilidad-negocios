@@ -80,6 +80,10 @@ async def obtener_vista_previa_gratuita(
             "poblacion_estimada": resultado["poblacion_ponderada"],
             "competidores_conteo": resultado["competidores_conteo"],
             "score_viabilidad_sva": resultado["sva"],
+            "score_demog": resultado["score_demog"],
+            "score_competencia": resultado["score_competencia"],
+            "score_trafico": resultado["score_trafico"],
+            "densidad_hab_km2": resultado["densidad_hab_km2"],
             "direccion": obtener_direccion(lat, lng)["formato_completo"],
             # Enviamos listados completos para que el frontend los dibuje con blur
             "competidores_listado": resultado["competidores_listado"],

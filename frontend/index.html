@@ -366,6 +366,35 @@
                 </div>
             </div>
         </div>
+
+        <!-- Desglose de pilares del Score SVA (misma lógica que el PDF) -->
+        <div class="sva-composition-card glass-card hidden" id="sva-composition-card">
+            <div class="sva-composition-header">
+                <h3>
+                    Composición del Score SVA
+                    <span class="info-tooltip-wrapper">
+                        <span class="info-icon">?</span>
+                        <span class="tooltip-text">El SVA combina tres pilares con pesos fijos: demografía 40% (por densidad hab/km² en tu radio), competencia 30% y tráfico/atractores 30%. Cada aporte = score del pilar × su peso.</span>
+                    </span>
+                </h3>
+                <p class="sva-composition-hint">Misma ponderación que el PDF. El pilar demográfico usa densidad (hab/km²) en tu radio, no población absoluta del municipio.</p>
+            </div>
+            <div class="sva-pillar-table-wrap">
+                <table class="sva-pillar-table" aria-label="Desglose de pilares del Score SVA">
+                    <thead>
+                        <tr>
+                            <th>Pilar analítico</th>
+                            <th>Peso</th>
+                            <th>Score</th>
+                            <th>Aporte</th>
+                            <th>Señal en la zona</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sva-pillar-body"></tbody>
+                </table>
+            </div>
+            <p class="sva-formula-line" id="sva-formula-line"></p>
+        </div>
         
         <!-- Fila 2: Gráficos de Datos e Inferencia (Chart.js) -->
         <div class="charts-grid" id="advanced-charts-section">

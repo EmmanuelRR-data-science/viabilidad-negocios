@@ -683,6 +683,20 @@ async function runPreviewAnalysis() {
             document.getElementById("kpi-pob-desc").textContent = "Representa la cantidad de personas que viven a la redonda de tu local. Son tus clientes potenciales más valiosos porque, al residir en el área, comprarán de forma constante y recurrente.";
             document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
 
+            renderSvaComposition(
+                {
+                    sva: data.score_viabilidad_sva,
+                    score_demog: data.score_demog,
+                    score_competencia: data.score_competencia,
+                    score_trafico: data.score_trafico,
+                    poblacion_estimada: data.poblacion_estimada,
+                    densidad_hab_km2: data.densidad_hab_km2,
+                    competidores_conteo: data.competidores_conteo,
+                    afluencia_peatonal: data.afluencia_peatonal,
+                },
+                "gratuito"
+            );
+
             // Estilo dinámico de la tarjeta del Score SVA según el puntaje obtenido
             if (kpiCard) {
                 if (sva >= 80) {
@@ -728,6 +742,9 @@ function clearMapPins() {
 
 // --- BLOQUEAR CAMPOS DEL TIER GRATUITO ---
 function lockAdvancedFeatures() {
+    const svaComp = document.getElementById("sva-composition-card");
+    if (svaComp) svaComp.classList.add("hidden");
+
     // Mensajes de bloqueo
     document.getElementById("comp-chart-locked-msg").classList.remove("hidden");
     document.getElementById("poi-chart-locked-msg").classList.remove("hidden");
@@ -1057,6 +1074,8 @@ async function unlockPaidReport() {
             document.getElementById("kpi-pob-desc").textContent = "Representa la cantidad de personas que viven a la redonda de tu local. Son tus clientes potenciales más valiosos porque, al residir en el área, comprarán de forma constante y recurrente.";
             
             document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
+
+            renderSvaComposition(metricas, state.activeTier || data.orden?.tier || "basico");
             
             // Ocultar botones de compra y mostrar el botón de descarga
             document.getElementById("dashboard-actions").classList.add("hidden");
@@ -1283,6 +1302,104 @@ function renderCompetitorsChart(competidores) {
             }
         }
     });
+}
+
+// --- DESGLOSE DE PILARES DEL SCORE SVA ---
+function _svaScoreClass(score) {
+    if (score >= 80) return "good";
+    if (score >= 50) return "mid";
+    return "low";
+}
+
+function _svaDemogSignal(score, metricas) {
+    const pob = Number(metricas?.poblacion_ponderada ?? metricas?.poblacion_estimada ?? 0);
+    const dens = Number(metricas?.densidad_hab_km2 ?? 0);
+    const densTxt = dens > 0 ? `${dens.toLocaleString("es-MX")} hab/km²` : "densidad no calculada";
+    if (score >= 80) return `Excelente densidad en el radio (${densTxt} · ${pob.toLocaleString()} hab.)`;
+    if (score >= 50) return `Densidad aceptable en el radio (${densTxt} · ${pob.toLocaleString()} hab.)`;
+    return `Baja concentración en el radio (${densTxt} · ${pob.toLocaleString()} hab.)`;
+}
+
+function _svaCompSignal(competidores) {
+    const n = Number(competidores || 0);
+    if (n === 0) return "Sin competidores directos detectados";
+    if (n <= 3) return `Baja competencia (${n} competidores)`;
+    if (n <= 8) return `Competencia intermedia (${n} competidores)`;
+    return `Alta saturación (${n} competidores)`;
+}
+
+function _svaTraficoSignal(score, metricas, tier) {
+    const afl = metricas?.afluencia_peatonal;
+    if (tier === "premium" && afl?.status === "success") {
+        return "Afluencia peatonal real (BestTime)";
+    }
+    if (tier === "premium") {
+        return "Atractores locales; sin telemetría horaria en la zona";
+    }
+    return "Estimación base (Premium usa afluencia real cuando hay cobertura)";
+}
+
+function renderSvaComposition(metricas, tier = "gratuito") {
+    const card = document.getElementById("sva-composition-card");
+    const tbody = document.getElementById("sva-pillar-body");
+    const formulaEl = document.getElementById("sva-formula-line");
+    if (!card || !tbody || !formulaEl) return;
+
+    const dem = Number(metricas.score_demog ?? 0);
+    const comp = Number(metricas.score_competencia ?? 0);
+    const traf = Number(metricas.score_trafico ?? 0);
+    const sva = Number(metricas.sva ?? metricas.score_viabilidad_sva ?? Math.round(dem * 0.4 + comp * 0.3 + traf * 0.3));
+
+    const wDem = 0.4;
+    const wComp = 0.3;
+    const wTraf = 0.3;
+    const cDem = dem * wDem;
+    const cComp = comp * wComp;
+    const cTraf = traf * wTraf;
+    const raw = cDem + cComp + cTraf;
+
+    const rows = [
+        {
+            name: "Pilar demográfico",
+            weight: "40%",
+            score: dem,
+            contrib: cDem,
+            signal: _svaDemogSignal(dem, metricas),
+        },
+        {
+            name: "Pilar competencia",
+            weight: "30%",
+            score: comp,
+            contrib: cComp,
+            signal: _svaCompSignal(metricas.competidores_conteo),
+        },
+        {
+            name: "Pilar atractores e inferencia",
+            weight: "30%",
+            score: traf,
+            contrib: cTraf,
+            signal: _svaTraficoSignal(traf, metricas, tier),
+        },
+    ];
+
+    tbody.innerHTML = rows
+        .map(
+            (row) => `
+        <tr>
+            <td><b>${row.name}</b></td>
+            <td>${row.weight}</td>
+            <td><span class="sva-pillar-score ${_svaScoreClass(row.score)}">${row.score.toFixed(1)}</span></td>
+            <td>${row.contrib.toFixed(1)}</td>
+            <td class="sva-pillar-signal">${row.signal}</td>
+        </tr>`
+        )
+        .join("");
+
+    formulaEl.innerHTML =
+        `<strong>Cálculo:</strong> (${dem.toFixed(1)} × 40%) + (${comp.toFixed(1)} × 30%) + (${traf.toFixed(1)} × 30%) ` +
+        `= ${raw.toFixed(1)} → <strong>${sva}/100</strong> (redondeo entero del SVA).`;
+
+    card.classList.remove("hidden");
 }
 
 // --- TABLA 2: ATRACTORES / POIs (Aliados Comerciales) ---
