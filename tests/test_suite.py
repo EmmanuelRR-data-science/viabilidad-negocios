@@ -455,6 +455,8 @@ def test_obtener_resultado_analisis_cache_api():
         }
         cached_foda = {
             "fortalezas": ["Fortaleza de caché"],
+            "oportunidades": ["Oportunidad de caché"],
+            "consideraciones_apertura": ["Consideración de caché"],
             "conclusion": "Conclusión de caché",
         }
 
@@ -488,6 +490,7 @@ def test_obtener_resultado_analisis_cache_api():
         assert data["metricas"]["poblacion_ponderada"] == 45000
         assert data["metricas"]["direccion"] == "Dirección de caché de prueba"
         assert data["analisis_estrategico_ia"]["conclusion"] == "Conclusión de caché"
+        assert data["analisis_estrategico_ia"]["consideraciones_apertura"] == ["Consideración de caché"]
 
         # Clean up
         db.delete(orden)

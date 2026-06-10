@@ -186,6 +186,19 @@ def obtener_resultado_analisis(
             orden.foda_json = json.dumps(foda_cache, default=str)
             db.commit()
 
+        if not foda_inteligente.get("consideraciones_apertura"):
+            from app.bedrock import _generar_consideraciones_apertura
+
+            foda_inteligente["consideraciones_apertura"] = _generar_consideraciones_apertura(analisis_cuant)
+
+        from app.analytics import asegurar_distancias_competidores
+
+        asegurar_distancias_competidores(
+            analisis_cuant.get("competidores_listado") or [],
+            float(orden.latitud),
+            float(orden.longitud),
+        )
+
         # Los campos se calculan y envían siempre; el frontend controlará si se muestran nítidos o con blur según el Tier.
 
         return {

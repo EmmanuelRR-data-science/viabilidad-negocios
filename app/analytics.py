@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.besttime import obtener_afluencia
-from app.google_places import buscar_competidores
+from app.google_places import buscar_competidores, enriquecer_competidores_con_reseñas
 
 logger = logging.getLogger("analytics")
 
@@ -23,6 +23,41 @@ def calcular_distancia_haversine(lat1: float, lng1: float, lat2: float, lng2: fl
     a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
     c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
     return r * c
+
+
+def formatear_distancia_metros(metros: float | int | None) -> str:
+    """Formatea distancia geodésica en metros para UI y PDF."""
+    if metros is None or metros < 0:
+        return "—"
+    m = float(metros)
+    if m < 1000:
+        return f"{m:.0f} m lineales"
+    return f"{m / 1000:.2f} km lineales"
+
+
+def asegurar_distancias_competidores(competidores: list[dict], lat: float, lng: float) -> None:
+    """Completa distancia_metros en caché legacy cuando hay coordenadas del competidor."""
+    for comp in competidores:
+        if comp.get("distancia_metros") is not None:
+            continue
+        c_lat = comp.get("latitud")
+        c_lng = comp.get("longitud")
+        if c_lat is None or c_lng is None:
+            continue
+        comp["distancia_metros"] = round(calcular_distancia_haversine(lat, lng, c_lat, c_lng), 1)
+
+
+def competidores_mejor_valorados(competidores: list[dict], *, top_n: int = 5) -> list[dict]:
+    """Top competidores por rating; en empate gana el más cercano al punto."""
+    validos = [c for c in competidores if float(c.get("rating") or 0) > 0]
+    validos.sort(
+        key=lambda c: (
+            -float(c.get("rating") or 0),
+            -int(c.get("user_ratings_total") or 0),
+            float(c.get("distancia_metros") or 999999.0),
+        )
+    )
+    return validos[:top_n]
 
 
 def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
@@ -297,6 +332,12 @@ def procesar_calculo_analitico(
 
         # Ordenar competidores por distancia (de más cercano a más lejano)
         competidores.sort(key=lambda x: x.get("distancia_metros", 999999.0))
+
+        if tier in ["pro", "premium"] and competidores:
+            try:
+                enriquecer_competidores_con_reseñas(competidores, max_competidores=4, max_reseñas_por_competidor=2)
+            except Exception as rev_err:
+                logger.error("No se pudieron cargar reseñas de Google de competidores: %s", rev_err)
 
         if True:
             if aliados_seleccionados or aliados_adicionales:

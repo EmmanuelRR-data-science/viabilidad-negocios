@@ -95,44 +95,44 @@ def sanitizar_input_usuario(texto: str | None, *, field: str = "intenciones") ->
 
 
 # ---------------------------------------------------------------------------
-# Claves permitidas en la respuesta FODA del LLM
+# Schema del diagnóstico estratégico (lectura del punto — sin FODA)
 # ---------------------------------------------------------------------------
-_FODA_ALLOWED_KEYS: frozenset[str] = frozenset(
+_LLM_DIAGNOSTICO_KEYS: frozenset[str] = frozenset({"fortalezas", "oportunidades"})
+
+_DIAGNOSTICO_ALLOWED_KEYS: frozenset[str] = frozenset(
     {
         "fortalezas",
         "oportunidades",
+        "consideraciones_apertura",
+        "conclusion",
+        "segmentacion_nicho",
+        "estrategia_precios",
+        "dictamen_final",
+        "top_quejas_competidores",
+        # Legado: se ignoran si el LLM aún los envía
         "debilidades",
         "amenazas",
-        "conclusion",
         "recomendacion_roi",
         "ticket_recomendado",
         "roi_estimado",
-        "segmentacion_nicho",
-        "estrategia_precios",
         "viabilidad_financiera",
-        "dictamen_final",
         "inversion_estimada",
         "tir_proyectada",
-        "top_quejas_competidores",
     }
 )
 
 
 def validar_schema_foda(respuesta: dict) -> dict:
     """
-    Valida y sanitiza el JSON devuelto por el LLM contra el schema FODA permitido.
+    Valida y sanitiza el JSON devuelto por el LLM (solo fortalezas y oportunidades).
 
-    - Elimina cualquier clave fuera del schema esperado (defensa contra jailbreak exitoso).
-    - Registra advertencias de seguridad si se detectan claves inesperadas.
-    - Garantiza que los campos de lista sean realmente listas.
-
-    Retorna el JSON sanitizado listo para ser devuelto al cliente.
+    Retorna el JSON sanitizado listo para fusionar con el respaldo cuantitativo.
     """
     if not isinstance(respuesta, dict):
         logger.warning("[SEGURIDAD] Respuesta del LLM no es un dict. Schema inválido, devolviendo vacío.")
         return {}
 
-    claves_inesperadas = set(respuesta.keys()) - _FODA_ALLOWED_KEYS
+    claves_inesperadas = set(respuesta.keys()) - _LLM_DIAGNOSTICO_KEYS
     if claves_inesperadas:
         logger.warning(
             "[SEGURIDAD] Respuesta del LLM contiene %d claves no permitidas: %s. Eliminando.",
@@ -140,12 +140,9 @@ def validar_schema_foda(respuesta: dict) -> dict:
             claves_inesperadas,
         )
 
-    # Filtrar solo claves permitidas
-    sanitizada = {k: v for k, v in respuesta.items() if k in _FODA_ALLOWED_KEYS}
+    sanitizada = {k: v for k, v in respuesta.items() if k in _LLM_DIAGNOSTICO_KEYS}
 
-    # Garantizar que los campos de lista no sean strings (jailbreak parcial)
-    campos_lista = {"fortalezas", "oportunidades", "debilidades", "amenazas", "top_quejas_competidores"}
-    for campo in campos_lista:
+    for campo in ("fortalezas", "oportunidades"):
         if campo in sanitizada and not isinstance(sanitizada[campo], list):
             logger.warning(
                 "[SEGURIDAD] Campo '%s' esperaba una lista pero recibió %s. Convirtiendo.",
@@ -157,7 +154,56 @@ def validar_schema_foda(respuesta: dict) -> dict:
     return sanitizada
 
 
-_CAMPOS_CUALITATIVOS_LLM = frozenset({"fortalezas", "oportunidades", "debilidades", "amenazas"})
+def _recortar_lista_texto(items: list | None, *, max_items: int = 3) -> list[str]:
+    if not items:
+        return []
+    resultado: list[str] = []
+    for raw in items:
+        texto = str(raw).strip()
+        if texto:
+            resultado.append(texto)
+        if len(resultado) >= max_items:
+            break
+    return resultado
+
+
+def _generar_consideraciones_apertura(datos_entorno: dict) -> list[str]:
+    """Tres consideraciones operativas derivadas de métricas reales (sin LLM)."""
+    sva = int(datos_entorno.get("sva", 50))
+    competencia = int(datos_entorno.get("competidores_conteo", 0))
+    score_demog = float(datos_entorno.get("score_demog", 50))
+    densidad = float(datos_entorno.get("densidad_hab_km2", 0))
+    afl = datos_entorno.get("afluencia_peatonal") or {}
+
+    if sva < 50:
+        c_sva = "El Score SVA es bajo: define una propuesta de valor claramente diferenciada antes de comprometer inversión."
+    elif sva < 80:
+        c_sva = "Viabilidad moderada (SVA intermedio): compite por experiencia y servicio, no solo por precio."
+    else:
+        c_sva = "Aun con SVA favorable, valida costos reales de operación y renta con tu plan de negocio."
+
+    if competencia == 0:
+        c_comp = "Sin competidores directos en el radio: establece un estándar de servicio antes de que entren nuevos players."
+    elif competencia >= 5:
+        c_comp = (
+            f"Hay {competencia} competidores activos: visita locales cercanos y contrasta tu oferta con la de ellos."
+        )
+    else:
+        c_comp = (
+            f"Con {competencia} competidor(es) en la zona, revisa precios, horarios y reseñas para ubicar tu diferenciador."
+        )
+
+    if score_demog < 50 or densidad < 500:
+        c_extra = "Mercado residencial acotado en el radio: modela ticket promedio y frecuencia de compra con cifras locales."
+    elif afl.get("status") != "success":
+        c_extra = "Sin telemetría de afluencia en la zona: valida en sitio el flujo peatonal y los horarios pico."
+    else:
+        c_extra = "Confirma uso de suelo, permisos del giro y condiciones del local antes de firmar contrato de renta."
+
+    return [c_sva, c_comp, c_extra]
+
+
+_CAMPOS_CUALITATIVOS_LLM = frozenset({"fortalezas", "oportunidades"})
 
 
 def _aplicar_politica_honesta_foda(
@@ -169,9 +215,8 @@ def _aplicar_politica_honesta_foda(
     aliados_adicionales: str | None,
 ) -> dict:
     """
-    Conserva la narrativa cualitativa del LLM (cuadrantes FODA) pero ancla
-    conclusiones, dictamen, fricciones y campos financieros a las mismas reglas
-    del respaldo cuantitativo (sin cifras inventadas).
+    Fusiona fortalezas/oportunidades del LLM con consideraciones por reglas,
+    conclusión, dictamen y fricciones del respaldo cuantitativo.
     """
     respaldo = _foda_respaldo_cuantitativo(
         datos_entorno, rubro, comp_adicionales=comp_adicionales, aliados_adicionales=aliados_adicionales
@@ -179,10 +224,11 @@ def _aplicar_politica_honesta_foda(
     resultado = {k: v for k, v in respaldo.items() if k != "_fuente"}
 
     for campo in _CAMPOS_CUALITATIVOS_LLM:
-        items = foda_llm.get(campo)
-        if isinstance(items, list) and items:
-            resultado[campo] = [str(x).strip() for x in items if str(x).strip()]
+        items = _recortar_lista_texto(foda_llm.get(campo), max_items=3)
+        if items:
+            resultado[campo] = items
 
+    resultado["consideraciones_apertura"] = _generar_consideraciones_apertura(datos_entorno)
     return resultado
 
 
@@ -298,7 +344,7 @@ def _foda_respaldo_cuantitativo(
     comp_adicionales: str | None,
     aliados_adicionales: str | None,
 ) -> dict:
-    """FODA basado en métricas reales de INEGI, Places y BestTime (sin AWS/Bedrock)."""
+    """Diagnóstico de respaldo basado en métricas reales de INEGI, Places y BestTime."""
     poblacion = datos_entorno.get("poblacion_ponderada", 0)
     competencia = datos_entorno.get("competidores_conteo", 0)
     sva = datos_entorno.get("sva", 50)
@@ -325,12 +371,13 @@ def _foda_respaldo_cuantitativo(
         veredicto_conclusion = "La viabilidad comercial es limitada y presenta un riesgo operativo alto."
         veredicto_dictamen = "DE ALTO RIESGO OPERATIVO"
 
+    densidad = datos_entorno.get("densidad_hab_km2", 0)
     fortalezas_list = [
-        f"Base demográfica de {poblacion:,} personas residentes en el radio de análisis.",
+        f"Base demográfica de {poblacion:,} personas ({densidad:,.1f} hab/km² en el radio analizado).",
         f"Ubicación en {direcc} con accesibilidad vial en zona urbana.",
     ]
-    if aliados_sel_clean or aliados_ia:
-        fortalezas_list.append(f"Presencia de aliados estratégicos ({aliados_desc}) en la zona.")
+    if competencia == 0:
+        fortalezas_list.append("Sin competidores directos detectados en el radio de influencia contratado.")
 
     conteos_aliados = {
         k: v for k, v in (datos_entorno.get("aliados_conteos") or {}).items() if k != "ia_auto"
@@ -338,7 +385,7 @@ def _foda_respaldo_cuantitativo(
     total_atractores = sum(conteos_aliados.values())
     if total_atractores > 0:
         fortalezas_list.append(
-            f"Índice de atractores: {total_atractores} puntos de interés detectados en {len(conteos_aliados)} categorías."
+            f"Índice de atractores: {total_atractores} puntos de interés en {len(conteos_aliados)} categorías."
         )
 
     afl = datos_entorno.get("afluencia_peatonal") or {}
@@ -347,6 +394,7 @@ def _foda_respaldo_cuantitativo(
             f"Afluencia peatonal: día pico {afl.get('dia_pico')} "
             f"con hora máxima {afl.get('hora_pico', 'N/D')}."
         )
+    fortalezas_list = _recortar_lista_texto(fortalezas_list, max_items=3)
 
     quejas_reales = _quejas_desde_competencia_real(datos_entorno)
     if not quejas_reales:
@@ -356,38 +404,35 @@ def _foda_respaldo_cuantitativo(
             "Espacio reducido o poco cómodo en locales saturados de la zona.",
         ]
 
+    oportunidades_list = _recortar_lista_texto(
+        [
+            f"Demanda activa para el giro '{rubro}' en el perfil residencial local.",
+            "Captación de clientes insatisfechos con la competencia actual."
+            if competencia > 0
+            else "Primer movimiento en zona sin competidores directos detectados.",
+            "Alianzas con comercios de la zona para ampliar alcance del servicio."
+            if total_atractores > 0
+            else "Posicionamiento como referente local del giro en el micro-mercado.",
+        ],
+        max_items=3,
+    )
+
     return {
         "_fuente": "respaldo_cuantitativo",
         "fortalezas": fortalezas_list,
-        "oportunidades": [
-            f"Demanda activa para el giro '{rubro}' en el perfil residencial local.",
-            "Captación de clientes insatisfechos con la competencia actual.",
-        ],
-        "debilidades": [
-            f"Presencia de {competencia} competidores directos{comp_sel_str} en la zona.",
-            "Costos de acondicionamiento y operación en zona transitada.",
-        ],
-        "amenazas": [
-            "Presión de precios por competidores consolidados.",
-            "Saturación comercial progresiva en el micro-segmento.",
-        ],
+        "oportunidades": oportunidades_list,
+        "consideraciones_apertura": _generar_consideraciones_apertura(datos_entorno),
         "conclusion": (
             f"El punto cuenta con un Score SVA de {sva}/100 y {competencia} competidores en el radio. "
             f"{veredicto_conclusion}"
         ),
-        "recomendacion_roi": "Monitorear ticket promedio y costos operativos durante los primeros 6 meses.",
-        "ticket_recomendado": "Consultar rango típico del giro en la zona",
-        "roi_estimado": "Estimar con plan de negocio local",
         "segmentacion_nicho": (
             f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}'."
         ),
         "estrategia_precios": "Posicionamiento de precios acorde a la competencia y densidad demográfica local.",
-        "viabilidad_financiera": "Validar proyección financiera con costos reales de renta y operación.",
         "dictamen_final": (
             f"Dictamen {veredicto_dictamen} para '{rubro}' en {direcc}, basado en datos INEGI y Places."
         ),
-        "inversion_estimada": "Estimar según acondicionamiento del local",
-        "tir_proyectada": "No calculada sin modelo financiero del emprendedor",
         "top_quejas_competidores": quejas_reales,
     }
 
@@ -397,7 +442,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
     Genera el diagnóstico FODA: Groq (pruebas/producción) → Bedrock solo en producción
     con AWS habilitado → respaldo cuantitativo con datos reales.
     """
-    logger.info("Iniciando generación de diagnóstico FODA estratégico...")
+    logger.info("Iniciando generación de lectura estratégica del punto...")
 
     rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
     intenciones_raw = intenciones
@@ -452,54 +497,28 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
                 "[GUARDRAIL] Input bloqueado por Llama Guard. Categoría: %s. Devolviendo FODA vacío.",
                 razon,
             )
-            # Devolver estructura FODA minima segura sin llamar al LLM principal
-            return {
-                "fortalezas": [],
-                "oportunidades": [],
-                "debilidades": ["No se pudo procesar la solicitud por política de seguridad."],
-                "amenazas": [],
-                "conclusion": "El análisis no pudo completarse. Intenta reformular tu consulta.",
-                "recomendacion_roi": "No disponible.",
-                "ticket_recomendado": "No disponible.",
-                "roi_estimado": "No disponible.",
-                "segmentacion_nicho": "No disponible.",
-                "estrategia_precios": "No disponible.",
-                "viabilidad_financiera": "No disponible.",
-                "dictamen_final": "Consulta bloqueada por el sistema de seguridad. Intenta con una descripción diferente.",
-                "inversion_estimada": "No disponible.",
-                "tir_proyectada": "No disponible.",
-                "top_quejas_competidores": [],
-            }
+            return _foda_respaldo_cuantitativo(
+                datos_entorno,
+                rubro,
+                comp_adicionales=comp_adicionales,
+                aliados_adicionales=aliados_adicionales,
+            )
 
-    # Prompt estructurado de ingeniería
+    densidad_ctx = datos_entorno.get("densidad_hab_km2", 0)
     system_prompt = (
-        "Eres un consultor experto en geomarketing y desarrollo de negocios en México.\n"
-        "Debes responder estrictamente en formato JSON válido en español. Tu respuesta debe estructurarse "
-        "exactamente con las siguientes llaves JSON:\n"
+        "Eres un consultor de geomarketing en México. Responde SOLO JSON válido en español con exactamente:\n"
         "{\n"
-        '  "fortalezas": ["f1", "f2", ...],\n'
-        '  "oportunidades": ["o1", "o2", ...],\n'
-        '  "debilidades": ["d1", "d2", ...],\n'
-        '  "amenazas": ["a1", "a2", ...],\n'
-        '  "conclusion": "resumen de viabilidad comercial general (sin cifras financieras)",\n'
-        '  "recomendacion_roi": "Consejo operativo breve sin montos ni porcentajes de retorno",\n'
-        '  "ticket_recomendado": "Consultar rango típico del giro en la zona",\n'
-        '  "roi_estimado": "Estimar con plan de negocio local",\n'
-        '  "segmentacion_nicho": "Párrafo sobre el perfil demográfico usando solo población y ubicación proporcionadas (sin penetración de mercado ni porcentajes inventados).",\n'
-        '  "estrategia_precios": "Párrafo sobre posicionamiento bajo/medio/premium sin tasas de penetración ni proyecciones financieras.",\n'
-        '  "viabilidad_financiera": "Indicar que la proyección debe validarse con costos reales (sin TIR, payback ni montos en pesos).",\n'
-        '  "dictamen_final": "Dictamen formal coherente con el Score SVA (sin cifras financieras inventadas).",\n'
-        '  "inversion_estimada": "Estimar según acondicionamiento del local",\n'
-        '  "tir_proyectada": "No calculada sin modelo financiero del emprendedor",\n'
-        '  "top_quejas_competidores": [\n'
-        '    "Fricción típica del sector 1 (sin citar reseñas reales ni personas)",\n'
-        '    "Fricción típica del sector 2",\n'
-        '    "Fricción típica del sector 3"\n'
-        "  ]\n"
+        '  "fortalezas": ["exactamente 3 bullets"],\n'
+        '  "oportunidades": ["exactamente 3 bullets"]\n'
         "}\n"
-        "PROHIBIDO inventar montos en pesos, porcentajes de TIR, payback en meses, penetración de mercado "
-        "o tasas de conversión. Los campos financieros y el dictamen serán validados en servidor.\n"
-        "No agregues texto explicativo fuera del JSON."
+        "REGLAS:\n"
+        "- Exactamente 3 ítems por lista, máximo 120 caracteres cada uno.\n"
+        "- Cada bullet debe citar al menos un dato del contexto (población, densidad, SVA, competidores, atractores).\n"
+        "- Tono descriptivo u orientativo; sin lenguaje de amenaza, debilidad ni predicción de fracaso/éxito.\n"
+        "- PROHIBIDO: montos en pesos, porcentajes inventados, TIR, payback, penetración de mercado, nombres de "
+        "personas o reseñas textuales inventadas.\n"
+        "- No incluyas conclusiones, dictámenes ni consideraciones; el servidor las genera.\n"
+        "No agregues texto fuera del JSON."
     )
 
     comp_sel = datos_entorno.get("competidores_seleccionados")
@@ -532,10 +551,8 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
     if competidores_ia_auto or aliados_ia_auto:
         ia_directives = (
             "\n[INDICACIÓN ESPECIAL DE AUTODETECCIÓN POR IA]\n"
-            "El usuario ha solicitado que la Inteligencia Artificial determine qué comercios del entorno actúan como "
-            "competidores y/o aliados estratégicos críticos de forma dinámica. En tus campos 'conclusion', 'dictamen_final' y las "
-            "secciones del FODA, debes identificar explícitamente cuáles son estas marcas, giros o establecimientos del "
-            "entorno geográfico y fundamentar comercialmente por qué representan oportunidades o amenazas para el local.\n"
+            "El usuario activó autodetección de competidores y/o aliados. En fortalezas u oportunidades, menciona "
+            "solo categorías o tipos comerciales del contexto, sin inventar nombres de marcas no proporcionados.\n"
         )
 
     user_prompt = (
@@ -543,6 +560,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         f"Ubicación: {direcc}\n"
         f"Radio de análisis: {datos_entorno.get('radio_metros', 1000)} metros\n"
         f"Población estimada en zona: {poblacion:,} habitantes\n"
+        f"Densidad en el radio: {densidad_ctx:,.1f} hab/km²\n"
         f"Número de competidores directos: {competencia} comercios\n"
         f"Categorías de competidores analizadas: {comp_sel_str}\n"
         f"Competidores específicos o marcas a considerar (contexto adicional): {comp_adicionales_str}\n"
@@ -551,12 +569,9 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         f"Score SVA de Viabilidad General: {sva}/100\n"
         f"Intenciones del emprendedor: {intenciones or 'Sin intenciones especiales escritas.'}\n\n"
         f"{ia_directives}"
-        "[REGLA DE COHERENCIA] Tu 'conclusion' y 'dictamen_final' deben ser coherentes con el Score SVA: "
-        "80 o más = viabilidad óptima; entre 50 y 79 = viabilidad moderada que requiere diferenciación; "
-        "menos de 50 = alto riesgo operativo. No exageres el veredicto por encima de lo que el score respalda.\n"
-        "[REGLA DE HONESTIDAD] En 'top_quejas_competidores' redacta fricciones típicas y plausibles del sector, "
-        "sin inventar nombres de personas ni atribuirlas a reseñas reales específicas.\n\n"
-        f"Genera el análisis FODA adaptado específicamente para el éxito comercial de este giro en México."
+        "[REGLA DE COHERENCIA] No contradigas el Score SVA ni el conteo de competidores. "
+        "Si SVA < 50, no uses lenguaje de 'excelente viabilidad'. Si competencia = 0, no hables de saturación.\n\n"
+        f"Genera fortalezas y oportunidades del punto para el giro '{rubro}' en México."
     )
 
     # --- GROQ REAL LLM CALL (Si la clave de API está presente en .env) ---

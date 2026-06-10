@@ -583,6 +583,8 @@ function syncHeatmapSection(tier, afluencia) {
 function applyBlurRules(tier) {
     const compWrapper = document.querySelector("#competitor-chart-card .canvas-wrapper");
     const poiWrapper = document.querySelector("#poi-chart-card .table-wrapper");
+    const reviewsBlock = document.getElementById("competitor-reviews-block");
+    const topTableWrap = document.getElementById("competitor-top-table-wrap");
 
     const compMsg = document.getElementById("comp-chart-locked-msg");
     const poiMsg = document.getElementById("poi-chart-locked-msg");
@@ -592,18 +594,24 @@ function applyBlurRules(tier) {
     if (tier === "gratuito" || tier === "basico") {
         compWrapper.classList.add("blurred-premium");
         poiWrapper.classList.add("blurred-premium");
+        if (reviewsBlock) reviewsBlock.classList.add("blurred-premium");
+        if (topTableWrap) topTableWrap.classList.add("blurred-premium");
 
         compMsg.classList.remove("hidden");
         poiMsg.classList.remove("hidden");
     } else if (tier === "pro") {
         compWrapper.classList.remove("blurred-premium");
         poiWrapper.classList.add("blurred-premium");
+        if (reviewsBlock) reviewsBlock.classList.remove("blurred-premium");
+        if (topTableWrap) topTableWrap.classList.remove("blurred-premium");
 
         compMsg.classList.add("hidden");
         poiMsg.classList.remove("hidden");
     } else if (tier === "premium") {
         compWrapper.classList.remove("blurred-premium");
         poiWrapper.classList.remove("blurred-premium");
+        if (reviewsBlock) reviewsBlock.classList.remove("blurred-premium");
+        if (topTableWrap) topTableWrap.classList.remove("blurred-premium");
 
         compMsg.classList.add("hidden");
         poiMsg.classList.add("hidden");
@@ -710,6 +718,8 @@ async function runPreviewAnalysis() {
 
             // Generar Gráficos Avanzados
             renderCompetitorsChart(data.competidores_listado);
+            renderTopCompetitorsTable(data.competidores_listado);
+            renderCompetitorReviews(data.competidores_listado);
             renderPOITable(data);
             syncHeatmapSection("gratuito", data.afluencia_peatonal);
 
@@ -744,6 +754,19 @@ function clearMapPins() {
 function lockAdvancedFeatures() {
     const svaComp = document.getElementById("sva-composition-card");
     if (svaComp) svaComp.classList.add("hidden");
+
+    const lecturaSection = document.getElementById("lectura-estrategica-section");
+    if (lecturaSection) lecturaSection.classList.add("hidden");
+
+    const reviewsBlock = document.getElementById("competitor-reviews-block");
+    if (reviewsBlock) reviewsBlock.classList.add("hidden");
+    const reviewsList = document.getElementById("competitor-reviews-list");
+    if (reviewsList) reviewsList.innerHTML = "";
+
+    const topTableWrap = document.getElementById("competitor-top-table-wrap");
+    if (topTableWrap) topTableWrap.classList.add("hidden");
+    const topTableBody = document.getElementById("competitor-top-table-body");
+    if (topTableBody) topTableBody.innerHTML = "";
 
     // Mensajes de bloqueo
     document.getElementById("comp-chart-locked-msg").classList.remove("hidden");
@@ -1019,6 +1042,44 @@ async function processSimulatedPayment() {
     }
 }
 
+function renderLecturaEstrategica(iaAnalisis) {
+    const section = document.getElementById("lectura-estrategica-section");
+    if (!section || !iaAnalisis) return;
+
+    const fillList = (id, items, fallback) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const lista = (items || []).slice(0, 3);
+        if (lista.length === 0) {
+            el.innerHTML = `<li>${fallback}</li>`;
+            return;
+        }
+        el.innerHTML = lista.map(t => `<li>${t}</li>`).join("");
+    };
+
+    fillList("lectura-fortalezas", iaAnalisis.fortalezas, "Demanda residencial en el radio analizado.");
+    fillList("lectura-oportunidades", iaAnalisis.oportunidades, "Espacio para diferenciación en el giro.");
+    fillList(
+        "lectura-consideraciones",
+        iaAnalisis.consideraciones_apertura,
+        "Validar permisos, renta y operación con cifras reales."
+    );
+
+    const conclusionEl = document.getElementById("lectura-conclusion");
+    if (conclusionEl) {
+        const texto = iaAnalisis.conclusion;
+        if (texto) {
+            conclusionEl.textContent = texto;
+            conclusionEl.classList.remove("hidden");
+        } else {
+            conclusionEl.textContent = "";
+            conclusionEl.classList.add("hidden");
+        }
+    }
+
+    section.classList.remove("hidden");
+}
+
 // --- DESBLOQUEAR Y RENDERIZAR RESULTADOS ADQUIRIDOS (RF-05.4 & RF-01.4) ---
 async function unlockPaidReport() {
     logger(`Desbloqueando resultados del reporte. Orden ID: ${state.activeOrderId} | Tier: ${state.activeTier.toUpperCase()}`);
@@ -1076,6 +1137,7 @@ async function unlockPaidReport() {
             document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
 
             renderSvaComposition(metricas, state.activeTier || data.orden?.tier || "basico");
+            renderLecturaEstrategica(iaAnalisis);
             
             // Ocultar botones de compra y mostrar el botón de descarga
             document.getElementById("dashboard-actions").classList.add("hidden");
@@ -1090,6 +1152,8 @@ async function unlockPaidReport() {
             
             // Generar Gráficos Avanzados siempre (el blur controla su visualización)
             renderCompetitorsChart(metricas.competidores_listado);
+            renderTopCompetitorsTable(metricas.competidores_listado);
+            renderCompetitorReviews(metricas.competidores_listado);
             renderPOITable(metricas);
             syncHeatmapSection(state.activeTier, metricas.afluencia_peatonal);
 
@@ -1124,9 +1188,14 @@ function renderCompetitorPins(competidores, aliados) {
     
     competidores.forEach(comp => {
         if (comp.latitud && comp.longitud) {
+            const distTxt = _formatDistanceMeters(comp.distancia_metros);
             const marker = L.marker([comp.latitud, comp.longitud], { icon: competitorIcon })
                 .addTo(state.map)
-                .bindPopup(`<b>${comp.nombre}</b><br/>${comp.direccion || 'Dirección no disponible'}<br/>⭐ ${comp.rating} / 5.0`);
+                .bindPopup(
+                    `<b>${_escapeHtml(comp.nombre)}</b><br/>${_escapeHtml(comp.direccion || "Dirección no disponible")}`
+                    + `<br/>⭐ ${comp.rating || 0} / 5.0`
+                    + (distTxt ? `<br/>📍 ${distTxt} desde tu punto` : "")
+                );
             state.competitorMarkers.push(marker);
         }
     });
@@ -1235,6 +1304,93 @@ function renderHeatmap(afluencia) {
     });
     table.appendChild(tbody);
     gridContainer.appendChild(table);
+}
+
+function _escapeHtml(text) {
+    return String(text ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function _formatDistanceMeters(metros) {
+    const m = Number(metros);
+    if (!Number.isFinite(m) || m < 0) return "";
+    if (m < 1000) return `${Math.round(m)} m lineales`;
+    return `${(m / 1000).toFixed(2)} km lineales`;
+}
+
+function _topRatedCompetitors(competidores, topN = 5) {
+    return (competidores || [])
+        .filter(c => Number(c.rating) > 0)
+        .sort((a, b) => {
+            const ratingDiff = Number(b.rating) - Number(a.rating);
+            if (ratingDiff !== 0) return ratingDiff;
+            const reviewsDiff = Number(b.user_ratings_total || 0) - Number(a.user_ratings_total || 0);
+            if (reviewsDiff !== 0) return reviewsDiff;
+            return Number(a.distancia_metros || 999999) - Number(b.distancia_metros || 999999);
+        })
+        .slice(0, topN);
+}
+
+function renderTopCompetitorsTable(competidores) {
+    const wrap = document.getElementById("competitor-top-table-wrap");
+    const tbody = document.getElementById("competitor-top-table-body");
+    if (!wrap || !tbody) return;
+
+    const top = _topRatedCompetitors(competidores, 5);
+    if (top.length === 0) {
+        wrap.classList.add("hidden");
+        tbody.innerHTML = "";
+        return;
+    }
+
+    tbody.innerHTML = top.map(comp => `
+        <tr>
+            <td>${_escapeHtml(comp.nombre || "Comercio local")}</td>
+            <td>⭐ ${Number(comp.rating || 0).toFixed(1)}</td>
+            <td>${Number(comp.user_ratings_total || 0).toLocaleString()}</td>
+            <td>${_escapeHtml(_formatDistanceMeters(comp.distancia_metros) || "—")}</td>
+        </tr>
+    `).join("");
+    wrap.classList.remove("hidden");
+}
+
+function renderCompetitorReviews(competidores) {
+    const block = document.getElementById("competitor-reviews-block");
+    const list = document.getElementById("competitor-reviews-list");
+    if (!block || !list) return;
+
+    const cards = [];
+    (competidores || []).slice(0, 4).forEach(comp => {
+        (comp.reseñas_google || []).forEach(rev => {
+            if (!rev?.texto) return;
+            const distTxt = _formatDistanceMeters(comp.distancia_metros);
+            const meta = [
+                distTxt ? `📍 ${distTxt}` : null,
+                rev.rating ? `⭐ ${rev.rating}/5` : null,
+                rev.fecha_relativa || null,
+                rev.autor || null,
+            ].filter(Boolean).join(" · ");
+            cards.push(`
+                <div class="competitor-review-card">
+                    <div class="competitor-review-name">${_escapeHtml(comp.nombre || "Competidor local")}</div>
+                    <div class="competitor-review-text">“${_escapeHtml(rev.texto)}”</div>
+                    ${meta ? `<div class="competitor-review-meta">${_escapeHtml(meta)}</div>` : ""}
+                </div>
+            `);
+        });
+    });
+
+    if (cards.length === 0) {
+        block.classList.add("hidden");
+        list.innerHTML = "";
+        return;
+    }
+
+    list.innerHTML = cards.join("");
+    block.classList.remove("hidden");
 }
 
 // --- GRÁFICO 1: COMPETIDORES (Chart.js Bar) ---

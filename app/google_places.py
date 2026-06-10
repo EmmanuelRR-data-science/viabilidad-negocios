@@ -6,6 +6,97 @@ from app.config import GOOGLE_MAPS_API_KEY
 
 logger = logging.getLogger("google_places")
 
+_MOCK_RESEÑAS = [
+    "Buen servicio en general, aunque los tiempos de espera suben en horario pico.",
+    "Precios algo elevados para la zona, pero la atención al cliente es amable.",
+    "Ubicación conveniente; el local se siente saturado los fines de semana.",
+    "Productos de calidad aceptable; podrían mejorar la limpieza del espacio.",
+]
+
+
+def _google_api_disponible() -> bool:
+    return bool(
+        GOOGLE_MAPS_API_KEY
+        and not GOOGLE_MAPS_API_KEY.startswith("pega_tu")
+        and "tu_token" not in GOOGLE_MAPS_API_KEY
+    )
+
+
+def _truncar_texto(texto: str, *, max_len: int = 220) -> str:
+    limpio = " ".join(str(texto or "").split())
+    if len(limpio) <= max_len:
+        return limpio
+    return limpio[: max_len - 1].rstrip() + "…"
+
+
+def obtener_reseñas_lugar(place_id: str, *, max_reseñas: int = 3) -> list[dict]:
+    """
+    Obtiene reseñas públicas de Google Maps para un place_id.
+    Retorna lista de dicts: texto, rating, autor, fecha_relativa.
+    """
+    if not place_id:
+        return []
+
+    if not _google_api_disponible():
+        return [
+            {
+                "texto": _MOCK_RESEÑAS[i % len(_MOCK_RESEÑAS)],
+                "rating": 4 - (i % 2),
+                "autor": f"Cliente Google {i + 1}",
+                "fecha_relativa": f"hace {i + 1} meses",
+            }
+            for i in range(min(max_reseñas, 2))
+        ]
+
+    url = "https://maps.googleapis.com/maps/api/place/details/json"
+    params = {
+        "place_id": place_id,
+        "fields": "reviews",
+        "language": "es",
+        "key": GOOGLE_MAPS_API_KEY,
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") != "OK":
+            logger.warning("Place Details sin reseñas para %s: %s", place_id, data.get("status"))
+            return []
+
+        reseñas: list[dict] = []
+        for item in data.get("result", {}).get("reviews", [])[:max_reseñas]:
+            texto = _truncar_texto(item.get("text", ""))
+            if not texto:
+                continue
+            reseñas.append(
+                {
+                    "texto": texto,
+                    "rating": int(item.get("rating") or 0),
+                    "autor": str(item.get("author_name") or "Usuario de Google"),
+                    "fecha_relativa": str(item.get("relative_time_description") or ""),
+                }
+            )
+        return reseñas
+    except Exception as err:
+        logger.error("Error al obtener reseñas de Google para %s: %s", place_id, err)
+        return []
+
+
+def enriquecer_competidores_con_reseñas(
+    competidores: list[dict],
+    *,
+    max_competidores: int = 4,
+    max_reseñas_por_competidor: int = 2,
+) -> None:
+    """Agrega reseñas_google a los competidores más cercanos (mutación in-place)."""
+    for comp in competidores[:max_competidores]:
+        place_id = comp.get("place_id")
+        comp["reseñas_google"] = obtener_reseñas_lugar(
+            place_id,
+            max_reseñas=max_reseñas_por_competidor,
+        )
+
 
 def obtener_direccion(lat: float, lng: float) -> dict:
     """
@@ -108,7 +199,7 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, 
     Consume la API de Google Places Nearby Search para localizar los comercios
     en un radio de distancia clasificados bajo el tipo específico de Google.
     """
-    if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
+    if not _google_api_disponible():
         logger.info(
             f"Modo Desarrollo (Simulado): Retornando lista de competidores simulados para tipo: {google_type}, keyword: {keyword}."
         )

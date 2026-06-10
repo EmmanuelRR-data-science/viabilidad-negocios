@@ -412,6 +412,28 @@
                 <div class="canvas-wrapper">
                     <canvas id="competitors-chart"></canvas>
                 </div>
+                <div class="competitor-top-table-wrap hidden" id="competitor-top-table-wrap">
+                    <h4>Competidores mejor valorados y distancia</h4>
+                    <p class="competitor-top-hint">Distancia lineal desde tu punto hasta cada establecimiento (no tiempo de recorrido).</p>
+                    <div class="table-wrapper">
+                        <table class="clean-table competitor-top-table" id="competitor-top-table">
+                            <thead>
+                                <tr>
+                                    <th>Establecimiento</th>
+                                    <th>Calificación</th>
+                                    <th>Reseñas</th>
+                                    <th>Distancia</th>
+                                </tr>
+                            </thead>
+                            <tbody id="competitor-top-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="competitor-reviews-block hidden" id="competitor-reviews-block">
+                    <h4>Comentarios de Google sobre competidores</h4>
+                    <p class="competitor-reviews-hint">Reseñas públicas de los competidores más cercanos en Google Maps, con distancia lineal desde tu punto.</p>
+                    <div id="competitor-reviews-list"></div>
+                </div>
             </div>
             
             <!-- Tabla Atractores / POIs -->
@@ -476,6 +498,29 @@
                     <span style="display: inline-block; width: 12px; height: 12px; background: hsla(0, 95%, 55%, 1); border-radius: 2px; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);"></span><span>Pico</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Fila 4: Lectura estratégica del punto (reporte pagado) -->
+        <div class="foda-section glass-card hidden" id="lectura-estrategica-section">
+            <div class="section-title-foda">
+                <h3>Lectura estratégica del punto</h3>
+                <p>Orientación basada en métricas de INEGI, Google Places y afluencia. No sustituye un estudio de mercado ni una proyección financiera.</p>
+            </div>
+            <div class="foda-grid" id="lectura-estrategica-grid">
+                <div class="foda-card fortalezas">
+                    <h4>Fortalezas del punto</h4>
+                    <ul class="lectura-list" id="lectura-fortalezas"></ul>
+                </div>
+                <div class="foda-card oportunidades">
+                    <h4>Oportunidades</h4>
+                    <ul class="lectura-list" id="lectura-oportunidades"></ul>
+                </div>
+                <div class="foda-card consideraciones">
+                    <h4>Consideraciones para la apertura</h4>
+                    <ul class="lectura-list" id="lectura-consideraciones"></ul>
+                </div>
+            </div>
+            <p class="lectura-conclusion hidden" id="lectura-conclusion"></p>
         </div>
 
         <!-- Descarga de Informe ReportLab -->

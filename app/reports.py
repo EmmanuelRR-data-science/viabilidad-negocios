@@ -194,8 +194,7 @@ class ReportLabGenerator:
                 foda_dict = {
                     "fortalezas": ["Base demográfica favorable."],
                     "oportunidades": ["Diferenciación de nicho."],
-                    "debilidades": ["Costos iniciales."],
-                    "amenazas": ["Competencia preexistente."],
+                    "consideraciones_apertura": ["Validar costos de operación y permisos del giro."],
                     "conclusion": str(foda),
                     "recomendacion_roi": "Monitorear retornos de inversión.",
                 }
@@ -789,106 +788,87 @@ class ReportLabGenerator:
                 story.append(Paragraph(foda_dict["estrategia_precios"], s_body))
 
         # =====================================================================
-        # SECCIÓN 5 (DIFERIDA): DIAGNÓSTICO ESTRATÉGICO IA — se inserta al final
+        # SECCIÓN 5 (DIFERIDA): LECTURA ESTRATÉGICA DEL PUNTO
         # =====================================================================
+        from app.bedrock import _generar_consideraciones_apertura
+
         s_body_foda = ParagraphStyle("Body_Foda", parent=s_body, fontSize=8.2, leading=10.5, spaceAfter=2.5)
-        ParagraphStyle("Bullet_Foda", parent=s_bullet, fontSize=7.8, leading=10, spaceAfter=2)
         s_h2_foda = ParagraphStyle("Heading2_Foda", parent=s_h2, fontSize=9.5, leading=12, spaceBefore=4, spaceAfter=2)
 
-        bloque_diagnostico.append(Paragraph("5. DIAGNÓSTICO ESTRATÉGICO IA", s_h1))
+        if not foda_dict.get("consideraciones_apertura"):
+            foda_dict["consideraciones_apertura"] = _generar_consideraciones_apertura(analisis)
+
+        bloque_diagnostico.append(Paragraph("5. LECTURA ESTRATÉGICA DEL PUNTO", s_h1))
+        bloque_diagnostico.append(
+            Paragraph(
+                "Orientación basada en métricas de INEGI, Google Places y afluencia. "
+                "<b>No sustituye un estudio de mercado ni una proyección financiera.</b> "
+                "Las consideraciones son factores a validar, no advertencias de fracaso.",
+                s_body_foda,
+            )
+        )
         if foda_dict.get("_fuente") == "respaldo_cuantitativo":
             bloque_diagnostico.append(
                 Paragraph(
-                    "Diagnóstico elaborado con <b>métricas reales</b> de INEGI, Google Places y afluencia peatonal "
-                    "(modo pruebas: servicios de IA en la nube omitidos).",
+                    "<i>Fortalezas y oportunidades generadas con métricas reales (modo pruebas sin LLM en la nube).</i>",
                     s_body_foda,
                 )
             )
-        else:
-            bloque_diagnostico.append(
-                Paragraph(
-                    "La Inteligencia Artificial genera una evaluación estratégica cruzada adaptada al giro "
-                    "comercial y las intenciones específicas ingresadas.",
-                    s_body_foda,
-                )
-            )
-        bloque_diagnostico.append(Spacer(1, 5))
+        bloque_diagnostico.append(Spacer(1, 6))
 
-        # Estilo para los títulos de los cuadrantes FODA
-        s_quadrant_title = ParagraphStyle(
-            "QuadrantTitle",
+        s_col_title = ParagraphStyle(
+            "DiagColTitle",
             fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=11,
+            fontSize=8.5,
+            leading=10,
             textColor=colors.HexColor("#0f172a"),
-            spaceAfter=2,
         )
-
-        s_quadrant_body = ParagraphStyle(
-            "QuadrantBody",
+        s_col_body = ParagraphStyle(
+            "DiagColBody",
             fontName="Helvetica",
             fontSize=7.5,
             leading=9.5,
             textColor=colors.HexColor("#334155"),
         )
 
-        # Extraer y limitar listas de FODA para que quepan perfectamente
-        fort_list = foda_dict.get("fortalezas", [])[:3]
-        op_list = foda_dict.get("oportunidades", [])[:3]
-        deb_list = foda_dict.get("debilidades", [])[:3]
-        am_list = foda_dict.get("amenazas", [])[:3]
+        def _bullets(items: list, fallback: str) -> str:
+            lista = (items or [])[:3]
+            return "<br/>".join(f"• {x}" for x in lista) if lista else f"• {fallback}"
 
-        fortalezas_html = (
-            "<br/>".join([f"• {f}" for f in fort_list]) if fort_list else "• Operación demográfica adecuada."
-        )
-        oportunidades_html = (
-            "<br/>".join([f"• {o}" for o in op_list]) if op_list else "• Captación de mercado desatendido."
-        )
-        debilidades_html = (
-            "<br/>".join([f"• {d}" for d in deb_list]) if deb_list else "• Presupuesto de adecuación inicial."
-        )
-        amenazas_html = "<br/>".join([f"• {a}" for a in am_list]) if am_list else "• Presión de comercios informales."
+        fort_list = foda_dict.get("fortalezas", [])
+        op_list = foda_dict.get("oportunidades", [])
+        cons_list = foda_dict.get("consideraciones_apertura", [])
 
-        foda_grid = [
+        lectura_grid = [
             [
-                Paragraph("💪 <b>FORTALEZAS</b>", s_quadrant_title),
-                Paragraph("🚀 <b>OPORTUNIDADES</b>", s_quadrant_title),
+                Paragraph("<b>FORTALEZAS DEL PUNTO</b>", s_col_title),
+                Paragraph("<b>OPORTUNIDADES</b>", s_col_title),
+                Paragraph("<b>CONSIDERACIONES PARA LA APERTURA</b>", s_col_title),
             ],
             [
-                Paragraph(fortalezas_html, s_quadrant_body),
-                Paragraph(oportunidades_html, s_quadrant_body),
-            ],
-            [
-                Paragraph("⚠️ <b>DEBILIDADES</b>", s_quadrant_title),
-                Paragraph("🔥 <b>AMENAZAS</b>", s_quadrant_title),
-            ],
-            [
-                Paragraph(debilidades_html, s_quadrant_body),
-                Paragraph(amenazas_html, s_quadrant_body),
+                Paragraph(_bullets(fort_list, "Demanda residencial en el radio analizado."), s_col_body),
+                Paragraph(_bullets(op_list, "Espacio para diferenciación en el giro."), s_col_body),
+                Paragraph(_bullets(cons_list, "Validar permisos, renta y operación con cifras reales."), s_col_body),
             ],
         ]
 
-        foda_table = Table(foda_grid, colWidths=[250, 254])
-        foda_table.setStyle(
+        lectura_table = Table(lectura_grid, colWidths=[168, 168, 168])
+        lectura_table.setStyle(
             TableStyle(
                 [
                     ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#f0fdf4")),
                     ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#eff6ff")),
-                    ("BACKGROUND", (0, 2), (0, 2), colors.HexColor("#fff7ed")),
-                    ("BACKGROUND", (1, 2), (1, 2), colors.HexColor("#fef2f2")),
-                    ("PADDING", (0, 0), (-1, -1), 6),
+                    ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#fffbeb")),
+                    ("PADDING", (0, 0), (-1, -1), 7),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("BOX", (0, 0), (0, 1), 1, colors.HexColor("#bbf7d0")),
-                    ("BOX", (1, 0), (1, 1), 1, colors.HexColor("#bfdbfe")),
-                    ("BOX", (0, 2), (0, 3), 1, colors.HexColor("#fed7aa")),
-                    ("BOX", (1, 2), (1, 3), 1, colors.HexColor("#fecaca")),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
                 ]
             )
         )
-        bloque_diagnostico.append(foda_table)
+        bloque_diagnostico.append(lectura_table)
         bloque_diagnostico.append(Spacer(1, 8))
 
-        bloque_diagnostico.append(Paragraph("Conclusión General del Diagnóstico:", s_h2_foda))
+        bloque_diagnostico.append(Paragraph("Conclusión General:", s_h2_foda))
         bloque_diagnostico.append(
             Paragraph(foda_dict.get("conclusion", "Análisis de viabilidad concluido con éxito."), s_body_foda)
         )
@@ -963,6 +943,15 @@ class ReportLabGenerator:
         # SECCIÓN 3: ANÁLISIS DE COMPETENCIA (Pro y Premium)
         # =====================================================================
         from app.chart_images import generar_grafica_competidores
+
+        s_quadrant_title = ParagraphStyle(
+            "QuadrantTitle",
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor("#0f172a"),
+            spaceAfter=2,
+        )
 
         story.append(PageBreak())
         story.append(Paragraph("3. ANÁLISIS DE COMPETENCIA", s_h1))
@@ -1050,16 +1039,29 @@ class ReportLabGenerator:
             )
             story.append(Spacer(1, 5))
 
+        from app.analytics import (
+            asegurar_distancias_competidores,
+            competidores_mejor_valorados,
+            formatear_distancia_metros,
+        )
+
         comp_list = analisis.get("competidores_listado", [])
+        asegurar_distancias_competidores(
+            comp_list,
+            float(orden.latitud),
+            float(orden.longitud),
+        )
 
         comp_table_data = [
             [
                 Paragraph("Nombre del Establecimiento", s_table_header),
                 Paragraph("Giro / Tipo Comercial", s_table_header),
                 Paragraph("Calificación / Atractor", s_table_header),
+                Paragraph("Distancia al punto", s_table_header),
             ],
             [
                 Paragraph("<b>🎯 COMPETIDORES DIRECTOS DETECTADOS</b>", s_quadrant_title),
+                Paragraph("", s_table_cell),
                 Paragraph("", s_table_cell),
                 Paragraph("", s_table_cell),
             ],
@@ -1074,6 +1076,7 @@ class ReportLabGenerator:
                     ),
                     Paragraph("—", s_table_cell),
                     Paragraph("—", s_table_cell),
+                    Paragraph("—", s_table_cell),
                 ]
             )
         else:
@@ -1086,6 +1089,7 @@ class ReportLabGenerator:
                             f"⭐ {item.get('rating', 0.0)} / 5.0 ({item.get('user_ratings_total', 15)} reseñas)",
                             s_table_cell,
                         ),
+                        Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                     ]
                 )
 
@@ -1094,6 +1098,7 @@ class ReportLabGenerator:
                 Paragraph(
                     "<b>🤝 ESTABLECIMIENTOS COMPLEMENTARIOS (ALIADOS REALES DETECTADOS)</b>", s_quadrant_title
                 ),
+                Paragraph("", s_table_cell),
                 Paragraph("", s_table_cell),
                 Paragraph("", s_table_cell),
             ],
@@ -1113,6 +1118,7 @@ class ReportLabGenerator:
                         Paragraph(aliado["nombre"], s_table_cell),
                         Paragraph(aliado["tipo"], s_table_cell),
                         Paragraph(f"{rating_str} {reviews_str}".strip(), s_table_cell),
+                        Paragraph("—", s_table_cell),
                     ]
                 )
         else:
@@ -1126,11 +1132,12 @@ class ReportLabGenerator:
                     ),
                     Paragraph("", s_table_cell),
                     Paragraph("", s_table_cell),
+                    Paragraph("", s_table_cell),
                 ]
             )
 
         num_direct_rows = len(real_directs) if real_directs else 1
-        comp_table = Table(comp_table_data, colWidths=[180, 160, 174])
+        comp_table = Table(comp_table_data, colWidths=[130, 110, 130, 134])
         comp_table.setStyle(
             TableStyle(
                 [
@@ -1138,13 +1145,13 @@ class ReportLabGenerator:
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
                     ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("SPAN", (0, 1), (2, 1)),
-                    ("SPAN", (0, num_direct_rows + 2), (2, num_direct_rows + 2)),
-                    ("BACKGROUND", (0, 1), (2, 1), colors.HexColor("#f1f5f9")),
+                    ("SPAN", (0, 1), (3, 1)),
+                    ("SPAN", (0, num_direct_rows + 2), (3, num_direct_rows + 2)),
+                    ("BACKGROUND", (0, 1), (3, 1), colors.HexColor("#f1f5f9")),
                     (
                         "BACKGROUND",
                         (0, num_direct_rows + 2),
-                        (2, num_direct_rows + 2),
+                        (3, num_direct_rows + 2),
                         colors.HexColor("#f1f5f9"),
                     ),
                     ("PADDING", (0, 0), (-1, -1), 5),
@@ -1154,6 +1161,126 @@ class ReportLabGenerator:
         )
 
         story.append(comp_table)
+
+        mejor_valorados = competidores_mejor_valorados(comp_list, top_n=5)
+        if mejor_valorados:
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("<b>Competidores mejor valorados y distancia desde tu punto:</b>", s_h2))
+            story.append(
+                Paragraph(
+                    "Distancia geodésica (línea recta) desde las coordenadas de tu ubicación hasta cada establecimiento. "
+                    "No equivale a tiempo de recorrido peatonal o vehicular.",
+                    s_body,
+                )
+            )
+            story.append(Spacer(1, 6))
+            top_data = [
+                [
+                    Paragraph("Establecimiento", s_table_header),
+                    Paragraph("Calificación", s_table_header),
+                    Paragraph("Reseñas", s_table_header),
+                    Paragraph("Distancia al punto", s_table_header),
+                ]
+            ]
+            for item in mejor_valorados:
+                top_data.append(
+                    [
+                        Paragraph(item.get("nombre", "Comercio Local"), s_table_cell),
+                        Paragraph(f"⭐ {item.get('rating', 0.0)} / 5.0", s_table_cell),
+                        Paragraph(f"{int(item.get('user_ratings_total') or 0):,}", s_table_cell),
+                        Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
+                    ]
+                )
+            top_table = Table(top_data, colWidths=[180, 90, 80, 154])
+            top_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                        ("PADDING", (0, 0), (-1, -1), 5),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ]
+                )
+            )
+            story.append(top_table)
+
+        from xml.sax.saxutils import escape as xml_escape
+
+        reseñas_rows: list = []
+        for item in real_directs:
+            nombre = item.get("nombre", "Competidor local")
+            for rev in item.get("reseñas_google") or []:
+                texto = rev.get("texto", "").strip()
+                if not texto:
+                    continue
+                meta_parts = []
+                if rev.get("rating"):
+                    meta_parts.append(f"⭐ {rev['rating']}/5")
+                if rev.get("fecha_relativa"):
+                    meta_parts.append(str(rev["fecha_relativa"]))
+                if rev.get("autor"):
+                    meta_parts.append(str(rev["autor"]))
+                meta = " · ".join(meta_parts)
+                dist_txt = formatear_distancia_metros(item.get("distancia_metros"))
+                reseñas_rows.append(
+                    [
+                        Paragraph(f"<b>{xml_escape(nombre)}</b>", s_table_cell),
+                        Paragraph(
+                            f"“{xml_escape(texto)}”"
+                            + (f"<br/><font size='6' color='#64748b'>{xml_escape(meta)}</font>" if meta else ""),
+                            s_table_cell,
+                        ),
+                        Paragraph(dist_txt, s_table_cell),
+                    ]
+                )
+
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("<b>Comentarios de Google sobre competidores:</b>", s_h2))
+        story.append(
+            Paragraph(
+                "Extractos de reseñas públicas de Google Maps de los competidores más cercanos, "
+                "con la distancia lineal desde tu punto. Son opiniones de usuarios y no representan "
+                "la postura de GeoViabilidad Hook.",
+                s_body,
+            )
+        )
+        story.append(Spacer(1, 6))
+        if reseñas_rows:
+            reseñas_table = Table(
+                [
+                    [
+                        Paragraph("Competidor", s_table_header),
+                        Paragraph("Comentario de Google", s_table_header),
+                        Paragraph("Distancia", s_table_header),
+                    ],
+                    *reseñas_rows,
+                ],
+                colWidths=[120, 290, 94],
+            )
+            reseñas_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                        ("PADDING", (0, 0), (-1, -1), 5),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ]
+                )
+            )
+            story.append(reseñas_table)
+        else:
+            story.append(
+                Paragraph(
+                    "<font color='#64748b'><i>No hay comentarios públicos disponibles para los competidores "
+                    "detectados en este radio.</i></font>",
+                    s_body,
+                )
+            )
+
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Análisis de Saturación Comercial:</b>", s_h2))
         story.append(
@@ -1602,7 +1729,7 @@ class ReportLabGenerator:
                 "Síntesis generada por Inteligencia Artificial de las fricciones y quejas más comunes que los "
                 "consumidores suelen reportar en este giro comercial. No corresponden a reseñas textuales de "
                 "establecimientos específicos de la zona; utilízalas como referencia para diseñar tu propuesta "
-                "de valor superando las debilidades típicas del sector.",
+                "de valor superando las fricciones típicas del sector.",
                 s_body,
             )
         )
