@@ -1076,7 +1076,7 @@ class ReportLabGenerator:
         aliados_reales = analisis.get("aliados_listado", [])
 
         if aliados_reales:
-            for aliado in aliados_reales[:6]:
+            for aliado in aliados_reales:
                 rating_str = f"⭐ {aliado['rating']} / 5.0" if aliado["rating"] > 0 else "Sin calificación"
                 reviews_str = (
                     f"({aliado['user_ratings_total']} reseñas)" if aliado["user_ratings_total"] > 0 else ""

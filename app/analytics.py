@@ -25,6 +25,40 @@ def calcular_distancia_haversine(lat1: float, lng1: float, lat2: float, lng2: fl
     return r * c
 
 
+def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
+    return {
+        "nombre": item.get("nombre", "Establecimiento sin nombre"),
+        "tipo": tipo_semantico,
+        "rating": item.get("rating", 0.0),
+        "user_ratings_total": item.get("user_ratings_total", 0),
+        "direccion": item.get("direccion", ""),
+        "latitud": item.get("latitud"),
+        "longitud": item.get("longitud"),
+    }
+
+
+def _agregar_aliados_al_listado(
+    found_allies: list,
+    tipo_nombre: str,
+    destino: list,
+    seen_keys: set[tuple[float, float]],
+) -> int:
+    """Incluye todos los establecimientos detectados; el conteo coincide con mapa y PDF."""
+    agregados = 0
+    for ally in found_allies:
+        lat = ally.get("latitud")
+        lng = ally.get("longitud")
+        if lat is None or lng is None:
+            continue
+        key = (round(lat, 5), round(lng, 5))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        destino.append(_enriquecer_aliado(ally, tipo_nombre))
+        agregados += 1
+    return agregados
+
+
 def obtener_demografia_ponderada(db: Session, lat: float, lng: float, radio: int) -> dict:
     """
     Ejecuta una consulta geoespacial geodésica en PostgreSQL + PostGIS para calcular
@@ -170,6 +204,7 @@ def procesar_calculo_analitico(
     transporte_list: list = []
     aliados_listado: list = []
     aliados_conteos: dict = {}
+    aliados_seen_keys: set[tuple[float, float]] = set()
 
     competidores_sel_orig = competidores_seleccionados
     aliados_sel_orig = aliados_seleccionados
@@ -242,20 +277,10 @@ def procesar_calculo_analitico(
                     for custom_type in aliados_seleccionados:
                         try:
                             found_allies = buscar_competidores(lat, lng, float(radio), custom_type)
-                            aliados_conteos[custom_type] = len(found_allies)
-                            for ally in found_allies[:3]:
-                                tipo_nombre = custom_type.replace("_", " ").title()
-                                aliados_listado.append(
-                                    {
-                                        "nombre": ally.get("nombre", "Establecimiento sin nombre"),
-                                        "tipo": tipo_nombre,
-                                        "rating": ally.get("rating", 0.0),
-                                        "user_ratings_total": ally.get("user_ratings_total", 0),
-                                        "direccion": ally.get("direccion", ""),
-                                        "latitud": ally.get("latitud"),
-                                        "longitud": ally.get("longitud"),
-                                    }
-                                )
+                            tipo_nombre = custom_type.replace("_", " ").title()
+                            aliados_conteos[custom_type] = _agregar_aliados_al_listado(
+                                found_allies, tipo_nombre, aliados_listado, aliados_seen_keys
+                            )
                         except Exception as ally_err:
                             logger.error(f"Falla al buscar aliado personalizado {custom_type}: {ally_err}")
                             aliados_conteos[custom_type] = 0
@@ -267,19 +292,9 @@ def procesar_calculo_analitico(
                         try:
                             # Buscamos con el wildcard "establishment" usando la palabra clave ingresada
                             found_allies = buscar_competidores(lat, lng, float(radio), "establishment", keyword=kw)
-                            aliados_conteos[kw] = len(found_allies)
-                            for ally in found_allies[:3]:
-                                aliados_listado.append(
-                                    {
-                                        "nombre": ally.get("nombre", "Establecimiento sin nombre"),
-                                        "tipo": kw.capitalize(),
-                                        "rating": ally.get("rating", 0.0),
-                                        "user_ratings_total": ally.get("user_ratings_total", 0),
-                                        "direccion": ally.get("direccion", ""),
-                                        "latitud": ally.get("latitud"),
-                                        "longitud": ally.get("longitud"),
-                                    }
-                                )
+                            aliados_conteos[kw] = _agregar_aliados_al_listado(
+                                found_allies, kw.capitalize(), aliados_listado, aliados_seen_keys
+                            )
                         except Exception as extra_ally_err:
                             logger.error(f"Falla al buscar aliado adicional '{kw}': {extra_ally_err}")
                             aliados_conteos[kw] = 0
@@ -310,27 +325,19 @@ def procesar_calculo_analitico(
                     transporte_conteo = 0
 
                 aliados_conteos = {
-                    "bank": bancos_conteo,
-                    "school": escuelas_conteo,
-                    "transit_station": transporte_conteo,
+                    "bank": _agregar_aliados_al_listado(
+                        bancos_list, "Institución Bancaria / Financiera", aliados_listado, aliados_seen_keys
+                    ),
+                    "school": _agregar_aliados_al_listado(
+                        escuelas_list, "Centro Educativo", aliados_listado, aliados_seen_keys
+                    ),
+                    "transit_station": _agregar_aliados_al_listado(
+                        transporte_list, "Transporte Público", aliados_listado, aliados_seen_keys
+                    ),
                 }
-
-                def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
-                    return {
-                        "nombre": item.get("nombre", "Establecimiento sin nombre"),
-                        "tipo": tipo_semantico,
-                        "rating": item.get("rating", 0.0),
-                        "user_ratings_total": item.get("user_ratings_total", 0),
-                        "direccion": item.get("direccion", ""),
-                        "latitud": item.get("latitud"),
-                        "longitud": item.get("longitud"),
-                    }
-
-                aliados_listado = (
-                    [_enriquecer_aliado(b, "Institución Bancaria / Financiera") for b in bancos_list[:3]]
-                    + [_enriquecer_aliado(e, "Centro Educativo") for e in escuelas_list[:3]]
-                    + [_enriquecer_aliado(t, "Transporte Público") for t in transporte_list[:3]]
-                )
+                bancos_conteo = aliados_conteos["bank"]
+                escuelas_conteo = aliados_conteos["school"]
+                transporte_conteo = aliados_conteos["transit_station"]
 
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
