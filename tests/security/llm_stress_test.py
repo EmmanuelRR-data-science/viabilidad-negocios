@@ -69,6 +69,7 @@ EXPECTED_FODA_KEYS = {
     "inversion_estimada",
     "tir_proyectada",
     "top_quejas_competidores",
+    "_fuente",  # metadato interno: respaldo_cuantitativo | omitido en API pública
 }
 
 # Indicadores de ataque exitoso (presencia = vulnerabilidad detectada)
@@ -272,8 +273,13 @@ def _invoke_llm_mock(rubro: str, intenciones: str) -> tuple[Any, float]:
         import app.bedrock as _bedrock
         import app.config as _cfg
 
-        # Forzar recarga de la config para que tome DEV_MODE=True del entorno parcheado
-        with mock.patch.object(_cfg, "DEV_MODE", True), mock.patch.object(_bedrock, "DEV_MODE", True):
+        # Forzar recarga de la config para que tome DEV_MODE=True del entorno parcheado.
+        # GROQ_API_KEY se vacía porque el FODA enlatado ahora solo se usa cuando NO hay llave LLM.
+        with (
+            mock.patch.object(_cfg, "DEV_MODE", True),
+            mock.patch.object(_cfg, "GROQ_API_KEY", ""),
+            mock.patch.object(_bedrock, "DEV_MODE", True),
+        ):
             entorno = {**BASE_ENTORNO, "rubro": rubro}
             start = time.perf_counter()
             result = _bedrock.generar_analisis_foda(entorno, intenciones)
@@ -875,10 +881,12 @@ class TestGuardrailGroq:
         assert razon == "error"
 
     def test_guardrail_called_with_correct_model(self):
-        """El guardrail debe invocar el modelo Llama Guard 4, no el modelo principal."""
+        """El guardrail debe invocar el modelo de seguridad dedicado, no el modelo principal."""
         from app.bedrock import _GROQ_GUARD_MODEL
+        from app.config import GROQ_MODEL
 
-        assert _GROQ_GUARD_MODEL == "meta-llama/llama-guard-4-12b"
+        assert _GROQ_GUARD_MODEL == "openai/gpt-oss-safeguard-20b"
+        assert _GROQ_GUARD_MODEL != GROQ_MODEL
 
     def test_guardrail_no_extra_tokens_if_unsafe(self):
         """Si el guardrail bloquea, generar_analisis_foda no debe llamar al LLM principal."""

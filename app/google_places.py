@@ -141,9 +141,21 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, 
         response.raise_for_status()
         data = response.json()
 
+        # Tipos genéricos donde no aplica el filtro estricto de categoría
+        tipos_genericos = {"establishment", "store", "point_of_interest"}
+
         competidores = []
+        descartados = 0
         if data.get("status") in ["OK", "ZERO_RESULTS"]:
             for item in data.get("results", []):
+                # Filtro de relevancia: Google a veces devuelve negocios mal categorizados
+                # (ej. una clínica como 'fast_food'). Si pedimos un tipo específico sin keyword,
+                # el resultado DEBE declarar ese tipo en su clasificación oficial.
+                item_types = item.get("types", [])
+                if not keyword and google_type not in tipos_genericos and item_types and google_type not in item_types:
+                    descartados += 1
+                    continue
+
                 loc = item.get("geometry", {}).get("location", {})
                 competidores.append(
                     {
@@ -155,6 +167,11 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, 
                         "rating": item.get("rating", 0.0),
                         "user_ratings_total": item.get("user_ratings_total", 0),
                     }
+                )
+            if descartados:
+                logger.info(
+                    f"Filtro de relevancia Places: {descartados} resultado(s) descartado(s) por no declarar "
+                    f"el tipo '{google_type}' en su clasificación oficial."
                 )
             return competidores
         else:
@@ -214,9 +231,11 @@ def obtener_mapa_estatico(lat: float, lng: float, radio: int, competidores: list
         "key": GOOGLE_MAPS_API_KEY,
     }
 
-    # Agregar todos los marcadores al url
+    # Agregar todos los marcadores al url. Se ocultan los íconos de negocios del mapa base
+    # para que el ÚNICO pin azul sea la ubicación propuesta (evita confusión en el reporte).
     marker_query = "&".join([f"markers={m}" for m in markers])
-    full_url = f"{url}?center={params['center']}&zoom={params['zoom']}&size={params['size']}&maptype={params['maptype']}&key={params['key']}&{marker_query}"
+    style_query = "style=feature:poi.business|visibility:off"
+    full_url = f"{url}?center={params['center']}&zoom={params['zoom']}&size={params['size']}&maptype={params['maptype']}&key={params['key']}&{style_query}&{marker_query}"
 
     try:
         logger.info(f"Consultando Google Static Maps para coordenadas ({lat}, {lng})...")

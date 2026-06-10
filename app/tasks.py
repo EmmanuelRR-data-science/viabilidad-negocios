@@ -54,6 +54,35 @@ def generar_informe_task(orden_id: int):
             aliados_adicionales=orden.aliados_adicionales,
         )
 
+        # Cálculo multi-radio REAL con PostGIS: población y densidad por anillo de cobertura.
+        # Solo la población se re-consulta por radio; competidores/aliados se miden únicamente
+        # en el radio contratado para no extrapolar datos.
+        import math
+
+        from app.analytics import obtener_demografia_ponderada
+
+        radio_contratado_km = round(orden.radio_metros / 1000.0, 1)
+        radios_km = sorted({radio_contratado_km, 3.0, 5.0})
+        multi_radio = []
+        for r_km in radios_km:
+            if abs(r_km - radio_contratado_km) < 0.01:
+                pob_r = resultado["poblacion_ponderada"]
+            else:
+                demog_r = obtener_demografia_ponderada(
+                    db, float(orden.latitud), float(orden.longitud), int(r_km * 1000)
+                )
+                pob_r = demog_r["poblacion_ponderada"]
+            area_r_km2 = math.pi * (r_km**2)
+            multi_radio.append(
+                {
+                    "radio_km": r_km,
+                    "es_radio_contratado": abs(r_km - radio_contratado_km) < 0.01,
+                    "poblacion": pob_r,
+                    "densidad": round(pob_r / area_r_km2, 1) if area_r_km2 > 0 else 0,
+                }
+            )
+        resultado["multi_radio"] = multi_radio
+
         # Geocodificar la dirección física real para incluirla en el reporte PDF
         from app.google_places import obtener_direccion
 
@@ -86,27 +115,21 @@ def generar_informe_task(orden_id: int):
         competidores_conteo = resultado["competidores_conteo"]
         sva = resultado["sva"]
 
-        # 2. Invocar el LLM (Amazon Bedrock / Groq) mediante el módulo centralizado de Bedrock
-        logger.info("[TASK] Invocando el motor cognitivo de IA (Bedrock/Groq)...")
-        from app.bedrock import generar_analisis_foda
+        # 2. Diagnóstico FODA: Groq en pruebas/producción; sin AWS en modo pruebas
+        logger.info("[TASK] Generando diagnóstico estratégico (Groq o respaldo cuantitativo)...")
+        from app.bedrock import _foda_respaldo_cuantitativo, generar_analisis_foda
 
         try:
             analysis_result = generar_analisis_foda(resultado, orden.intenciones)
-            logger.info("[TASK] Diagnóstico estratégico de IA generado exitosamente.")
+            logger.info("[TASK] Diagnóstico estratégico generado exitosamente.")
         except Exception as foda_err:
-            logger.error(f"[TASK] Error al generar diagnóstico estratégico de IA: {foda_err}")
-            analysis_result = {
-                "fortalezas": [
-                    "La densidad residencial en el radio del estudio es favorable para el volumen de consumo."
-                ],
-                "oportunidades": ["Implementar ventajas logísticas como entrega rápida a domicilio en la colonia."],
-                "debilidades": ["Alta competencia en el giro en el cuadrante geográfico analizado."],
-                "amenazas": ["Márgenes operativos presionados por competidores locales preexistentes."],
-                "conclusion": "Análisis de emergencia debido a un error de red con el LLM.",
-                "recomendacion_roi": "Monitorear costos y ticket promedio recomendado en la zona.",
-                "ticket_recomendado": "$180 - $250 MXN",
-                "roi_estimado": "14 a 18 Meses",
-            }
+            logger.error(f"[TASK] Error al generar diagnóstico estratégico: {foda_err}")
+            analysis_result = _foda_respaldo_cuantitativo(
+                resultado,
+                orden.rubro,
+                comp_adicionales=orden.competidores_adicionales,
+                aliados_adicionales=orden.aliados_adicionales,
+            )
 
         # 3. Compilar el PDF real con ReportLab
         logger.info("[TASK] Compilando reporte PDF ejecutivo real mediante ReportLab...")
@@ -164,8 +187,11 @@ def generar_informe_task(orden_id: int):
 
         orden.estado_pago = "approved"
         orden.s3_key_reporte = s3_key
+        foda_para_cache = {
+            k: v for k, v in analysis_result.items() if k == "_fuente" or not str(k).startswith("_")
+        }
         orden.resultado_json = json.dumps(resultado, default=str)
-        orden.foda_json = json.dumps(analysis_result, default=str)
+        orden.foda_json = json.dumps(foda_para_cache, default=str)
         orden.fecha_aprobacion = datetime.datetime.utcnow()
         db.commit()
 

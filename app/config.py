@@ -26,7 +26,8 @@ if not DEV_MODE and DB_HOST not in ["127.0.0.1", "localhost", "geo-analisis-db",
 else:
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# --- CONFIGURACIONES AWS (S3, Bedrock, SES) ---
+# --- CONFIGURACIONES AWS (S3, Bedrock, SES) — solo producción ---
+AWS_ENABLED = not DEV_MODE
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 S3_REPORTS_BUCKET = os.environ.get("S3_REPORTS_BUCKET", "viabilidad-hook-informes")
 BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "meta.llama3-70b-instruct-v1:0")
@@ -48,4 +49,7 @@ SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "alertas@geoviabilidad.com
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-logger.info(f"Configuración cargada en Modo: {'DESARROLLO (Mocks Activos)' if DEV_MODE else 'PRODUCCIÓN (AWS Activo)'}")
+logger.info(
+    "Configuración cargada en Modo: %s",
+    "PRUEBAS (Groq + datos reales; AWS omitido)" if DEV_MODE else "PRODUCCIÓN (AWS Activo)",
+)

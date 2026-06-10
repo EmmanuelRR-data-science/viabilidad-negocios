@@ -79,6 +79,46 @@ def _parsear_analysis_besttime(analysis: list) -> dict | None:
     }
 
 
+def construir_filas_horas_pico(afl_data: dict) -> list[tuple[str, str, str, str]]:
+    """
+    Construye filas [día, horas pico, horas tranquilas, interpretación]
+    a partir de afluencia_semanal real de BestTime (índice 0 = 00:00).
+    """
+    semanal = afl_data.get("afluencia_semanal") or {}
+    filas: list[tuple[str, str, str, str]] = []
+
+    for dia in DIAS_SEMANA_ESP:
+        curva = semanal.get(dia)
+        if not isinstance(curva, list) or len(curva) < 24:
+            continue
+
+        por_hora = [(h, float(curva[h])) for h in range(24)]
+        activas = [p for p in por_hora if p[1] > 0]
+        if not activas:
+            continue
+
+        activas.sort(key=lambda x: x[1], reverse=True)
+        picos = [f"{h:02d}:00" for h, _ in activas[:3]]
+
+        tranquilas = sorted(por_hora, key=lambda x: (x[1], x[0]))[:2]
+        horas_tranquilas = [f"{h:02d}:00" for h, _ in tranquilas]
+
+        media = sum(v for _, v in por_hora) / 24.0
+        maximo = max(v for _, v in por_hora)
+        if maximo <= 0:
+            interpretacion = "Sin datos"
+        elif media >= maximo * 0.55:
+            interpretacion = "Afluencia alta"
+        elif media >= maximo * 0.25:
+            interpretacion = "Afluencia moderada"
+        else:
+            interpretacion = "Baja afluencia"
+
+        filas.append((dia, ", ".join(picos), ", ".join(horas_tranquilas), interpretacion))
+
+    return filas
+
+
 def _sin_cobertura_besttime() -> dict:
     """
     Retorna un dict que indica ausencia real de datos de BestTime.

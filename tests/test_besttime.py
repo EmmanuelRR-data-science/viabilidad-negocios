@@ -183,3 +183,22 @@ def test_obtener_afluencia_todos_los_venues_fallan_retorna_no_data(mock_post):
 
     assert result["status"] == "no_data"
     assert mock_post.call_count == 3  # capped at _BESTTIME_MAX_INTENTOS
+
+
+def test_construir_filas_horas_pico_desde_curvas_reales():
+    """Las ventanas horarias del PDF deben derivarse de afluencia_semanal, no de plantillas."""
+    from app.besttime import construir_filas_horas_pico
+
+    afl = {
+        "status": "success",
+        "afluencia_semanal": {
+            "Lunes": [0, 0, 0, 0, 0, 0, 0, 0, 5, 15, 40, 55, 50, 45, 30, 25, 20, 15, 10, 5, 0, 0, 0, 0],
+            "Martes": [0, 0, 0, 0, 0, 0, 0, 0, 10, 20, 30, 35, 40, 45, 50, 55, 40, 30, 20, 10, 5, 0, 0, 0],
+        },
+    }
+    filas = construir_filas_horas_pico(afl)
+    assert len(filas) == 2
+    assert filas[0][0] == "Lunes"
+    assert "11:00" in filas[0][1]
+    assert filas[1][0] == "Martes"
+    assert "15:00" in filas[1][1]

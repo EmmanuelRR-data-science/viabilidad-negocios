@@ -160,12 +160,26 @@ def obtener_resultado_analisis(
             analisis_cuant["competidores_adicionales"] = orden.competidores_adicionales
             analisis_cuant["aliados_adicionales"] = orden.aliados_adicionales
 
-            # 3. Invocar Bedrock (Meta Llama 3) para diagnóstico FODA inteligente (Disponible en todos los Tiers de pago)
-            foda_inteligente = generar_analisis_foda(analisis_cuant, orden.intenciones)
+            # 3. Invocar LLM para diagnóstico FODA (Groq → Bedrock → respaldo cuantitativo)
+            try:
+                foda_inteligente = generar_analisis_foda(analisis_cuant, orden.intenciones)
+            except Exception as foda_err:
+                logger.error("FODA no disponible para orden %s: %s. Usando respaldo.", orden_id, foda_err)
+                from app.bedrock import _foda_respaldo_cuantitativo
+
+                foda_inteligente = _foda_respaldo_cuantitativo(
+                    analisis_cuant,
+                    orden.rubro,
+                    comp_adicionales=orden.competidores_adicionales,
+                    aliados_adicionales=orden.aliados_adicionales,
+                )
 
             # Guardar en base de datos para futuras peticiones
+            foda_cache = {
+                k: v for k, v in foda_inteligente.items() if k == "_fuente" or not str(k).startswith("_")
+            }
             orden.resultado_json = json.dumps(analisis_cuant, default=str)
-            orden.foda_json = json.dumps(foda_inteligente, default=str)
+            orden.foda_json = json.dumps(foda_cache, default=str)
             db.commit()
 
         # Los campos se calculan y envían siempre; el frontend controlará si se muestran nítidos o con blur según el Tier.
@@ -182,12 +196,17 @@ def obtener_resultado_analisis(
                 "aliados_adicionales": orden.aliados_adicionales,
             },
             "metricas": analisis_cuant,
-            "analisis_estrategico_ia": foda_inteligente,
+            "analisis_estrategico_ia": {
+                k: v for k, v in foda_inteligente.items() if not str(k).startswith("_")
+            },
         }
 
     except Exception as e:
         logger.error(f"Falla al generar reporte de orden {orden_id}: {e}")
-        raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo cargar el reporte. Intenta de nuevo en unos minutos.",
+        ) from e
 
 
 @router.get("/pdf/{orden_id}", status_code=status.HTTP_200_OK)

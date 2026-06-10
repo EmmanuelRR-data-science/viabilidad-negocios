@@ -182,25 +182,51 @@ function bindUIEvents() {
 
 function setupIntroCard() {
     const introCard = document.getElementById("app-intro-card");
-    const closeBtn = document.getElementById("close-intro-btn");
-    if (!introCard || !closeBtn) return;
+    const toggleBtn = document.getElementById("toggle-intro-btn");
+    if (!introCard || !toggleBtn) return;
 
-    // Verificar localStorage
-    if (localStorage.getItem("hide_intro_card") === "true") {
-        introCard.classList.add("collapsed");
-        introCard.classList.add("hidden");
+    const toggleText = toggleBtn.querySelector(".intro-toggle-text");
+    const STORAGE_KEY = "intro_card_collapsed";
+
+    const setIntroVisible = (visible, { persist = true } = {}) => {
+        toggleBtn.setAttribute("aria-expanded", visible ? "true" : "false");
+        toggleBtn.classList.toggle("is-collapsed", !visible);
+
+        if (toggleText) {
+            toggleText.textContent = visible
+                ? toggleText.dataset.stateVisible
+                : toggleText.dataset.stateHidden;
+        }
+
+        if (visible) {
+            introCard.classList.remove("hidden");
+            requestAnimationFrame(() => {
+                introCard.classList.remove("collapsed");
+            });
+        } else {
+            introCard.classList.add("collapsed");
+            setTimeout(() => {
+                if (toggleBtn.getAttribute("aria-expanded") === "false") {
+                    introCard.classList.add("hidden");
+                }
+            }, 400);
+        }
+
+        if (persist) {
+            localStorage.setItem(STORAGE_KEY, visible ? "false" : "true");
+        }
+    };
+
+    const savedCollapsed = localStorage.getItem(STORAGE_KEY);
+    if (savedCollapsed === "true" || localStorage.getItem("hide_intro_card") === "true") {
+        localStorage.removeItem("hide_intro_card");
+        setIntroVisible(false, { persist: true });
     }
 
-    // Event listener
-    closeBtn.addEventListener("click", () => {
-        logger("Ocultando tarjeta de descripción de la app...");
-        introCard.classList.add("collapsed");
-        localStorage.setItem("hide_intro_card", "true");
-        
-        // Esperar a que termine la animación de transición CSS antes de aplicar hidden
-        setTimeout(() => {
-            introCard.classList.add("hidden");
-        }, 400);
+    toggleBtn.addEventListener("click", () => {
+        const isVisible = toggleBtn.getAttribute("aria-expanded") === "true";
+        logger(isVisible ? "Ocultando guía de la app..." : "Mostrando guía de la app...");
+        setIntroVisible(!isVisible);
     });
 }
 
@@ -280,11 +306,25 @@ function setupLeftPanelCheckboxLimits() {
 }
 
 function setupMapSearchBox() {
+    const searchContainer = document.getElementById("search-box-container");
     const searchInput = document.getElementById("map-search-input");
     const searchBtn = document.getElementById("map-search-btn");
     const searchResults = document.getElementById("map-search-results");
-    
-    if (!searchInput || !searchBtn || !searchResults) return;
+
+    if (!searchContainer || !searchInput || !searchBtn || !searchResults) return;
+
+    if (!localStorage.getItem("map_search_hint_seen")) {
+        searchContainer.classList.add("map-search-pulse");
+        localStorage.setItem("map_search_hint_seen", "true");
+        setTimeout(() => searchContainer.classList.remove("map-search-pulse"), 5200);
+    }
+
+    searchInput.addEventListener("focus", () => {
+        searchContainer.classList.add("is-highlighted");
+    });
+    searchInput.addEventListener("blur", () => {
+        searchContainer.classList.remove("is-highlighted");
+    });
     
     // Función para disparar la búsqueda
     const executeSearch = async () => {

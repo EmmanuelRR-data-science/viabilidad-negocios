@@ -56,15 +56,27 @@
         
         <!-- Panel Izquierdo: Configuración e Inputs -->
         <section class="control-panel glass-card" id="config-panel">
+            <!-- Guía de contexto: mostrar / ocultar bajo demanda -->
+            <button
+                type="button"
+                class="intro-toggle-btn"
+                id="toggle-intro-btn"
+                aria-controls="app-intro-card"
+                aria-expanded="true"
+                title="Mostrar u ocultar la guía de uso de la aplicación"
+            >
+                <span class="intro-toggle-icon" aria-hidden="true">?</span>
+                <span class="intro-toggle-text" data-state-visible="Ocultar guía de la app" data-state-hidden="Mostrar guía de la app">Ocultar guía de la app</span>
+            </button>
+
             <!-- Tarjeta de Contexto y Descripción de la Aplicación -->
             <div class="intro-card glass-card" id="app-intro-card">
-                <button class="close-intro-btn" id="close-intro-btn" title="Ocultar descripción">&times;</button>
                 <h3>📍 ¿Qué es GeoViabilidad Hook?</h3>
                 <p>Es una plataforma avanzada de geointeligencia y geomarketing en México. Permite evaluar la viabilidad de tu negocio analizando la demografía del INEGI, la competencia en el área y los flujos de tránsito peatonal.</p>
                 <div class="intro-steps">
                     <div class="intro-step">
                         <span>1️⃣</span>
-                        <span><strong>Ubica tu punto:</strong> Haz clic en el mapa de México o ingresa una dirección física en el buscador superior.</span>
+                        <span><strong>Ubica tu punto:</strong> Usa el buscador destacado sobre el mapa (Paso 1) o haz clic directo en el territorio de México.</span>
                     </div>
                     <div class="intro-step">
                         <span>2️⃣</span>
@@ -88,7 +100,7 @@
                     <label for="giro-select">
                         Giro / Rubro del Negocio
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Determina el tipo de competidores comerciales y clientes objetivos que analizaremos en la zona.</span>
                         </span>
                     </label>
@@ -124,7 +136,7 @@
                         <label for="radio-slider">
                             Radio de Influencia
                             <span class="info-tooltip-wrapper">
-                                <span class="info-icon">i</span>
+                                <span class="info-icon">?</span>
                                 <span class="tooltip-text">Define el alcance en metros del círculo de estudio para consultar la demografía y los comercios locales.</span>
                             </span>
                         </label>
@@ -143,7 +155,7 @@
                     <label for="intenciones-textarea">
                         Intenciones Específicas del Negocio
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Describe tus metas y el perfil de tu local para que nuestra Inteligencia Artificial personalice el diagnóstico estratégico.</span>
                         </span>
                     </label>
@@ -156,7 +168,7 @@
                     <label>
                         Competidores Personalizados (Pro/Premium)
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Elige marcas o giros que compiten por los mismos clientes. El reporte los evaluará en detalle.</span>
                         </span>
                     </label>
@@ -188,7 +200,7 @@
                     <label>
                         Aliados Estratégicos (Sólo Premium)
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Elige giros complementarios que atraen público a la zona, generando sinergia para tu local.</span>
                         </span>
                     </label>
@@ -249,8 +261,31 @@
 
             <!-- Buscador de Dirección Flotante -->
             <div class="map-search-box glass-card" id="search-box-container">
-                <input type="text" id="map-search-input" placeholder="Busca una dirección en México...">
-                <button id="map-search-btn" title="Buscar dirección">🔍</button>
+                <div class="map-search-header">
+                    <div class="map-search-heading">
+                        <span class="map-search-step">Paso 1</span>
+                        <span class="map-search-title">Busca la dirección de tu local</span>
+                        <span class="info-tooltip-wrapper tooltip-bottom">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Escribe calle, colonia o punto de referencia en México. También puedes hacer clic en el mapa para marcar tu ubicación.</span>
+                        </span>
+                    </div>
+                    <p class="map-search-hint">Ej: Av. Insurgentes 123, Col. Roma, Ciudad de México</p>
+                </div>
+                <div class="map-search-row">
+                    <span class="map-search-pin" aria-hidden="true">📍</span>
+                    <input
+                        type="text"
+                        id="map-search-input"
+                        placeholder="Escribe aquí la dirección en México..."
+                        aria-label="Buscar dirección de tu negocio en México"
+                        autocomplete="street-address"
+                    >
+                    <button type="button" id="map-search-btn" title="Buscar dirección">
+                        <span class="map-search-btn-icon" aria-hidden="true">🔍</span>
+                        <span class="map-search-btn-label">Buscar</span>
+                    </button>
+                </div>
                 <div id="map-search-results" class="search-results-dropdown hidden"></div>
             </div>
             
@@ -259,7 +294,7 @@
             
             <!-- Instrucción flotante -->
             <div class="map-instruction glass-card">
-                <span>🖱️ Haz clic en cualquier parte de México para situar tu pin y trazar el círculo.</span>
+                <span>🖱️ O haz clic en el mapa para situar tu pin y trazar el radio de análisis.</span>
             </div>
         </section>
     </main>
@@ -290,7 +325,7 @@
                     <h3>
                         Score Viabilidad SVA
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Evaluación matemática de idoneidad del punto (0 a 100). Integra concentración de personas, competencia y confluencia.</span>
                         </span>
                     </h3>
@@ -306,7 +341,7 @@
                     <h3>
                         Demanda Residente
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Cantidad estimada de habitantes residentes dentro de la zona de estudio (Censo de Población oficial).</span>
                         </span>
                     </h3>
@@ -322,7 +357,7 @@
                     <h3>
                         Competidores Locales
                         <span class="info-tooltip-wrapper">
-                            <span class="info-icon">i</span>
+                            <span class="info-icon">?</span>
                             <span class="tooltip-text">Número total de establecimientos del mismo giro detectados dentro de tu radio de influencia.</span>
                         </span>
                     </h3>
@@ -340,7 +375,7 @@
                 <h3>
                     Distribución de Competidores por Rating
                     <span class="info-tooltip-wrapper tooltip-right">
-                        <span class="info-icon">i</span>
+                        <span class="info-icon">?</span>
                         <span class="tooltip-text">Muestra la calidad percibida de tus competidores directos en la zona basada en las valoraciones de los clientes.</span>
                     </span>
                 </h3>
@@ -355,7 +390,7 @@
                 <h3>
                     Atractores de Tráfico y Aliados
                     <span class="info-tooltip-wrapper tooltip-left">
-                        <span class="info-icon">i</span>
+                        <span class="info-icon">?</span>
                         <span class="tooltip-text">Lista de magnetos comerciales principales (transporte, bancos, escuelas) y su grado de atracción de flujo peatonal.</span>
                     </span>
                 </h3>
@@ -396,7 +431,7 @@
             <h3>
                 📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
                 <span class="info-tooltip-wrapper tooltip-right">
-                    <span class="info-icon">i</span>
+                    <span class="info-icon">?</span>
                     <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
                 </span>
             </h3>
