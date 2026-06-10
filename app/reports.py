@@ -455,7 +455,7 @@ class ReportLabGenerator:
         multi_radio = analisis.get("multi_radio") or []
         if orden.tier_adquirido in ["pro", "premium"] and multi_radio:
             story.append(Spacer(1, 8))
-            story.append(Paragraph("<b>Análisis Demográfico Multi-Radio (INEGI / PostGIS):</b>", s_h2))
+            story.append(Paragraph("<b>Análisis Demográfico Multi-Radio:</b>", s_h2))
 
             comp_base = analisis.get("competidores_conteo", 0)
 
@@ -778,7 +778,7 @@ class ReportLabGenerator:
         if foda_dict.get("_fuente") == "respaldo_cuantitativo":
             bloque_diagnostico.append(
                 Paragraph(
-                    "Diagnóstico elaborado con <b>métricas reales</b> de INEGI, Google Places y BestTime "
+                    "Diagnóstico elaborado con <b>métricas reales</b> de INEGI, Google Places y afluencia peatonal "
                     "(modo pruebas: servicios de IA en la nube omitidos).",
                     s_body_foda,
                 )
@@ -1460,11 +1460,11 @@ class ReportLabGenerator:
 
         if besttime_tiene_datos:
             story.append(Spacer(1, 12))
-            story.append(Paragraph("<b>Afluencia Peatonal Dinámica (BestTime):</b>", s_h2))
+            story.append(Paragraph("<b>Afluencia Peatonal Dinámica:</b>", s_h2))
             story.append(
                 Paragraph(
                     "Mapeo de la afluencia peatonal por hora, construido a partir de registros históricos de "
-                    "tráfico de visitantes en establecimientos representativos de la zona (BestTime). "
+                    "tráfico de visitantes en establecimientos representativos de la zona. "
                     "Este análisis permite programar de forma eficiente turnos del personal y picos de producción.",
                     s_body,
                 )
@@ -1533,7 +1533,7 @@ class ReportLabGenerator:
                 story.append(Paragraph("<b>Horas Pico y Ventanas de Afluencia por Día:</b>", s_h2))
                 story.append(
                     Paragraph(
-                        "Ventanas calculadas a partir de la curva horaria semanal de BestTime para esta coordenada.",
+                        "Ventanas calculadas a partir de la curva horaria semanal para esta coordenada.",
                         s_body,
                     )
                 )

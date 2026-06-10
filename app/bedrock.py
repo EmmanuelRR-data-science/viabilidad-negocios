@@ -297,7 +297,7 @@ def _foda_respaldo_cuantitativo(
     afl = datos_entorno.get("afluencia_peatonal") or {}
     if afl.get("status") == "success" and afl.get("dia_pico"):
         fortalezas_list.append(
-            f"Afluencia peatonal (BestTime): día pico {afl.get('dia_pico')} "
+            f"Afluencia peatonal: día pico {afl.get('dia_pico')} "
             f"con hora máxima {afl.get('hora_pico', 'N/D')}."
         )
 
