@@ -101,15 +101,29 @@ def generar_informe_task(orden_id: int):
         # Obtener mapa estático de Google si estamos en PRO o PREMIUM
         resultado["map_bytes"] = None
         if orden.tier_adquirido in ["pro", "premium"]:
-            logger.info("[TASK] Obteniendo mapa estático real de Google...")
+            logger.info("[TASK] Generando mapa de alta resolución para el PDF...")
             from app.google_places import obtener_mapa_estatico
+            from app.map_image import generar_mapa_reporte
 
-            resultado["map_bytes"] = obtener_mapa_estatico(
+            es_premium = orden.tier_adquirido == "premium"
+            map_bytes = generar_mapa_reporte(
                 lat=float(orden.latitud),
                 lng=float(orden.longitud),
                 radio=orden.radio_metros,
                 competidores=resultado.get("competidores_listado", []),
+                aliados=resultado.get("aliados_listado", []),
+                incluir_aliados=es_premium,
             )
+            if not map_bytes:
+                map_bytes = obtener_mapa_estatico(
+                    lat=float(orden.latitud),
+                    lng=float(orden.longitud),
+                    radio=orden.radio_metros,
+                    competidores=resultado.get("competidores_listado", []),
+                    aliados=resultado.get("aliados_listado", []),
+                    incluir_aliados=es_premium,
+                )
+            resultado["map_bytes"] = map_bytes
 
         poblacion_estimada = resultado["poblacion_ponderada"]
         competidores_conteo = resultado["competidores_conteo"]

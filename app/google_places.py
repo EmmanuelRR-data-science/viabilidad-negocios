@@ -184,11 +184,17 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, 
         raise e
 
 
-def obtener_mapa_estatico(lat: float, lng: float, radio: int, competidores: list) -> bytes:
+def obtener_mapa_estatico(
+    lat: float,
+    lng: float,
+    radio: int,
+    competidores: list,
+    aliados: list | None = None,
+    *,
+    incluir_aliados: bool = False,
+) -> bytes:
     """
-    Genera una llamada a la API de Google Static Maps para obtener una imagen PNG del mapa
-    con marcadores de diferentes colores: Azul para la ubicación propuesta, Rojo para los competidores.
-    Retorna los bytes de la imagen.
+    Fallback: Google Static Maps en alta resolución (scale=2) con pines azul/rojo/verde.
     """
     if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY.startswith("pega_tu") or "tu_token" in GOOGLE_MAPS_API_KEY:
         logger.info("Modo Desarrollo (Simulado): Evitando llamada a Google Static Maps. Retornando None.")
@@ -207,14 +213,11 @@ def obtener_mapa_estatico(lat: float, lng: float, radio: int, competidores: list
     else:
         zoom = 12
 
-    # El marcador del centro (ubicación propuesta) será azul y con etiqueta 'O'
     markers = [f"color:blue|label:O|{lat},{lng}"]
 
-    # Agregar competidores (rojo)
-    # Limitamos a 10 competidores para no exceder límites de URL de Static Maps
     comp_added = 0
     for comp in competidores:
-        if comp_added >= 10:
+        if comp_added >= 15:
             break
         c_lat = comp.get("latitud")
         c_lng = comp.get("longitud")
@@ -222,20 +225,23 @@ def obtener_mapa_estatico(lat: float, lng: float, radio: int, competidores: list
             markers.append(f"color:red|{c_lat},{c_lng}")
             comp_added += 1
 
-    # Construir parámetros
-    params = {
-        "center": f"{lat},{lng}",
-        "zoom": str(zoom),
-        "size": "450x300",
-        "maptype": "roadmap",
-        "key": GOOGLE_MAPS_API_KEY,
-    }
+    if incluir_aliados and aliados:
+        ally_added = 0
+        for aliado in aliados:
+            if ally_added >= 25:
+                break
+            a_lat = aliado.get("latitud")
+            a_lng = aliado.get("longitud")
+            if a_lat and a_lng:
+                markers.append(f"color:green|{a_lat},{a_lng}")
+                ally_added += 1
 
-    # Agregar todos los marcadores al url. Se ocultan los íconos de negocios del mapa base
-    # para que el ÚNICO pin azul sea la ubicación propuesta (evita confusión en el reporte).
     marker_query = "&".join([f"markers={m}" for m in markers])
     style_query = "style=feature:poi.business|visibility:off"
-    full_url = f"{url}?center={params['center']}&zoom={params['zoom']}&size={params['size']}&maptype={params['maptype']}&key={params['key']}&{style_query}&{marker_query}"
+    full_url = (
+        f"{url}?center={lat},{lng}&zoom={zoom}&size=640x400&scale=2&maptype=roadmap"
+        f"&key={GOOGLE_MAPS_API_KEY}&{style_query}&{marker_query}"
+    )
 
     try:
         logger.info(f"Consultando Google Static Maps para coordenadas ({lat}, {lng})...")

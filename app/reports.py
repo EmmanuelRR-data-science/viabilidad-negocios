@@ -946,14 +946,20 @@ class ReportLabGenerator:
         story.append(PageBreak())
         story.append(Paragraph("3. ANÁLISIS DE COMPETENCIA", s_h1))
         story.append(Paragraph("<b>Mapa de Ubicación y Competencia:</b>", s_h2))
-        story.append(
-            Paragraph(
-                "A continuación se presenta el croquis del área comercial analizada. "
-                "La ubicación propuesta de tu negocio se muestra marcada con un pin <font color='#2563eb'><b>AZUL (O)</b></font>, "
-                "y los establecimientos competidores directos detectados en el radio de influencia se muestran marcados en <font color='#dc2626'><b>ROJO</b></font>.",
-                s_body,
-            )
+        mapa_desc = (
+            "A continuación se presenta el mapa del área comercial analizada (misma base cartográfica y convención "
+            "de colores que el dashboard). La ubicación propuesta se marca con un pin "
+            "<font color='#2563eb'><b>AZUL</b></font>, los competidores directos en "
+            "<font color='#dc2626'><b>ROJO</b></font>"
         )
+        if orden.tier_adquirido == "premium":
+            mapa_desc += (
+                " y los atractores/aliados comerciales en <font color='#10b981'><b>VERDE</b></font>. "
+                "El círculo semitransparente delimita el radio de influencia contratado."
+            )
+        else:
+            mapa_desc += ". El círculo semitransparente delimita el radio de influencia contratado."
+        story.append(Paragraph(mapa_desc, s_body))
         story.append(Spacer(1, 15))
 
         # Dibujar croquis estilizado de fallback si no hay mapa estático (DEV_MODE)
@@ -993,7 +999,7 @@ class ReportLabGenerator:
                 from reportlab.platypus import Image
 
                 img_data = io.BytesIO(map_bytes)
-                img = Image(img_data, width=450, height=300)
+                img = Image(img_data, width=504, height=315)
                 img.hAlign = "CENTER"
                 story.append(img)
             except Exception as img_err:
