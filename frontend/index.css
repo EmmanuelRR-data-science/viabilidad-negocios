@@ -946,8 +946,37 @@ body.light-theme .map-instruction {
 /* advanced charts grid */
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 25px;
+}
+
+.traffic-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    width: 100%;
+}
+
+.competitor-analysis-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.competitor-analysis-row:has(.competitor-top-table-wrap.hidden) {
+    grid-template-columns: 1fr;
+}
+
+.competitor-chart-col {
+    min-width: 0;
+}
+
+.competitor-subtitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
 }
 
 .chart-card {
@@ -979,9 +1008,10 @@ body.light-theme .map-instruction {
 
 /* Top competidores por rating + distancia */
 .competitor-top-table-wrap {
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid var(--glass-border);
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    min-width: 0;
 }
 
 .competitor-top-table-wrap h4 {
@@ -1393,6 +1423,10 @@ body.light-theme .progress-bar-wrapper {
     }
     
     .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .competitor-analysis-row {
         grid-template-columns: 1fr;
     }
     

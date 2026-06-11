@@ -396,37 +396,40 @@
             <p class="sva-formula-line" id="sva-formula-line"></p>
         </div>
         
-        <!-- Fila 2: Gráficos de Datos e Inferencia (Chart.js) -->
+        <!-- Fila 2: Análisis de competencia (gráfica + valoraciones en fila, comentarios debajo) -->
         <div class="charts-grid" id="advanced-charts-section">
-            
-            <!-- Gráfico Competencia -->
             <div class="chart-card glass-card" id="competitor-chart-card">
                 <h3>
-                    Distribución de Competidores por Rating
+                    Análisis de Competencia
                     <span class="info-tooltip-wrapper tooltip-right">
                         <span class="info-icon">?</span>
-                        <span class="tooltip-text">Muestra la calidad percibida de tus competidores directos en la zona basada en las valoraciones de los clientes.</span>
+                        <span class="tooltip-text">Distribución por calificación, competidores mejor valorados con distancia y reseñas públicas de Google en la zona.</span>
                     </span>
                 </h3>
                 <p class="chart-helper-text" id="comp-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver las calificaciones de competidores locales.</p>
-                <div class="canvas-wrapper">
-                    <canvas id="competitors-chart"></canvas>
-                </div>
-                <div class="competitor-top-table-wrap hidden" id="competitor-top-table-wrap">
-                    <h4>Competidores mejor valorados y distancia</h4>
-                    <p class="competitor-top-hint">Distancia lineal desde tu punto hasta cada establecimiento (no tiempo de recorrido).</p>
-                    <div class="table-wrapper">
-                        <table class="clean-table competitor-top-table" id="competitor-top-table">
-                            <thead>
-                                <tr>
-                                    <th>Establecimiento</th>
-                                    <th>Calificación</th>
-                                    <th>Reseñas</th>
-                                    <th>Distancia</th>
-                                </tr>
-                            </thead>
-                            <tbody id="competitor-top-table-body"></tbody>
-                        </table>
+                <div class="competitor-analysis-row">
+                    <div class="competitor-chart-col">
+                        <h4 class="competitor-subtitle">Distribución por rating</h4>
+                        <div class="canvas-wrapper">
+                            <canvas id="competitors-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="competitor-top-table-wrap hidden" id="competitor-top-table-wrap">
+                        <h4>Competidores mejor valorados y distancia</h4>
+                        <p class="competitor-top-hint">Distancia lineal desde tu punto hasta cada establecimiento (no tiempo de recorrido).</p>
+                        <div class="table-wrapper">
+                            <table class="clean-table competitor-top-table" id="competitor-top-table">
+                                <thead>
+                                    <tr>
+                                        <th>Establecimiento</th>
+                                        <th>Calificación</th>
+                                        <th>Reseñas</th>
+                                        <th>Distancia</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="competitor-top-table-body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 <div class="competitor-reviews-block hidden" id="competitor-reviews-block">
@@ -435,12 +438,14 @@
                     <div id="competitor-reviews-list"></div>
                 </div>
             </div>
-            
-            <!-- Tabla Atractores / POIs -->
+        </div>
+
+        <!-- Fila 3: Atractores (ancho completo) + mapa de calor debajo -->
+        <div class="traffic-stack" id="traffic-stack-section">
             <div class="chart-card glass-card" id="poi-chart-card">
                 <h3>
                     Atractores de Tráfico y Aliados
-                    <span class="info-tooltip-wrapper tooltip-left">
+                    <span class="info-tooltip-wrapper tooltip-right">
                         <span class="info-icon">?</span>
                         <span class="tooltip-text">Lista de magnetos comerciales principales (transporte, bancos, escuelas) y su grado de atracción de flujo peatonal.</span>
                     </span>
@@ -475,27 +480,26 @@
                     </table>
                 </div>
             </div>
-        </div>
 
-        <!-- Fila 3: Mapa de Calor (solo visible con pago Pro/Premium y telemetría BestTime disponible) -->
-        <div class="chart-card glass-card hidden" id="heatmap-container" style="grid-column: 1 / -1; margin-top: 20px; position: relative;">
-            <h3>
-                📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
-                <span class="info-tooltip-wrapper tooltip-right">
-                    <span class="info-icon">?</span>
-                    <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
-                </span>
-            </h3>
-            <div class="heatmap-wrapper" id="heatmap-grid-container">
-                <!-- Se generará dinámicamente con JS -->
-            </div>
-            <div class="heatmap-legend" id="heatmap-legend-container" style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 15px; font-size: 11px; color: var(--text-secondary);">
-                <span>Tránsito de personas:</span>
-                <div style="display: flex; gap: 4px; align-items: center;">
-                    <span style="display: inline-block; width: 12px; height: 12px; background: hsla(38, 95%, 55%, 0.30); border-radius: 2px; border: 1px solid var(--glass-border);"></span><span>Bajo</span>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: hsla(25, 95%, 55%, 0.55); border-radius: 2px;"></span><span>Medio</span>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: hsla(11, 95%, 55%, 0.80); border-radius: 2px;"></span><span>Alto</span>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: hsla(0, 95%, 55%, 1); border-radius: 2px; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);"></span><span>Pico</span>
+            <div class="chart-card glass-card hidden" id="heatmap-container">
+                <h3>
+                    📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
+                    <span class="info-tooltip-wrapper tooltip-right">
+                        <span class="info-icon">?</span>
+                        <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
+                    </span>
+                </h3>
+                <div class="heatmap-wrapper" id="heatmap-grid-container">
+                    <!-- Se generará dinámicamente con JS -->
+                </div>
+                <div class="heatmap-legend" id="heatmap-legend-container" style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 15px; font-size: 11px; color: var(--text-secondary);">
+                    <span>Tránsito de personas:</span>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(38, 95%, 55%, 0.30); border-radius: 2px; border: 1px solid var(--glass-border);"></span><span>Bajo</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(25, 95%, 55%, 0.55); border-radius: 2px;"></span><span>Medio</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(11, 95%, 55%, 0.80); border-radius: 2px;"></span><span>Alto</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(0, 95%, 55%, 1); border-radius: 2px; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);"></span><span>Pico</span>
+                    </div>
                 </div>
             </div>
         </div>
