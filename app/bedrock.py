@@ -376,6 +376,8 @@ def _foda_respaldo_cuantitativo(
         veredicto_dictamen = "DE ALTO RIESGO OPERATIVO"
 
     densidad = datos_entorno.get("densidad_hab_km2", 0)
+    nse_info = datos_entorno.get("nse") or {}
+    nse_etiqueta = nse_info.get("nse_etiqueta", "No disponible")
     fortalezas_list = [
         f"Base demográfica de {poblacion:,} personas ({densidad:,.1f} hab/km² en el radio analizado).",
         f"Ubicación en {direcc} con accesibilidad vial en zona urbana.",
@@ -431,7 +433,8 @@ def _foda_respaldo_cuantitativo(
             f"{veredicto_conclusion}"
         ),
         "segmentacion_nicho": (
-            f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}'."
+            f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}' "
+            f"y NSE predominante {nse_etiqueta}."
         ),
         "estrategia_precios": "Posicionamiento de precios acorde a la competencia y densidad demográfica local.",
         "dictamen_final": (
@@ -553,6 +556,10 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     comp_adicionales_str = comp_adicionales if comp_adicionales else "Ninguno"
     aliados_adicionales_str = aliados_adicionales if aliados_adicionales else "Ninguno"
+    nse_ctx = datos_entorno.get("nse") or {}
+    nse_etiqueta_ctx = nse_ctx.get("nse_etiqueta", "No disponible")
+    nse_metricas = nse_ctx.get("metricas") or {}
+    nse_fuente = nse_metricas.get("fuente", "desconocida")
 
     ia_directives = ""
     if competidores_ia_auto or aliados_ia_auto:
@@ -574,12 +581,18 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         f"Categorías de aliados analizadas: {aliados_sel_str}\n"
         f"Aliados específicos o marcas a considerar (contexto adicional): {aliados_adicionales_str}\n"
         f"Score SVA de Viabilidad General: {sva}/100\n"
+        f"Nivel socioeconómico (NSE) del radio: {nse_etiqueta_ctx} "
+        f"(escolaridad prom. {nse_metricas.get('escolaridad_promedio', 'N/D')}, "
+        f"internet {nse_metricas.get('internet_pct', 'N/D')}%, "
+        f"autos {nse_metricas.get('autos_pct', 'N/D')}%; fuente: {nse_fuente})\n"
         f"Intenciones del emprendedor: {intenciones or 'Sin intenciones especiales escritas.'}\n\n"
         f"{ia_directives}"
         "[REGLA DE COHERENCIA] No contradigas el Score SVA ni el conteo de competidores. "
         "Si SVA < 50, no uses lenguaje de 'excelente viabilidad'. Si competencia = 0, no hables de saturación.\n"
         f"[REGLA COMPETENCIA] Hay {competencia} competidor(es) en el radio: eso describe saturación, NO es fortaleza. "
-        "No lo cites en fortalezas salvo que competencia sea exactamente 0.\n\n"
+        "No lo cites en fortalezas salvo que competencia sea exactamente 0.\n"
+        f"[REGLA NSE] El NSE del radio es {nse_etiqueta_ctx}. No contradigas el poder adquisitivo: "
+        "si el NSE es D/E o D+, evita lenguaje de «alto poder adquisitivo» o «clientela premium».\n\n"
         f"Genera fortalezas y oportunidades del punto para el giro '{rubro}' en México."
     )
 

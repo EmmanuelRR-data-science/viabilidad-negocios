@@ -811,8 +811,18 @@ body.light-theme .map-instruction {
 /* KPIs Grid */
 .kpis-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 25px;
+}
+
+.kpi-card.kpi-locked .kpi-value {
+    font-size: 22px;
+    color: var(--text-secondary);
+    filter: blur(0);
+}
+
+.kpi-card.kpi-locked {
+    opacity: 0.88;
 }
 
 .kpi-card {

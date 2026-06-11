@@ -402,20 +402,25 @@ class ReportLabGenerator:
         story.append(Spacer(1, 15))
 
         # Renderizar Tarjetas de KPIs usando una Tabla
+        nse_info = analisis.get("nse") or {}
+        nse_etiqueta_pdf = nse_info.get("nse_etiqueta", "No disponible")
+
         kpi_data = [
             [
                 Paragraph("SCORE VIABILIDAD", s_card_lbl),
                 Paragraph("POBLACIÓN RESIDENTE", s_card_lbl),
                 Paragraph("COMPETIDORES", s_card_lbl),
+                Paragraph("NIVEL SOCIOECONÓMICO", s_card_lbl),
             ],
             [
                 Paragraph(f"{analisis['sva']}/100", s_card_val),
                 Paragraph(f"{analisis['poblacion_ponderada']:,}", s_card_val),
                 Paragraph(f"{analisis['competidores_conteo']}", s_card_val),
+                Paragraph(nse_etiqueta_pdf, s_card_val),
             ],
         ]
 
-        kpi_table = Table(kpi_data, colWidths=[168, 168, 168])
+        kpi_table = Table(kpi_data, colWidths=[126, 126, 126, 126])
         kpi_table.setStyle(
             TableStyle(
                 [
@@ -682,6 +687,33 @@ class ReportLabGenerator:
                     Paragraph("Dato de registros oficiales", s_table_cell),
                 ],
             ]
+
+            nse_metricas = nse_info.get("metricas") or {}
+            fuente_nse = "Censo INEGI 2020" if nse_metricas.get("fuente") == "censo_2020" else "Estimación determinista"
+            demo_table_data.extend(
+                [
+                    [
+                        Paragraph("Nivel Socioeconómico Predominante", s_table_cell),
+                        Paragraph(nse_etiqueta_pdf, s_table_cell),
+                        Paragraph(f"Estimación AMAI ({fuente_nse})", s_table_cell),
+                    ],
+                    [
+                        Paragraph("Grado Promedio de Escolaridad", s_table_cell),
+                        Paragraph(f"{nse_metricas.get('escolaridad_promedio', 0):.1f} años equiv.", s_table_cell),
+                        Paragraph("Promedio ponderado en AGEBs del radio", s_table_cell),
+                    ],
+                    [
+                        Paragraph("Conexión a Internet en Viviendas", s_table_cell),
+                        Paragraph(f"{nse_metricas.get('internet_pct', 0):.1f}%", s_table_cell),
+                        Paragraph("Viviendas con internet / total de viviendas", s_table_cell),
+                    ],
+                    [
+                        Paragraph("Viviendas con Automóvil", s_table_cell),
+                        Paragraph(f"{nse_metricas.get('autos_pct', 0):.1f}%", s_table_cell),
+                        Paragraph("Indicador de equipamiento del hogar", s_table_cell),
+                    ],
+                ]
+            )
 
             demo_table = Table(demo_table_data, colWidths=[200, 140, 164])
             demo_table.setStyle(

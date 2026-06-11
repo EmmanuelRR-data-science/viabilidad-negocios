@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.besttime import obtener_afluencia
+from app.nse import calcular_nse
 from app.google_places import (
     buscar_competidores,
     enriquecer_competidores_con_reseñas,
@@ -303,6 +304,14 @@ def procesar_calculo_analitico(
     demog = obtener_demografia_ponderada(db, lat, lng, radio)
     pob_total = demog["poblacion_ponderada"]
 
+    try:
+        nse = calcular_nse(db, lat, lng, radio)
+    except Exception as nse_err:
+        logger.error("No se pudo calcular NSE: %s", nse_err)
+        from app.nse import construir_nse_fallback
+
+        nse = construir_nse_fallback(lat, lng)
+
     # 2. Cruce de categorías
     google_type, categoria = resolver_google_type(db, rubro)
     logger.info(f"Mapeo de rubro '{rubro}' resuelto a: Google Type = '{google_type}' | Categoria = '{categoria}'")
@@ -521,6 +530,7 @@ def procesar_calculo_analitico(
         "score_competencia": round(score_competencia, 1),
         "score_trafico": round(score_trafico, 1),
         "sva": sva_final,
+        "nse": nse,
         "bancos_conteo": bancos_conteo,
         "escuelas_conteo": escuelas_conteo,
         "transporte_conteo": transporte_conteo,

@@ -580,6 +580,30 @@ function syncHeatmapSection(tier, afluencia) {
     }
 }
 
+function renderNseKpi(metricas, locked) {
+    const card = document.getElementById("kpi-nse-card");
+    const valueEl = document.getElementById("kpi-nse");
+    const descEl = document.getElementById("kpi-nse-desc");
+    if (!card || !valueEl) return;
+
+    if (locked) {
+        valueEl.textContent = "🔒 Bloqueado";
+        card.classList.add("kpi-locked");
+        if (descEl) {
+            descEl.textContent = "Indicador del poder adquisitivo promedio en la zona. Desbloquéalo al adquirir cualquier plan de reporte.";
+        }
+        return;
+    }
+
+    const nse = metricas?.nse || {};
+    const metricasNse = nse.metricas || {};
+    valueEl.textContent = nse.nse_etiqueta || "—";
+    card.classList.remove("kpi-locked");
+    if (descEl) {
+        descEl.textContent = `Poder adquisitivo estimado del radio. Escolaridad ${metricasNse.escolaridad_promedio ?? "—"} años equiv., internet ${metricasNse.internet_pct ?? "—"}%, autos ${metricasNse.autos_pct ?? "—"}%.`;
+    }
+}
+
 function applyBlurRules(tier) {
     const compWrapper = document.querySelector("#competitor-chart-card .canvas-wrapper");
     const poiWrapper = document.querySelector("#poi-chart-card .table-wrapper");
@@ -690,6 +714,8 @@ async function runPreviewAnalysis() {
             document.getElementById("kpi-sva-desc").textContent = svaDesc;
             document.getElementById("kpi-pob-desc").textContent = "Representa la cantidad de personas que viven a la redonda de tu local. Son tus clientes potenciales más valiosos porque, al residir en el área, comprarán de forma constante y recurrente.";
             document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
+
+            renderNseKpi(data, true);
 
             renderSvaComposition(
                 {
@@ -1135,6 +1161,8 @@ async function unlockPaidReport() {
             document.getElementById("kpi-pob-desc").textContent = "Representa la cantidad de personas que viven a la redonda de tu local. Son tus clientes potenciales más valiosos porque, al residir en el área, comprarán de forma constante y recurrente.";
             
             document.getElementById("kpi-comp-desc").textContent = "Es el número de negocios parecidos al tuyo en la zona. Conocerlos te ayuda a saber con quiénes compartirás el mercado y qué tan difícil será destacar o si la zona ya está saturada.";
+
+            renderNseKpi(metricas, false);
 
             renderSvaComposition(metricas, state.activeTier || data.orden?.tier || "basico");
             renderLecturaEstrategica(iaAnalisis);

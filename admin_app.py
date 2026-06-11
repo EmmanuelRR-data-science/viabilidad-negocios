@@ -14,6 +14,9 @@ from shapely.geometry import shape
 from shapely.ops import transform
 from sqlalchemy import text
 
+from app.ingest_censo_helpers import UPSERT_AGEB_SQL, censo_ageb_from_row
+from app.ingest_nacional import ensure_ageb_schema, get_demografia_stats, ingest_state
+
 # Configuración de la página
 st.set_page_config(
     page_title="GeoViabilidad Hook - Ingesta Administrativa",
@@ -144,11 +147,26 @@ def init_db_schemas(engine):
                     pobmas INTEGER DEFAULT -1,
                     pobfem INTEGER DEFAULT -1,
                     vivtot INTEGER DEFAULT -1,
+                    graproes NUMERIC(6,2) DEFAULT NULL,
+                    vivpar_hab NUMERIC(8,2) DEFAULT NULL,
+                    vph_autom NUMERIC(8,2) DEFAULT NULL,
+                    vph_inter NUMERIC(8,2) DEFAULT NULL,
+                    vph_pc NUMERIC(8,2) DEFAULT NULL,
                     geom GEOMETRY(Geometry, 4326)
                 );
             """)
             )
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_agebs_geom ON agebs_demografia USING GIST (geom);"))
+            conn.execute(
+                text("""
+                ALTER TABLE agebs_demografia
+                  ADD COLUMN IF NOT EXISTS graproes NUMERIC(6,2) DEFAULT NULL,
+                  ADD COLUMN IF NOT EXISTS vivpar_hab NUMERIC(8,2) DEFAULT NULL,
+                  ADD COLUMN IF NOT EXISTS vph_autom NUMERIC(8,2) DEFAULT NULL,
+                  ADD COLUMN IF NOT EXISTS vph_inter NUMERIC(8,2) DEFAULT NULL,
+                  ADD COLUMN IF NOT EXISTS vph_pc NUMERIC(8,2) DEFAULT NULL;
+            """)
+            )
 
             # Tabla categorias_cruce
             conn.execute(
@@ -279,7 +297,7 @@ if not engine:
 else:
     # Obtener estadísticas reales
     def get_stats():
-        stats = {"total_agebs": 0, "con_geom": 0, "con_censo": 0, "estados": []}
+        stats = {"total_agebs": 0, "con_geom": 0, "con_censo": 0, "con_nse": 0, "estados": []}
         try:
             with engine.connect() as conn:
                 stats["total_agebs"] = conn.execute(text("SELECT count(*) FROM agebs_demografia")).scalar() or 0
@@ -288,6 +306,15 @@ else:
                 )
                 stats["con_censo"] = (
                     conn.execute(text("SELECT count(*) FROM agebs_demografia WHERE pobtot != -1")).scalar() or 0
+                )
+                stats["con_nse"] = (
+                    conn.execute(
+                        text(
+                            "SELECT count(*) FROM agebs_demografia "
+                            "WHERE graproes IS NOT NULL AND graproes > 0"
+                        )
+                    ).scalar()
+                    or 0
                 )
 
                 # Desglose por estado
@@ -309,7 +336,7 @@ else:
 
     db_stats = get_stats()
 
-    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     with col_m1:
         st.markdown(
             f"""
@@ -336,6 +363,16 @@ else:
         <div class='metric-card' style='border-left-color: #f59e0b;'>
             <h4 style='margin:0; color:#fde68a;'>AGEBs con Datos de Censo</h4>
             <h2 style='margin:5px 0 0 0; font-size:2.5rem; font-weight:800;'>{db_stats["con_censo"]:,}</h2>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+    with col_m4:
+        st.markdown(
+            f"""
+        <div class='metric-card' style='border-left-color: #8b5cf6;'>
+            <h4 style='margin:0; color:#ddd6fe;'>AGEBs con NSE (GRAPROES)</h4>
+            <h2 style='margin:5px 0 0 0; font-size:2.5rem; font-weight:800;'>{db_stats["con_nse"]:,}</h2>
         </div>
         """,
             unsafe_allow_html=True,
@@ -609,34 +646,15 @@ else:
                                     filtered = chunk[(chunk["AGEB"] != "0000") & (chunk["MZA_num"] == 0)]
 
                                     for _, row in filtered.iterrows():
-                                        try:
-                                            ent = int(row["ENTIDAD"])
-                                            mun = int(row["MUN"])
-                                            loc = int(row["LOC"])
-                                            ageb_code = str(row["AGEB"]).strip()
-
-                                            # Formatear clave única: Estado(2) + Mun(3) + Loc(4) + AGEB(4)
-                                            cvegeo = f"{ent:02d}{mun:03d}{loc:04d}{ageb_code}"
-
-                                            # Limpiar variables numéricas del censo
-                                            pobtot = int(pd.to_numeric(row["POBTOT"], errors="coerce") or 0)
-                                            pobmas = int(pd.to_numeric(row["POBMAS"], errors="coerce") or 0)
-                                            pobfem = int(pd.to_numeric(row["POBFEM"], errors="coerce") or 0)
-                                            vivtot = int(pd.to_numeric(row["VIVTOT"], errors="coerce") or 0)
-
-                                            mapped_records.append(
-                                                {
-                                                    "cve_ageb": cvegeo,
-                                                    "entidad": f"{ent:02d}",
-                                                    "municipio": f"{mun:03d}",
-                                                    "pobtot": pobtot,
-                                                    "pobmas": pobmas,
-                                                    "pobfem": pobfem,
-                                                    "vivtot": vivtot,
-                                                }
-                                            )
-                                        except Exception:
-                                            pass
+                                        parsed = censo_ageb_from_row(row)
+                                        if not parsed:
+                                            continue
+                                        mapped_records.append(
+                                            {
+                                                **parsed,
+                                                "wkt": None,
+                                            }
+                                        )
 
                                 total_mapped = len(mapped_records)
                                 log(
@@ -652,19 +670,7 @@ else:
                                     batch = mapped_records[start_idx : start_idx + batch_size]
 
                                     with engine.connect() as conn:
-                                        stmt = text("""
-                                            INSERT INTO agebs_demografia 
-                                                (cve_ageb, entidad, municipio, pobtot, pobmas, pobfem, vivtot)
-                                            VALUES 
-                                                (:cve_ageb, :entidad, :municipio, :pobtot, :pobmas, :pobfem, :vivtot)
-                                            ON CONFLICT (cve_ageb)
-                                            DO UPDATE SET 
-                                                pobtot = EXCLUDED.pobtot,
-                                                pobmas = EXCLUDED.pobmas,
-                                                pobfem = EXCLUDED.pobfem,
-                                                vivtot = EXCLUDED.vivtot;
-                                        """)
-                                        conn.execute(stmt, batch)
+                                        conn.execute(text(UPSERT_AGEB_SQL), batch)
                                         conn.commit()
 
                                     inserted_count += len(batch)
@@ -729,197 +735,30 @@ else:
                     logs.append(msg)
                     log_area.text_area("Consola de Ingesta Nacional", value="\n".join(logs), height=350)
 
-                log("Iniciando Pipeline de Ingesta Nacional en el Servidor...")
+                log("Iniciando Pipeline de Ingesta Nacional (censo + NSE)...")
 
                 try:
-                    with zipfile.ZipFile(shp_zip_path, "r") as z_main:
-                        sub_zips = z_main.namelist()
-
-                    log(f"Detectados {len(sub_zips)} archivos estatales dentro del ZIP principal.")
-
+                    ensure_ageb_schema(engine)
                     total_estados = 32
                     for state_num in range(1, 33):
                         state_str = f"{state_num:02d}"
                         log(f"\nProcesando ESTADO {state_str}/32...")
-
-                        # Buscar sub-zip de cartografía
-                        target_sub_zip = None
-                        for sz in sub_zips:
-                            if sz.startswith(state_str + "_"):
-                                target_sub_zip = sz
-                                break
-
-                        if not target_sub_zip:
-                            log(f"⚠️ Saltando estado {state_str}: No se encontró cartografía.")
-                            continue
-
-                        # Buscar censo
-                        census_name = f"resageburb_{state_str}csv20.zip"
-                        census_path = os.path.join(fuentes_dir, census_name)
-
-                        if not os.path.exists(census_path):
-                            log(f"⚠️ Saltando estado {state_str}: No se encontró censo demográfico.")
-                            continue
-
-                        log(f"  - Cartografía: {target_sub_zip}")
-                        log(f"  - Censo: {census_name}")
-
-                        temp_dir = tempfile.mkdtemp()
                         try:
-                            # 1. Extraer cartografía del estado
-                            with zipfile.ZipFile(shp_zip_path, "r") as z_main:
-                                sub_data = z_main.read(target_sub_zip)
-
-                            sub_io = io.BytesIO(sub_data)
-                            with zipfile.ZipFile(sub_io, "r") as z_sub:
-                                z_sub.extractall(temp_dir)
-
-                            shp_files = []
-                            for root, _dirs, files in os.walk(temp_dir):
-                                for file in files:
-                                    if file.endswith("a.shp") or (
-                                        file.endswith(".shp")
-                                        and not any(
-                                            file.endswith(x)
-                                            for x in ["sia.shp", "sil.shp", "sip.shp", "mun.shp", "ent.shp"]
-                                        )
-                                    ):
-                                        shp_files.append(os.path.join(root, file))
-
-                            if not shp_files:
-                                log("  ❌ ERROR: No se encontró shapefile de AGEBs.")
-                                continue
-
-                            target_shp = shp_files[0]
-
-                            # 2. Reproyectar geometrías
-                            geoms_dict = {}
-                            with fiona.open(target_shp, "r") as src:
-                                src_crs = src.crs
-                                proj_in = pyproj.CRS.from_user_input(src_crs)
-                                proj_out = pyproj.CRS.from_epsg(4326)
-                                transformer = pyproj.Transformer.from_crs(proj_in, proj_out, always_xy=True)
-
-                                for record in src:
-                                    cvegeo = record["properties"]["CVEGEO"]
-                                    cve_ent = record["properties"].get("CVE_ENT") or cvegeo[:2] if cvegeo else None
-                                    cve_mun = record["properties"].get("CVE_MUN") or cvegeo[2:5] if cvegeo else None
-
-                                    if not cvegeo:
-                                        continue
-
-                                    shp_geom = shape(record["geometry"])
-                                    reprojected = transform(transformer.transform, shp_geom)
-
-                                    geoms_dict[cvegeo] = {
-                                        "geom_wkt": reprojected.wkt,
-                                        "entidad": cve_ent,
-                                        "municipio": cve_mun,
-                                    }
-
-                            log(f"  - Geometrías cargadas: {len(geoms_dict):,}")
-
-                            # 3. Leer censo demográfico CSV
-                            census_dict = {}
-                            with zipfile.ZipFile(census_path, "r") as z_cen:
-                                csv_files = [f for f in z_cen.namelist() if f.endswith(".csv")]
-                                if csv_files:
-                                    with z_cen.open(csv_files[0]) as csv_f:
-                                        chunk_iter = pd.read_csv(
-                                            csv_f, encoding="utf-8-sig", chunksize=2000, keep_default_na=False
-                                        )
-                                        for chunk in chunk_iter:
-                                            chunk["MZA_num"] = pd.to_numeric(chunk["MZA"], errors="coerce").fillna(-1)
-                                            filtered = chunk[(chunk["AGEB"] != "0000") & (chunk["MZA_num"] == 0)]
-                                            for _, row in filtered.iterrows():
-                                                try:
-                                                    ent = int(row["ENTIDAD"])
-                                                    mun = int(row["MUN"])
-                                                    loc = int(row["LOC"])
-                                                    ageb_code = str(row["AGEB"]).strip()
-                                                    cvegeo = f"{ent:02d}{mun:03d}{loc:04d}{ageb_code}"
-                                                    census_dict[cvegeo] = {
-                                                        "pobtot": int(
-                                                            pd.to_numeric(row["POBTOT"], errors="coerce") or 0
-                                                        ),
-                                                        "pobmas": int(
-                                                            pd.to_numeric(row["POBMAS"], errors="coerce") or 0
-                                                        ),
-                                                        "pobfem": int(
-                                                            pd.to_numeric(row["POBFEM"], errors="coerce") or 0
-                                                        ),
-                                                        "vivtot": int(
-                                                            pd.to_numeric(row["VIVTOT"], errors="coerce") or 0
-                                                        ),
-                                                    }
-                                                except Exception:
-                                                    pass
-
-                            log(f"  - Censo demográfico cargado: {len(census_dict):,}")
-
-                            # 4. Fusión e inserción SQL bulk upsert
-                            merged = []
-                            all_keys = set(geoms_dict.keys()).union(census_dict.keys())
-                            for key in all_keys:
-                                g_data = geoms_dict.get(key)
-                                c_data = census_dict.get(key)
-
-                                ent = g_data["entidad"] if g_data else key[:2]
-                                mun = g_data["municipio"] if g_data else key[2:5]
-                                wkt = g_data["geom_wkt"] if g_data else None
-
-                                merged.append(
-                                    {
-                                        "cve_ageb": key,
-                                        "entidad": ent,
-                                        "municipio": mun,
-                                        "pobtot": c_data["pobtot"] if c_data else -1,
-                                        "pobmas": c_data["pobmas"] if c_data else -1,
-                                        "pobfem": c_data["pobfem"] if c_data else -1,
-                                        "vivtot": c_data["vivtot"] if c_data else -1,
-                                        "wkt": wkt,
-                                    }
-                                )
-
-                            batch_size = 200
-                            for s_idx in range(0, len(merged), batch_size):
-                                batch = merged[s_idx : s_idx + batch_size]
-                                with engine.connect() as conn:
-                                    stmt = text("""
-                                        INSERT INTO agebs_demografia 
-                                            (cve_ageb, entidad, municipio, geom, pobtot, pobmas, pobfem, vivtot)
-                                        VALUES 
-                                            (
-                                                :cve_ageb, :entidad, :municipio, 
-                                                CASE WHEN :wkt IS NOT NULL THEN ST_GeomFromText(:wkt, 4326) ELSE NULL END, 
-                                                :pobtot, :pobmas, :pobfem, :vivtot
-                                            )
-                                        ON CONFLICT (cve_ageb)
-                                        DO UPDATE SET 
-                                            geom = CASE WHEN EXCLUDED.geom IS NOT NULL THEN EXCLUDED.geom ELSE agebs_demografia.geom END,
-                                            pobtot = CASE WHEN EXCLUDED.pobtot != -1 THEN EXCLUDED.pobtot ELSE agebs_demografia.pobtot END,
-                                            pobmas = CASE WHEN EXCLUDED.pobmas != -1 THEN EXCLUDED.pobmas ELSE agebs_demografia.pobmas END,
-                                            pobfem = CASE WHEN EXCLUDED.pobfem != -1 THEN EXCLUDED.pobfem ELSE agebs_demografia.pobfem END,
-                                            vivtot = CASE WHEN EXCLUDED.vivtot != -1 THEN EXCLUDED.vivtot ELSE agebs_demografia.vivtot END;
-                                    """)
-                                    conn.execute(stmt, batch)
-                                    conn.commit()
-
-                            log(f"  ✔️ Estado {state_str} completado. {len(merged):,} AGEBs insertadas.")
-
+                            count = ingest_state(engine, fuentes_dir, state_num, shp_zip_path)
+                            log(f"  ✔️ Estado {state_str}: {count:,} AGEBs upsert.")
                         except Exception as inner_ex:
                             log(f"  ❌ Error en estado {state_str}: {inner_ex}")
-                        finally:
-                            shutil.rmtree(temp_dir, ignore_errors=True)
-                            gc.collect()
-
-                        # Actualizar progreso general de los 32 estados
                         progress_bar.progress(state_num / total_estados)
                         status_text.text(f"Progreso General: {state_num}/32 Estados procesados...")
+                        gc.collect()
 
-                    log("\n✔️ PROCESO DE INGESTA NACIONAL COMPLETADO CON ÉXITO.")
-                    st.success("¡La base de datos nacional PostGIS ha sido alimentada de forma automática con éxito!")
-                    st.rerun()  # Recargar las métricas de la pantalla
+                    resumen = get_demografia_stats(engine)
+                    log(
+                        f"\n✔️ INGESTA COMPLETADA. Total AGEBs: {resumen['total_agebs']:,} | "
+                        f"Con NSE: {resumen['agebs_con_nse']:,}"
+                    )
+                    st.success("Base de datos nacional alimentada con variables NSE.")
+                    st.rerun()
 
                 except Exception as ex:
                     log(f"❌ ERROR GENERAL: {ex}")

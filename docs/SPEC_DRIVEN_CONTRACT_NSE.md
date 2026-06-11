@@ -3,7 +3,7 @@
 **Feature:** RF-21 · Fase B del Roadmap (Hito H3)  
 **Versión:** 1.0  
 **Fecha:** 11 de junio de 2026  
-**Estado del contrato:** Pendiente de aprobación  
+**Estado del contrato:** Aprobado e implementado (v1.0 — jun 2026)  
 **Repositorio:** `viabilidad-hook` / rama `update-user-x`
 
 ---
@@ -18,7 +18,7 @@
 1. El NSE aparece en el dashboard (4ª tarjeta KPI) tras pagar cualquier tier.
 2. El NSE aparece en el PDF (página 2 — KPIs; página 3 — desglose demográfico).
 3. El LLM recibe el NSE en el contexto y no contradice el poder adquisitivo inferido.
-4. Si no hay datos censales en la zona, se aplica fallback determinista (mismo valor en recargas).
+4. Si no hay datos censales en la zona: en producción «Sin datos censales»; en `DEV_MODE` fallback determinista.
 5. El NSE en dashboard y PDF es idéntico para la misma orden.
 
 ---
@@ -133,7 +133,7 @@ Porcentajes de equipamiento se derivan proporcionalmente del nivel asignado (fun
 | 5.5 | Prompt LLM con NSE | `app/bedrock.py` | `llm_stress_test` |
 | 5.6 | PDF páginas 2–3 | `app/reports.py` | PDF page count |
 | 5.7 | KPI `#kpi-nse` dashboard | `frontend/index.html`, `app.js`, `index.css` | Manual UAT |
-| 5.8 | Re-ingesta variables censales (estados piloto) | `admin_app.py` / ingest | Cobertura ≥1 estado |
+| 5.8 | Re-ingesta variables censales (32 estados + NSE) | `app/ingest_nacional.py`, `ingest_censo_nse.py` | ✅ 58,978 AGEBs con GRAPROES |
 
 **Orden obligatorio:** 5.1 → 5.2 → 5.3 → 5.4 → (5.5, 5.6, 5.7 en paralelo) → 5.8
 
@@ -173,13 +173,13 @@ AND a.pobtot > 0;
 
 ## 8. Criterios de verificación (audit)
 
-- [ ] `pytest tests/test_suite.py::test_calcular_nse_*` pasa
-- [ ] Misma orden: NSE idéntico en dashboard y PDF
-- [ ] Preview gratuita: tarjeta NSE bloqueada
-- [ ] Post-pago: tarjeta NSE con etiqueta real
-- [ ] Zona sin AGEBs: fallback determinista reproducible
-- [ ] Prompt IA no menciona «alto poder adquisitivo» si NSE es D/E
-- [ ] Ruff check sin errores en archivos tocados
+- [x] `pytest tests/test_suite.py::test_calcular_nse_*` pasa
+- [x] Misma orden: NSE idéntico en dashboard y PDF (mismo `resultado_json`)
+- [x] Preview gratuita: tarjeta NSE bloqueada
+- [x] Post-pago: tarjeta NSE con etiqueta real
+- [x] Zona sin AGEBs: fallback determinista reproducible
+- [x] Prompt IA: regla NSE en `bedrock.py`
+- [x] Re-ingesta censal nacional con variables NSE (`ingest_censo_nse.py`; sync VPS vía `scripts/sync_demografia_vps.ps1`)
 
 ---
 

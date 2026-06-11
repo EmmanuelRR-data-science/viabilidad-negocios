@@ -14,6 +14,14 @@ from app.analytics import (
     resolver_google_type,
 )
 from app.google_places import competidor_es_relevante_al_giro, filtrar_competidores_por_giro
+from app.nse import (
+    calcular_nse,
+    construir_nse_fallback,
+    derivar_metricas_fallback,
+    etiqueta_desde_score,
+    hash_nse_fallback,
+    nse_score_desde_metricas,
+)
 from app.database import SessionLocal
 from app.main import app
 from app.models import OrdenPago
@@ -101,6 +109,38 @@ def test_haversine_distance():
     lat2, lng2 = 19.432608, -99.132256
     dist = calcular_distancia_haversine(lat1, lng1, lat2, lng2)
     assert 90.0 < dist < 110.0  # Approx 100 meters
+
+
+def test_nse_etiqueta_y_fallback_deterministico():
+    assert etiqueta_desde_score(72) == "A/B (Alto / Alto Medio)"
+    assert etiqueta_desde_score(60) == "C+ (Medio Alto)"
+    assert etiqueta_desde_score(45) == "C / C- (Medio / Medio Bajo)"
+    assert etiqueta_desde_score(30) == "D+ (Bajo Alto)"
+    assert etiqueta_desde_score(10) == "D / E (Bajo / Muy Bajo)"
+
+    lat, lng = 19.432608, -99.133208
+    hash_a = hash_nse_fallback(lat, lng)
+    hash_b = hash_nse_fallback(lat, lng)
+    assert hash_a == hash_b
+
+    fallback = construir_nse_fallback(lat, lng)
+    assert fallback["nse_etiqueta"]
+    assert fallback["metricas"]["fuente"] == "fallback_determinista"
+    assert fallback["agebs_consultadas"] == 0
+
+    score = nse_score_desde_metricas(11.0, 65.0, 45.0)
+    assert 50 <= score <= 70
+
+
+def test_calcular_nse_con_db():
+    db = SessionLocal()
+    try:
+        nse = calcular_nse(db, 19.432608, -99.133208, 1000)
+        assert "nse_etiqueta" in nse
+        assert "metricas" in nse
+        assert nse["metricas"]["fuente"] in {"censo_2020", "fallback_determinista"}
+    finally:
+        db.close()
 
 
 def test_filtro_giro_competidores_por_reseñas():
