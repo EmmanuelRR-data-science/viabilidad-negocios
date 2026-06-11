@@ -718,8 +718,8 @@ async function runPreviewAnalysis() {
 
             // Generar Gráficos Avanzados
             renderCompetitorsChart(data.competidores_listado);
-            renderTopCompetitorsTable(data.competidores_listado);
-            renderCompetitorReviews(data.competidores_listado);
+            renderTopCompetitorsTable(data);
+            renderCompetitorReviews(data);
             renderPOITable(data);
             syncHeatmapSection("gratuito", data.afluencia_peatonal);
 
@@ -1152,8 +1152,8 @@ async function unlockPaidReport() {
             
             // Generar Gráficos Avanzados siempre (el blur controla su visualización)
             renderCompetitorsChart(metricas.competidores_listado);
-            renderTopCompetitorsTable(metricas.competidores_listado);
-            renderCompetitorReviews(metricas.competidores_listado);
+            renderTopCompetitorsTable(metricas);
+            renderCompetitorReviews(metricas);
             renderPOITable(metricas);
             syncHeatmapSection(state.activeTier, metricas.afluencia_peatonal);
 
@@ -1321,9 +1321,21 @@ function _formatDistanceMeters(metros) {
     return `${(m / 1000).toFixed(2)} km lineales`;
 }
 
+const MIN_RESENAS_DESTACADO = 5;
+
+function _resolveDestacados(payload) {
+    if (!payload) return [];
+    const destacados = payload.competidores_destacados || payload.metricas?.competidores_destacados;
+    if (Array.isArray(destacados) && destacados.length > 0) {
+        return destacados;
+    }
+    const listado = payload.competidores_listado || payload.metricas?.competidores_listado;
+    return _topRatedCompetitors(listado, 5);
+}
+
 function _topRatedCompetitors(competidores, topN = 5) {
     return (competidores || [])
-        .filter(c => Number(c.rating) > 0)
+        .filter(c => Number(c.rating) > 0 && Number(c.user_ratings_total || 0) >= MIN_RESENAS_DESTACADO)
         .sort((a, b) => {
             const ratingDiff = Number(b.rating) - Number(a.rating);
             if (ratingDiff !== 0) return ratingDiff;
@@ -1334,12 +1346,12 @@ function _topRatedCompetitors(competidores, topN = 5) {
         .slice(0, topN);
 }
 
-function renderTopCompetitorsTable(competidores) {
+function renderTopCompetitorsTable(metricas) {
     const wrap = document.getElementById("competitor-top-table-wrap");
     const tbody = document.getElementById("competitor-top-table-body");
     if (!wrap || !tbody) return;
 
-    const top = _topRatedCompetitors(competidores, 5);
+    const top = _resolveDestacados(metricas);
     if (top.length === 0) {
         wrap.classList.add("hidden");
         tbody.innerHTML = "";
@@ -1357,13 +1369,13 @@ function renderTopCompetitorsTable(competidores) {
     wrap.classList.remove("hidden");
 }
 
-function renderCompetitorReviews(competidores) {
+function renderCompetitorReviews(metricas) {
     const block = document.getElementById("competitor-reviews-block");
     const list = document.getElementById("competitor-reviews-list");
     if (!block || !list) return;
 
     const cards = [];
-    (competidores || []).slice(0, 4).forEach(comp => {
+    _resolveDestacados(metricas).forEach(comp => {
         (comp.reseñas_google || []).forEach(rev => {
             if (!rev?.texto) return;
             const distTxt = _formatDistanceMeters(comp.distancia_metros);

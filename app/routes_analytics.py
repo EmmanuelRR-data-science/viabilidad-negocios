@@ -87,6 +87,7 @@ async def obtener_vista_previa_gratuita(
             "direccion": obtener_direccion(lat, lng)["formato_completo"],
             # Enviamos listados completos para que el frontend los dibuje con blur
             "competidores_listado": resultado["competidores_listado"],
+            "competidores_destacados": resultado["competidores_destacados"],
             "aliados_listado": resultado["aliados_listado"],
             "aliados_conteos": resultado["aliados_conteos"],
             "afluencia_peatonal": resultado["afluencia_peatonal"],
@@ -191,13 +192,20 @@ def obtener_resultado_analisis(
 
             foda_inteligente["consideraciones_apertura"] = _generar_consideraciones_apertura(analisis_cuant)
 
-        from app.analytics import asegurar_distancias_competidores
-
-        asegurar_distancias_competidores(
-            analisis_cuant.get("competidores_listado") or [],
-            float(orden.latitud),
-            float(orden.longitud),
+        from app.analytics import (
+            MIN_RESENAS_DESTACADO,
+            asegurar_distancias_competidores,
+            competidores_mejor_valorados,
         )
+
+        lista_comp = analisis_cuant.get("competidores_listado") or []
+        asegurar_distancias_competidores(lista_comp, float(orden.latitud), float(orden.longitud))
+        if not analisis_cuant.get("competidores_destacados"):
+            analisis_cuant["competidores_destacados"] = competidores_mejor_valorados(
+                lista_comp,
+                top_n=5,
+                min_resenas=MIN_RESENAS_DESTACADO,
+            )
 
         # Los campos se calculan y envían siempre; el frontend controlará si se muestran nítidos o con blur según el Tier.
 

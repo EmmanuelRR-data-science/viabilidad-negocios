@@ -86,14 +86,16 @@ def obtener_reseñas_lugar(place_id: str, *, max_reseñas: int = 3) -> list[dict
 def enriquecer_competidores_con_reseñas(
     competidores: list[dict],
     *,
-    max_competidores: int = 4,
+    min_resenas: int = 5,
     max_reseñas_por_competidor: int = 2,
 ) -> None:
-    """Agrega reseñas_google a los competidores más cercanos (mutación in-place)."""
-    for comp in competidores[:max_competidores]:
-        place_id = comp.get("place_id")
+    """Agrega reseñas_google a los competidores destacados (mutación in-place)."""
+    for comp in competidores:
+        if int(comp.get("user_ratings_total") or 0) < min_resenas:
+            comp["reseñas_google"] = []
+            continue
         comp["reseñas_google"] = obtener_reseñas_lugar(
-            place_id,
+            comp.get("place_id"),
             max_reseñas=max_reseñas_por_competidor,
         )
 

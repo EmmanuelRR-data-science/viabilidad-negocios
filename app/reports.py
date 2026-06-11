@@ -1051,6 +1051,7 @@ class ReportLabGenerator:
             float(orden.latitud),
             float(orden.longitud),
         )
+        mejor_valorados = analisis.get("competidores_destacados") or competidores_mejor_valorados(comp_list, top_n=5)
 
         comp_table_data = [
             [
@@ -1162,14 +1163,13 @@ class ReportLabGenerator:
 
         story.append(comp_table)
 
-        mejor_valorados = competidores_mejor_valorados(comp_list, top_n=5)
         if mejor_valorados:
             story.append(Spacer(1, 10))
             story.append(Paragraph("<b>Competidores mejor valorados y distancia desde tu punto:</b>", s_h2))
             story.append(
                 Paragraph(
-                    "Distancia geodésica (línea recta) desde las coordenadas de tu ubicación hasta cada establecimiento. "
-                    "No equivale a tiempo de recorrido peatonal o vehicular.",
+                    "Solo establecimientos con al menos 5 reseñas publicadas en Google Maps. "
+                    "Distancia geodésica (línea recta) desde tu ubicación; no equivale a tiempo de recorrido.",
                     s_body,
                 )
             )
@@ -1209,7 +1209,7 @@ class ReportLabGenerator:
         from xml.sax.saxutils import escape as xml_escape
 
         reseñas_rows: list = []
-        for item in real_directs:
+        for item in mejor_valorados:
             nombre = item.get("nombre", "Competidor local")
             for rev in item.get("reseñas_google") or []:
                 texto = rev.get("texto", "").strip()
@@ -1240,9 +1240,9 @@ class ReportLabGenerator:
         story.append(Paragraph("<b>Comentarios de Google sobre competidores:</b>", s_h2))
         story.append(
             Paragraph(
-                "Extractos de reseñas públicas de Google Maps de los competidores más cercanos, "
-                "con la distancia lineal desde tu punto. Son opiniones de usuarios y no representan "
-                "la postura de GeoViabilidad Hook.",
+                "Extractos de reseñas públicas de Google Maps de los mismos competidores destacados "
+                "en la tabla anterior (mínimo 5 reseñas en Google), con distancia lineal desde tu punto. "
+                "Son opiniones de usuarios y no representan la postura de GeoViabilidad Hook.",
                 s_body,
             )
         )

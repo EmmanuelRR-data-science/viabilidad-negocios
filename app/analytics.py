@@ -9,6 +9,8 @@ from app.google_places import buscar_competidores, enriquecer_competidores_con_r
 
 logger = logging.getLogger("analytics")
 
+MIN_RESENAS_DESTACADO = 5
+
 
 def calcular_distancia_haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """
@@ -47,9 +49,18 @@ def asegurar_distancias_competidores(competidores: list[dict], lat: float, lng: 
         comp["distancia_metros"] = round(calcular_distancia_haversine(lat, lng, c_lat, c_lng), 1)
 
 
-def competidores_mejor_valorados(competidores: list[dict], *, top_n: int = 5) -> list[dict]:
-    """Top competidores por rating; en empate gana el más cercano al punto."""
-    validos = [c for c in competidores if float(c.get("rating") or 0) > 0]
+def competidores_mejor_valorados(
+    competidores: list[dict],
+    *,
+    top_n: int = 5,
+    min_resenas: int = MIN_RESENAS_DESTACADO,
+) -> list[dict]:
+    """Top competidores por rating con volumen mínimo de reseñas en Google."""
+    validos = [
+        c
+        for c in competidores
+        if float(c.get("rating") or 0) > 0 and int(c.get("user_ratings_total") or 0) >= min_resenas
+    ]
     validos.sort(
         key=lambda c: (
             -float(c.get("rating") or 0),
@@ -255,6 +266,7 @@ def procesar_calculo_analitico(
 
     # 3. Buscar competidores (Google Places)
     competidores = []
+    competidores_destacados: list[dict] = []
     isc = 0.0
     distancia_mas_cercana = float("inf")
 
@@ -333,9 +345,15 @@ def procesar_calculo_analitico(
         # Ordenar competidores por distancia (de más cercano a más lejano)
         competidores.sort(key=lambda x: x.get("distancia_metros", 999999.0))
 
-        if tier in ["pro", "premium"] and competidores:
+        competidores_destacados = competidores_mejor_valorados(competidores, top_n=5)
+
+        if tier in ["pro", "premium"] and competidores_destacados:
             try:
-                enriquecer_competidores_con_reseñas(competidores, max_competidores=4, max_reseñas_por_competidor=2)
+                enriquecer_competidores_con_reseñas(
+                    competidores_destacados,
+                    min_resenas=MIN_RESENAS_DESTACADO,
+                    max_reseñas_por_competidor=2,
+                )
             except Exception as rev_err:
                 logger.error("No se pudieron cargar reseñas de Google de competidores: %s", rev_err)
 
@@ -451,6 +469,7 @@ def procesar_calculo_analitico(
         "rubro": rubro,
         "competidores_conteo": len(competidores),
         "competidores_listado": competidores,
+        "competidores_destacados": competidores_destacados,
         "distancia_competidor_cercano": distancia_cercana_res,
         "isc": isc,
         "afluencia_peatonal": afluencia,
