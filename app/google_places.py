@@ -1,10 +1,224 @@
 import logging
+import re
+import unicodedata
 
 import requests
 
 from app.config import GOOGLE_MAPS_API_KEY
 
 logger = logging.getLogger("google_places")
+
+_STOPWORDS_GIRO = frozenset(
+    {
+        "para",
+        "de",
+        "del",
+        "la",
+        "el",
+        "los",
+        "las",
+        "y",
+        "o",
+        "en",
+        "un",
+        "una",
+        "con",
+        "sin",
+        "otro",
+        "otra",
+        "negocio",
+        "tienda",
+        "local",
+        "venta",
+        "servicio",
+        "comercial",
+        "centro",
+        "mexico",
+        "cdmx",
+    }
+)
+
+# Dominios semánticos: anclas en el rubro, términos afines y giros conflictivos en reseñas/nombre.
+_DOMINIO_GIRO: dict[str, dict[str, list[str]]] = {
+    "mascota": {
+        "anchors": [
+            "mascota",
+            "mascotas",
+            "perro",
+            "perros",
+            "gato",
+            "gatos",
+            "pet",
+            "canino",
+            "veterin",
+            "accesorio",
+            "accesorios",
+            "alimento",
+            "pecera",
+        ],
+        "relacionados": [
+            "mascota",
+            "perro",
+            "gato",
+            "canino",
+            "felino",
+            "pet",
+            "collar",
+            "correa",
+            "arena",
+            "alimento",
+            "veterin",
+            "peluquer",
+            "estetica canina",
+            "estética canina",
+            "accesorio",
+            "juguete",
+            "croqueta",
+            "snack",
+            "hueso",
+            "placa",
+        ],
+        "conflictos": [
+            "acuario",
+            "peces",
+            "pez",
+            "marino",
+            "coral",
+            "reef",
+            "acuatico",
+            "acuático",
+            "tanque",
+            "filtracion",
+            "filtración",
+            "buceo",
+            "snorkel",
+            "acuicultura",
+        ],
+    },
+    "cafeteria": {
+        "anchors": ["cafeteria", "cafetería", "cafe", "café", "coffee", "bebida", "soda"],
+        "relacionados": ["café", "cafe", "coffee", "espresso", "latte", "capuchino", "bebida", "postre", "pan"],
+        "conflictos": ["gimnasio", "farmacia", "consultorio", "hospital", "taller mecanico", "lavanderia"],
+    },
+    "restaurante": {
+        "anchors": ["restaurante", "comida", "cocina", "menu", "menú", "gastronom"],
+        "relacionados": ["comida", "platillo", "menu", "menú", "cocina", "chef", "mesa", "servicio", "cena"],
+        "conflictos": ["gimnasio", "farmacia", "consultorio", "escuela", "taller"],
+    },
+    "farmacia": {
+        "anchors": ["farmacia", "medicamento", "pharmacy", "botica"],
+        "relacionados": ["farmacia", "medicamento", "receta", "botica", "salud", "vitamina", "analgesico"],
+        "conflictos": ["restaurante", "cafeteria", "gimnasio", "escuela", "ropa"],
+    },
+    "gimnasio": {
+        "anchors": ["gimnasio", "gym", "fitness", "entrenamiento", "crossfit"],
+        "relacionados": ["gimnasio", "gym", "fitness", "entrenamiento", "pesas", "cardio", "clase"],
+        "conflictos": ["farmacia", "restaurante", "cafeteria", "escuela", "consultorio"],
+    },
+    "estetica": {
+        "anchors": ["estetica", "estética", "belleza", "salon", "salón", "spa", "uñas", "cabello"],
+        "relacionados": ["estetica", "estética", "belleza", "corte", "uñas", "peinado", "spa", "facial"],
+        "conflictos": ["gimnasio", "farmacia", "restaurante", "escuela", "taller"],
+    },
+}
+
+
+def _normalizar_texto_giro(texto: str) -> str:
+    limpio = unicodedata.normalize("NFKD", str(texto or ""))
+    limpio = "".join(ch for ch in limpio if not unicodedata.combining(ch))
+    limpio = limpio.lower()
+    limpio = re.sub(r"[^a-z0-9áéíóúñü\s]", " ", limpio)
+    return re.sub(r"\s+", " ", limpio).strip()
+
+
+def _detectar_dominios_rubro(rubro: str) -> list[str]:
+    texto = _normalizar_texto_giro(rubro)
+    dominios = [dom for dom, cfg in _DOMINIO_GIRO.items() if any(a in texto for a in cfg["anchors"])]
+    return dominios or ["_generico"]
+
+
+def _texto_evaluable_competidor(competidor: dict) -> tuple[str, str, str]:
+    """Nombre, tipo comercial asignado y texto de reseñas (normalizados)."""
+    nombre = _normalizar_texto_giro(competidor.get("nombre", ""))
+    tipo = _normalizar_texto_giro(competidor.get("tipo", ""))
+    reseñas = _normalizar_texto_giro(
+        " ".join(rev.get("texto", "") for rev in (competidor.get("reseñas_google") or []))
+    )
+    return nombre, tipo, reseñas
+
+
+def _contiene_termino(texto: str, termino: str) -> bool:
+    if not texto or not termino:
+        return False
+    return bool(re.search(rf"\b{re.escape(termino)}", texto))
+
+
+def _contar_terminos(texto: str, terminos: list[str]) -> int:
+    return sum(1 for t in terminos if _contiene_termino(texto, t))
+
+
+def _tokens_rubro_generico(rubro: str) -> list[str]:
+    return [
+        t
+        for t in _normalizar_texto_giro(rubro).split()
+        if len(t) > 3 and t not in _STOPWORDS_GIRO
+    ]
+
+
+def competidor_es_relevante_al_giro(rubro: str, competidor: dict) -> bool:
+    """
+    True si el nombre/tipo/reseñas del competidor son coherentes con el rubro analizado.
+    Excluye casos como acuarios indexados por la palabra «mascotas» en Google Places.
+    """
+    nombre, tipo, reseñas = _texto_evaluable_competidor(competidor)
+    if not nombre and not tipo and not reseñas:
+        return True
+
+    tiene_reseñas = bool(reseñas)
+    # Con reseñas: el tipo asignado por Google suele ser genérico y no debe anular el contenido real.
+    texto_relacion = f"{nombre} {reseñas}".strip() if tiene_reseñas else f"{nombre} {tipo}".strip()
+    texto_conflicto = f"{nombre} {reseñas}".strip()
+
+    dominios = _detectar_dominios_rubro(rubro)
+
+    for dominio in dominios:
+        if dominio == "_generico":
+            tokens = _tokens_rubro_generico(rubro)
+            if not tokens:
+                return True
+            hits = sum(1 for t in tokens if _contiene_termino(texto_relacion, t))
+            return hits > 0
+
+        cfg = _DOMINIO_GIRO[dominio]
+        rel = _contar_terminos(texto_relacion, cfg["relacionados"])
+        conf = _contar_terminos(texto_conflicto, cfg["conflictos"])
+
+        if conf >= 2 and rel == 0:
+            return False
+        if conf >= 1 and rel == 0:
+            if tiene_reseñas:
+                return False
+            if _contar_terminos(nombre, cfg["conflictos"]) >= 1:
+                return False
+
+    return True
+
+
+def filtrar_competidores_por_giro(rubro: str, competidores: list[dict]) -> list[dict]:
+    """Conserva solo competidores alineados al rubro según nombre, tipo y reseñas."""
+    filtrados: list[dict] = []
+    for comp in competidores:
+        if competidor_es_relevante_al_giro(rubro, comp):
+            comp["giro_relevante"] = True
+            filtrados.append(comp)
+        else:
+            comp["giro_relevante"] = False
+            logger.info(
+                "Competidor descartado por desalineación de giro '%s': %s",
+                rubro,
+                comp.get("nombre", "?"),
+            )
+    return filtrados
 
 _MOCK_RESEÑAS = [
     "Buen servicio en general, aunque los tiempos de espera suben en horario pico.",
@@ -93,6 +307,8 @@ def enriquecer_competidores_con_reseñas(
     for comp in competidores:
         if int(comp.get("user_ratings_total") or 0) < min_resenas:
             comp["reseñas_google"] = []
+            continue
+        if comp.get("reseñas_google"):
             continue
         comp["reseñas_google"] = obtener_reseñas_lugar(
             comp.get("place_id"),

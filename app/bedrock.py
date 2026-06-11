@@ -314,6 +314,9 @@ def verificar_guardrail_groq(texto_usuario: str, api_key: str) -> tuple[bool, st
 
 def _quejas_desde_competencia_real(datos_entorno: dict) -> list[str]:
     """Deriva oportunidades de diferenciación de competidores con rating bajo en Places."""
+    from app.google_places import competidor_es_relevante_al_giro
+
+    rubro = datos_entorno.get("rubro", "Negocio")
     competidores = datos_entorno.get("competidores_listado") or []
     debiles = [
         c
@@ -322,6 +325,7 @@ def _quejas_desde_competencia_real(datos_entorno: dict) -> list[str]:
         and float(c.get("rating") or 0) > 0
         and float(c.get("rating") or 5) < 3.8
         and int(c.get("user_ratings_total") or 0) >= 5
+        and competidor_es_relevante_al_giro(rubro, c)
     ]
     debiles.sort(key=lambda c: (float(c.get("rating") or 0), -int(c.get("user_ratings_total") or 0)))
 
@@ -517,6 +521,9 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         "- Tono descriptivo u orientativo; sin lenguaje de amenaza, debilidad ni predicción de fracaso/éxito.\n"
         "- PROHIBIDO: montos en pesos, porcentajes inventados, TIR, payback, penetración de mercado, nombres de "
         "personas o reseñas textuales inventadas.\n"
+        "- PROHIBIDO citar el número de competidores como fortaleza; alta competencia NO es ventaja.\n"
+        "- Si competencia > 0, no uses frases del tipo «X competidores en la zona» en fortalezas.\n"
+        "- Solo menciona competencia en oportunidades (diferenciación), nunca como fortaleza.\n"
         "- No incluyas conclusiones, dictámenes ni consideraciones; el servidor las genera.\n"
         "No agregues texto fuera del JSON."
     )
@@ -570,7 +577,9 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         f"Intenciones del emprendedor: {intenciones or 'Sin intenciones especiales escritas.'}\n\n"
         f"{ia_directives}"
         "[REGLA DE COHERENCIA] No contradigas el Score SVA ni el conteo de competidores. "
-        "Si SVA < 50, no uses lenguaje de 'excelente viabilidad'. Si competencia = 0, no hables de saturación.\n\n"
+        "Si SVA < 50, no uses lenguaje de 'excelente viabilidad'. Si competencia = 0, no hables de saturación.\n"
+        f"[REGLA COMPETENCIA] Hay {competencia} competidor(es) en el radio: eso describe saturación, NO es fortaleza. "
+        "No lo cites en fortalezas salvo que competencia sea exactamente 0.\n\n"
         f"Genera fortalezas y oportunidades del punto para el giro '{rubro}' en México."
     )
 

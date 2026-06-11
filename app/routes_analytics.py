@@ -193,19 +193,19 @@ def obtener_resultado_analisis(
             foda_inteligente["consideraciones_apertura"] = _generar_consideraciones_apertura(analisis_cuant)
 
         from app.analytics import (
-            MIN_RESENAS_DESTACADO,
             asegurar_distancias_competidores,
-            competidores_mejor_valorados,
+            resolver_competidores_destacados_para_reporte,
         )
 
         lista_comp = analisis_cuant.get("competidores_listado") or []
         asegurar_distancias_competidores(lista_comp, float(orden.latitud), float(orden.longitud))
-        if not analisis_cuant.get("competidores_destacados"):
-            analisis_cuant["competidores_destacados"] = competidores_mejor_valorados(
-                lista_comp,
-                top_n=5,
-                min_resenas=MIN_RESENAS_DESTACADO,
-            )
+        enriquecer_reseñas = orden.tier_adquirido in ["pro", "premium"]
+        analisis_cuant["competidores_destacados"] = resolver_competidores_destacados_para_reporte(
+            lista_comp,
+            orden.rubro,
+            top_n=5,
+            enriquecer_reseñas=enriquecer_reseñas,
+        )
 
         # Los campos se calculan y envían siempre; el frontend controlará si se muestran nítidos o con blur según el Tier.
 

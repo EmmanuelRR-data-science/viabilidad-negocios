@@ -1040,9 +1040,10 @@ class ReportLabGenerator:
             story.append(Spacer(1, 5))
 
         from app.analytics import (
+            MIN_RESENAS_DESTACADO,
             asegurar_distancias_competidores,
-            competidores_mejor_valorados,
             formatear_distancia_metros,
+            resolver_competidores_destacados_para_reporte,
         )
 
         comp_list = analisis.get("competidores_listado", [])
@@ -1051,7 +1052,21 @@ class ReportLabGenerator:
             float(orden.latitud),
             float(orden.longitud),
         )
-        mejor_valorados = analisis.get("competidores_destacados") or competidores_mejor_valorados(comp_list, top_n=5)
+        enriquecer_reseñas = orden.tier_adquirido in ["pro", "premium"]
+        mejor_valorados = resolver_competidores_destacados_para_reporte(
+            comp_list,
+            orden.rubro,
+            top_n=5,
+            enriquecer_reseñas=enriquecer_reseñas,
+        )
+
+        def _etiqueta_rating_competidor(item: dict) -> str:
+            total = int(item.get("user_ratings_total") or 0)
+            rating = float(item.get("rating") or 0)
+            texto = f"⭐ {rating} / 5.0 ({total} reseñas)"
+            if 0 < total < MIN_RESENAS_DESTACADO:
+                texto += " · muestra pequeña"
+            return texto
 
         comp_table_data = [
             [
@@ -1086,10 +1101,7 @@ class ReportLabGenerator:
                     [
                         Paragraph(item.get("nombre", "Comercio Local"), s_table_cell),
                         Paragraph(item.get("tipo", orden.rubro.capitalize()), s_table_cell),
-                        Paragraph(
-                            f"⭐ {item.get('rating', 0.0)} / 5.0 ({item.get('user_ratings_total', 15)} reseñas)",
-                            s_table_cell,
-                        ),
+                        Paragraph(_etiqueta_rating_competidor(item), s_table_cell),
                         Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                     ]
                 )
@@ -1162,14 +1174,23 @@ class ReportLabGenerator:
         )
 
         story.append(comp_table)
+        story.append(
+            Paragraph(
+                "<font size='7' color='#64748b'><i>Nota: en la lista de cercanía pueden aparecer "
+                "calificaciones altas con pocas reseñas (etiquetadas como «muestra pequeña»); "
+                "no son estadísticamente representativas. El ranking de valoraciones y los comentarios "
+                "siguientes exigen mínimo 5 reseñas en Google.</i></font>",
+                s_body,
+            )
+        )
 
         if mejor_valorados:
             story.append(Spacer(1, 10))
             story.append(Paragraph("<b>Competidores mejor valorados y distancia desde tu punto:</b>", s_h2))
             story.append(
                 Paragraph(
-                    "Solo establecimientos con al menos 5 reseñas publicadas en Google Maps. "
-                    "Distancia geodésica (línea recta) desde tu ubicación; no equivale a tiempo de recorrido.",
+                    "Solo establecimientos con al menos 5 reseñas en Google Maps (misma lista que los comentarios "
+                    "siguientes). Distancia geodésica desde tu ubicación; no equivale a tiempo de recorrido.",
                     s_body,
                 )
             )
@@ -1205,6 +1226,15 @@ class ReportLabGenerator:
                 )
             )
             story.append(top_table)
+        else:
+            story.append(Spacer(1, 10))
+            story.append(
+                Paragraph(
+                    "<font color='#64748b'><i>Ningún competidor en la zona alcanza el mínimo de 5 reseñas "
+                    "en Google para incluirse en el ranking de valoraciones.</i></font>",
+                    s_body,
+                )
+            )
 
         from xml.sax.saxutils import escape as xml_escape
 
@@ -1242,7 +1272,8 @@ class ReportLabGenerator:
             Paragraph(
                 "Extractos de reseñas públicas de Google Maps de los mismos competidores destacados "
                 "en la tabla anterior (mínimo 5 reseñas en Google), con distancia lineal desde tu punto. "
-                "Son opiniones de usuarios y no representan la postura de GeoViabilidad Hook.",
+                "Son opiniones de usuarios y no representan la postura de GeoViabilidad Hook. "
+                "El giro percibido en Google puede diferir del rubro analizado.",
                 s_body,
             )
         )

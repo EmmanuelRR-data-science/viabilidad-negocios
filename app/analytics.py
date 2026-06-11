@@ -5,7 +5,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.besttime import obtener_afluencia
-from app.google_places import buscar_competidores, enriquecer_competidores_con_reseñas
+from app.google_places import (
+    buscar_competidores,
+    enriquecer_competidores_con_reseñas,
+    filtrar_competidores_por_giro,
+)
 
 logger = logging.getLogger("analytics")
 
@@ -69,6 +73,45 @@ def competidores_mejor_valorados(
         )
     )
     return validos[:top_n]
+
+
+def resolver_competidores_destacados(
+    competidores: list[dict],
+    *,
+    top_n: int = 5,
+    min_resenas: int = MIN_RESENAS_DESTACADO,
+) -> list[dict]:
+    """Recalcula destacados con las reglas vigentes (ignora caché legacy)."""
+    return competidores_mejor_valorados(competidores, top_n=top_n, min_resenas=min_resenas)
+
+
+def resolver_competidores_destacados_para_reporte(
+    competidores: list[dict],
+    rubro: str,
+    *,
+    top_n: int = 5,
+    min_resenas: int = MIN_RESENAS_DESTACADO,
+    enriquecer_reseñas: bool = False,
+) -> list[dict]:
+    """
+    Destacados con mínimo de reseñas y coherencia de giro (nombre/tipo/reseñas de Google).
+    """
+    candidatos = competidores_mejor_valorados(
+        competidores,
+        top_n=max(top_n * 3, top_n),
+        min_resenas=min_resenas,
+    )
+    if enriquecer_reseñas and candidatos:
+        try:
+            enriquecer_competidores_con_reseñas(
+                candidatos,
+                min_resenas=min_resenas,
+                max_reseñas_por_competidor=2,
+            )
+        except Exception as rev_err:
+            logger.error("No se pudieron cargar reseñas para filtro de giro: %s", rev_err)
+    relevantes = filtrar_competidores_por_giro(rubro, candidatos)
+    return relevantes[:top_n]
 
 
 def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
@@ -345,17 +388,17 @@ def procesar_calculo_analitico(
         # Ordenar competidores por distancia (de más cercano a más lejano)
         competidores.sort(key=lambda x: x.get("distancia_metros", 999999.0))
 
-        competidores_destacados = competidores_mejor_valorados(competidores, top_n=5)
-
-        if tier in ["pro", "premium"] and competidores_destacados:
-            try:
-                enriquecer_competidores_con_reseñas(
-                    competidores_destacados,
-                    min_resenas=MIN_RESENAS_DESTACADO,
-                    max_reseñas_por_competidor=2,
-                )
-            except Exception as rev_err:
-                logger.error("No se pudieron cargar reseñas de Google de competidores: %s", rev_err)
+        enriquecer_reseñas = tier in ["pro", "premium"]
+        try:
+            competidores_destacados = resolver_competidores_destacados_para_reporte(
+                competidores,
+                rubro,
+                top_n=5,
+                enriquecer_reseñas=enriquecer_reseñas,
+            )
+        except Exception as dest_err:
+            logger.error("No se pudieron resolver competidores destacados: %s", dest_err)
+            competidores_destacados = resolver_competidores_destacados(competidores, top_n=5)
 
         if True:
             if aliados_seleccionados or aliados_adicionales:

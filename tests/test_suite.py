@@ -7,7 +7,13 @@ from fastapi.testclient import TestClient
 # Configure python path to resolve imports from root directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.analytics import calcular_distancia_haversine, calcular_score_demografico, resolver_google_type
+from app.analytics import (
+    calcular_distancia_haversine,
+    calcular_score_demografico,
+    resolver_competidores_destacados_para_reporte,
+    resolver_google_type,
+)
+from app.google_places import competidor_es_relevante_al_giro, filtrar_competidores_por_giro
 from app.database import SessionLocal
 from app.main import app
 from app.models import OrdenPago
@@ -95,6 +101,44 @@ def test_haversine_distance():
     lat2, lng2 = 19.432608, -99.132256
     dist = calcular_distancia_haversine(lat1, lng1, lat2, lng2)
     assert 90.0 < dist < 110.0  # Approx 100 meters
+
+
+def test_filtro_giro_competidores_por_reseñas():
+    """Excluye competidores cuyas reseñas no coinciden con el rubro (ej. acuario vs accesorios mascotas)."""
+    rubro = "accesorios para mascotas"
+    acuario = {
+        "nombre": "Reef School Mexico",
+        "tipo": "Mascotas",
+        "rating": 4.5,
+        "user_ratings_total": 36,
+        "reseñas_google": [
+            {"texto": "Excelente acuario con peces marinos y corales.", "rating": 5},
+            {"texto": "Muy buena escuela para aprender sobre acuarios.", "rating": 4},
+        ],
+    }
+    pet_shop = {
+        "nombre": "Spa Animals",
+        "tipo": "Mascotas",
+        "rating": 4.4,
+        "user_ratings_total": 115,
+        "reseñas_google": [
+            {"texto": "Buen servicio para perros, dejan muy limpio a mi mascota.", "rating": 5},
+        ],
+    }
+
+    assert competidor_es_relevante_al_giro(rubro, acuario) is False
+    assert competidor_es_relevante_al_giro(rubro, pet_shop) is True
+
+    filtrados = filtrar_competidores_por_giro(rubro, [acuario, pet_shop])
+    assert [c["nombre"] for c in filtrados] == ["Spa Animals"]
+
+    destacados = resolver_competidores_destacados_para_reporte(
+        [acuario, pet_shop],
+        rubro,
+        top_n=5,
+        enriquecer_reseñas=False,
+    )
+    assert [c["nombre"] for c in destacados] == ["Spa Animals"]
 
 
 def test_resolver_google_type():

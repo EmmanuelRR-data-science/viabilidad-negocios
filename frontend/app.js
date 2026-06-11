@@ -1323,18 +1323,8 @@ function _formatDistanceMeters(metros) {
 
 const MIN_RESENAS_DESTACADO = 5;
 
-function _resolveDestacados(payload) {
-    if (!payload) return [];
-    const destacados = payload.competidores_destacados || payload.metricas?.competidores_destacados;
-    if (Array.isArray(destacados) && destacados.length > 0) {
-        return destacados;
-    }
-    const listado = payload.competidores_listado || payload.metricas?.competidores_listado;
-    return _topRatedCompetitors(listado, 5);
-}
-
-function _topRatedCompetitors(competidores, topN = 5) {
-    return (competidores || [])
+function _filtrarDestacadosConfiables(lista) {
+    return (lista || [])
         .filter(c => Number(c.rating) > 0 && Number(c.user_ratings_total || 0) >= MIN_RESENAS_DESTACADO)
         .sort((a, b) => {
             const ratingDiff = Number(b.rating) - Number(a.rating);
@@ -1343,7 +1333,18 @@ function _topRatedCompetitors(competidores, topN = 5) {
             if (reviewsDiff !== 0) return reviewsDiff;
             return Number(a.distancia_metros || 999999) - Number(b.distancia_metros || 999999);
         })
-        .slice(0, topN);
+        .slice(0, 5);
+}
+
+function _resolveDestacados(payload) {
+    if (!payload) return [];
+    const metricas = payload.metricas || payload;
+    const destacados = metricas.competidores_destacados;
+    if (Array.isArray(destacados) && destacados.length > 0) {
+        return destacados.filter(c => c.giro_relevante !== false);
+    }
+    const listado = metricas.competidores_listado || [];
+    return _filtrarDestacadosConfiables(listado).filter(c => c.giro_relevante !== false);
 }
 
 function renderTopCompetitorsTable(metricas) {
