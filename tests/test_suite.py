@@ -191,6 +191,17 @@ def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
     assert "mascotas" in kw.lower() or "collares" in kw.lower()
 
 
+def test_keyword_ia_ignora_intenciones_placeholder_y_usa_rubro():
+    from app.competencia_busqueda import keyword_places_para_ia
+
+    kw = keyword_places_para_ia(
+        "florería",
+        intenciones="Evaluación comercial del giro en la zona residencial mexicana.",
+        google_type="store",
+    )
+    assert kw == "florería"
+
+
 def test_resolver_aliados_matriz_cafeteria():
     from app.aliados_deterministico import resolver_aliados_por_rubro
     from app.competencia_busqueda import resolver_tipos_aliados_busqueda

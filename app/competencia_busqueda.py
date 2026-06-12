@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import unicodedata
+
+# Texto placeholder del checkout cuando el usuario deja intenciones vacías — no sirve como keyword.
+_INTENCIONES_PLACEHOLDER = (
+    "evaluación comercial del giro en la zona residencial mexicana",
+    "evaluacion comercial del giro en la zona residencial mexicana",
+)
+
 
 def contexto_giro_completo(rubro: str, intenciones: str | None = None) -> str:
     """Texto unificado para filtrar relevancia de giro (rubro + intenciones)."""
@@ -16,6 +24,21 @@ def _categorias_manuales(seleccion: list[str] | None) -> list[str]:
     return [c for c in (seleccion or []) if c != "ia_auto"]
 
 
+def _intenciones_utiles_para_keyword(intenciones: str | None) -> str | None:
+    """Frases cortas y específicas del usuario; ignora placeholders genéricos."""
+    if not intenciones:
+        return None
+    limpio = intenciones.strip()
+    if not limpio or len(limpio) > 60:
+        return None
+    norm = unicodedata.normalize("NFKD", limpio)
+    norm = "".join(ch for ch in norm if not unicodedata.combining(ch)).lower()
+    for placeholder in _INTENCIONES_PLACEHOLDER:
+        if placeholder in norm:
+            return None
+    return limpio
+
+
 def keyword_places_para_ia(
     rubro: str,
     *,
@@ -23,24 +46,49 @@ def keyword_places_para_ia(
     competidores_adicionales: str | None = None,
     google_type: str = "store",
 ) -> str | None:
-    """Palabra clave para afinar Nearby Search cuando el giro es libre o nicho."""
+    """Palabra clave corta para Nearby Search: rubro primero, sin frases largas de intenciones."""
     if competidores_adicionales:
         primera = competidores_adicionales.split(",")[0].strip()
         if primera:
-            return primera[:100]
+            return primera[:80]
 
-    contexto = contexto_giro_completo(rubro, intenciones)
-    if not contexto:
-        return None
+    rubro_kw = (rubro or "").strip()
+    extra = _intenciones_utiles_para_keyword(intenciones)
+    if rubro_kw and extra and extra.lower() not in rubro_kw.lower():
+        return f"{rubro_kw} {extra}"[:100]
+    if rubro_kw:
+        return rubro_kw[:80]
 
-    if google_type in ("store", "establishment"):
-        return contexto[:100]
-
-    # Giro escrito en texto libre: afinar aunque el tipo Places sea más genérico.
-    if len(contexto.split()) >= 2 or len(contexto) > 12:
-        return contexto[:100]
-
+    if google_type in ("store", "establishment") and extra:
+        return extra[:80]
     return None
+
+
+def buscar_competidores_ia_con_reintento(
+    lat: float,
+    lng: float,
+    radio: float,
+    google_type: str,
+    *,
+    rubro: str,
+    keyword: str | None,
+) -> list:
+    """Reintenta sin keyword o solo con rubro si Places devuelve cero resultados."""
+    from app.google_places import buscar_competidores
+
+    found = buscar_competidores(lat, lng, radio, google_type, keyword=keyword)
+    if found:
+        return found
+
+    rubro_kw = (rubro or "").strip()[:80] or None
+    if keyword and rubro_kw and keyword != rubro_kw:
+        found = buscar_competidores(lat, lng, radio, google_type, keyword=rubro_kw)
+        if found:
+            return found
+
+    if keyword:
+        return buscar_competidores(lat, lng, radio, google_type, keyword=None)
+    return []
 
 
 def resolver_tipos_competidores_busqueda(

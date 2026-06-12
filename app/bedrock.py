@@ -787,6 +787,14 @@ def determinar_categorias_ia(
             "competidores": ["store", "convenience_store"],
             "aliados": ["supermarket", "transit_station", "shopping_mall"],
         },
+        "floreria": {
+            "competidores": ["store"],
+            "aliados": ["shopping_mall", "school", "doctor", "restaurant"],
+        },
+        "flor": {
+            "competidores": ["store"],
+            "aliados": ["shopping_mall", "school", "doctor", "restaurant"],
+        },
     }
 
     # Buscar coincidencia simple de subcadena en fallbacks

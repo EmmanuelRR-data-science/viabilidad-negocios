@@ -8,6 +8,7 @@ from app.besttime import obtener_afluencia
 from app.competencia_busqueda import (
     contexto_giro_completo,
     keyword_places_para_ia,
+    buscar_competidores_ia_con_reintento,
     resolver_tipos_aliados_busqueda,
     resolver_tipos_competidores_busqueda,
 )
@@ -414,7 +415,17 @@ def procesar_calculo_analitico(
                 kw = keyword_ia if ia_autodetect_competidores and fuente_comp == "ia_rubro_intenciones" else None
                 if not kw and custom_type in ("store", "establishment") and competidores_adicionales:
                     kw = competidores_adicionales.split(",")[0].strip()
-                found = buscar_competidores(lat, lng, float(radio), custom_type, keyword=kw)
+                if ia_autodetect_competidores and fuente_comp == "ia_rubro_intenciones":
+                    found = buscar_competidores_ia_con_reintento(
+                        lat,
+                        lng,
+                        float(radio),
+                        custom_type,
+                        rubro=rubro,
+                        keyword=kw,
+                    )
+                else:
+                    found = buscar_competidores(lat, lng, float(radio), custom_type, keyword=kw)
                 for comp in found:
                     comp_key = (round(comp["latitud"], 5), round(comp["longitud"], 5))
                     if comp_key not in seen_keys:

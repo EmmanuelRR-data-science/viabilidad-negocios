@@ -883,6 +883,7 @@ async function openPaymentModal(tier) {
 
         const categoryMap = {
             "ia_auto": "🤖 Determinar automáticamente por IA",
+            "ia_auto_aliado": "📊 Matriz automática por rubro (geomarketing)",
             "cafe": "Cafetería",
             "restaurant": "Restaurante",
             "fast_food": "Comida Rápida",
@@ -939,7 +940,9 @@ async function openPaymentModal(tier) {
         } else if (tier === "premium") {
             summaryContainer.classList.remove("hidden");
             const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
-            const allyLabels = aliados_seleccionados ? aliados_seleccionados.map(a => categoryMap[a] || a).join(", ") : "Bancos, Escuelas y Transporte por defecto";
+            const allyLabels = aliados_seleccionados
+                ? aliados_seleccionados.map(a => (a === "ia_auto" ? categoryMap.ia_auto_aliado : (categoryMap[a] || a))).join(", ")
+                : "Bancos, Escuelas y Transporte por defecto";
             let compText = `🏪 <b>Competidores a analizar (Máx 5):</b> ${compLabels}`;
             if (compAdicionales) {
                 compText += ` (+ "${compAdicionales}")`;
@@ -960,7 +963,7 @@ async function openPaymentModal(tier) {
             longitud: state.selectedLng,
             radio_metros: state.selectedRadio,
             rubro: state.selectedGiro,
-            intenciones: document.getElementById("intenciones-textarea").value || "Evaluación comercial del giro en la zona residencial mexicana.",
+            intenciones: document.getElementById("intenciones-textarea").value.trim() || null,
             competidores_seleccionados: competidores_seleccionados,
             aliados_seleccionados: aliados_seleccionados,
             competidores_adicionales: compAdicionales || null,
