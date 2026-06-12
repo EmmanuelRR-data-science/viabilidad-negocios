@@ -8,10 +8,14 @@ import sqlalchemy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-DB_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://admin:admin_password_safe@127.0.0.1:5435/geoanalisis",
-)
+DB_URL = os.environ.get("DATABASE_URL")
+if not DB_URL:
+    user = os.environ.get("DB_USER", "admin")
+    password = os.environ.get("DB_PASSWORD", "admin_password_safe")
+    host = os.environ.get("DB_HOST", "127.0.0.1")
+    port = os.environ.get("DB_PORT", "5435")
+    name = os.environ.get("DB_NAME", "geoanalisis")
+    DB_URL = f"postgresql://{user}:{password}@{host}:{port}/{name}"
 
 
 def main() -> None:

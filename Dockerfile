@@ -39,6 +39,7 @@ COPY ingest_all_states.py .
 COPY .kiro/ .kiro/
 COPY app/ app/
 COPY frontend/ frontend/
+COPY scripts/ scripts/
 
 # Expose ports for Streamlit and FastAPI
 EXPOSE 8501
