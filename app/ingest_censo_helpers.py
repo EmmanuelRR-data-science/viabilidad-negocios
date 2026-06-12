@@ -95,7 +95,10 @@ def _num_or_none(value, *, as_int: bool = False):
 
 
 def _int_from_row(row, key: str) -> int:
-    return int(pd.to_numeric(row.get(key), errors="coerce") or 0)
+    parsed = pd.to_numeric(row.get(key), errors="coerce")
+    if pd.isna(parsed):
+        return 0
+    return int(parsed)
 
 
 def _extraer_segmentos_censo(row) -> dict:

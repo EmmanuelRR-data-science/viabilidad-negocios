@@ -110,16 +110,23 @@ def _load_geoms_from_state_zip(spatial_zip_path: str, state_str: str) -> dict:
     return geoms_dict
 
 
+def _normalize_census_columns(chunk: pd.DataFrame) -> pd.DataFrame:
+    chunk.columns = [str(c).replace("\ufeff", "").strip() for c in chunk.columns]
+    return chunk
+
+
 def _read_census_chunks(csv_f):
     for encoding in ("utf-8-sig", "latin-1", "cp1252"):
         try:
             csv_f.seek(0)
-            yield from pd.read_csv(csv_f, encoding=encoding, chunksize=2000, keep_default_na=False)
+            for chunk in pd.read_csv(csv_f, encoding=encoding, chunksize=2000, keep_default_na=False):
+                yield _normalize_census_columns(chunk)
             return
         except UnicodeDecodeError:
             continue
     csv_f.seek(0)
-    yield from pd.read_csv(csv_f, encoding="latin-1", chunksize=2000, keep_default_na=False, encoding_errors="replace")
+    for chunk in pd.read_csv(csv_f, encoding="latin-1", chunksize=2000, keep_default_na=False, encoding_errors="replace"):
+        yield _normalize_census_columns(chunk)
 
 
 def _load_census_from_zip(census_zip_path: str) -> dict:
