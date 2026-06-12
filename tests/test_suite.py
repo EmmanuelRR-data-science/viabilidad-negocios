@@ -339,7 +339,10 @@ def test_sva_calculo_transparente_y_simulador():
 
     desglose = desglose_sva_completo(analisis, tier="pro", radio_metros=1000)
     assert desglose["competencia"]["factor_log_isc"] is not None
-    assert "log₁₀(ISC)" in desglose["competencia"]["regla"]
+    assert "log10(ISC)" in desglose["competencia"]["regla"]
+    assert desglose["demografico"].get("lectura_llana")
+    assert desglose["competencia"].get("lectura_llana")
+    assert "distancia" in desglose["competencia"]["lectura_llana"].lower()
     assert desglose["demografico"]["score"] == 72.2
     assert desglose["sva_entero"] == desglose["sva_reportado"]
 

@@ -81,12 +81,12 @@ def _texto_entrada_demografica(dem: dict) -> str:
     if dem.get("log_densidad") is not None:
         return (
             f"{dem['poblacion']:,} hab. en radio {dem['radio_metros']:,} m "
-            f"(área {dem['area_km2']:.2f} km²) → {dem['densidad_hab_km2']:,.1f} hab/km² "
-            f"(log₁₀ = {dem['log_densidad']:.4f})"
+            f"(area {dem['area_km2']:.2f} km2) -> {dem['densidad_hab_km2']:,.1f} hab/km2 "
+            f"(log10 = {dem['log_densidad']:.4f})"
         )
     return (
         f"{dem['poblacion']:,} hab. en radio {dem['radio_metros']:,} m "
-        f"→ {dem['densidad_hab_km2']:,.1f} hab/km²"
+        f"-> {dem['densidad_hab_km2']:,.1f} hab/km2"
     )
 
 
@@ -96,7 +96,7 @@ def _texto_entrada_competencia(comp: dict) -> str:
     n = comp["competidores_conteo"]
     isc_txt = f"{isc:.6f}"
     if factor is not None:
-        return f"{n} competidores → ISC {isc_txt} → log₁₀(ISC) = {factor:.4f}"
+        return f"{n} competidores -> ISC {isc_txt} -> log10(ISC) = {factor:.4f}"
     return f"{n} competidores → ISC {isc_txt}"
 
 
@@ -112,7 +112,7 @@ def _agregar_seccion_transparencia_sva(
     s_table_cell,
 ) -> None:
     """Tablas paso a paso + mini simulador para la sección ¿Por qué este Score de Viabilidad?"""
-    from app.sva_calculo import desglose_sva_completo, escenarios_simulacion_sva
+    from app.sva_calculo import GLOSARIO_SVA_PDF, desglose_sva_completo, escenarios_simulacion_sva
 
     desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
     dem = desglose["demografico"]
@@ -178,7 +178,28 @@ def _agregar_seccion_transparencia_sva(
         )
     )
     story.append(tabla_pasos)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>En palabras simples:</b>", s_body))
+    story.append(Spacer(1, 4))
+    for etiqueta, pilar in (
+        ("Demografia", dem),
+        ("Competencia", comp),
+        ("Trafico", traf),
+    ):
+        story.append(
+            Paragraph(
+                f"<b>{etiqueta}:</b> {pilar.get('lectura_llana', '')}",
+                s_body,
+            )
+        )
+        story.append(Spacer(1, 3))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("<b>Glosario rapido:</b>", s_body))
+    story.append(Spacer(1, 4))
+    for termino, definicion in GLOSARIO_SVA_PDF:
+        story.append(Paragraph(f"<b>{termino}:</b> {definicion}", s_body))
+        story.append(Spacer(1, 2))
+    story.append(Spacer(1, 4))
     story.append(Paragraph(f"<i>{comp['nota']}</i>", s_body))
     story.append(Spacer(1, 4))
     story.append(

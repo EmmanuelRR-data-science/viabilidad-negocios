@@ -20,6 +20,77 @@ ISC_LOG_MIN = -6.0
 ISC_LOG_MAX = -2.0
 SCORE_TRAFICO_SIN_BESTTIME = 55.0
 
+GLOSARIO_SVA_PDF = [
+    (
+        "ISC (Indice de Saturacion Comercial)",
+        "Suma la presion de cada competidor segun su distancia: 1 / distancia^2. "
+        "Rivales muy cercanos elevan el ISC mas que muchos rivales lejanos.",
+    ),
+    (
+        "Pesos 40% / 30% / 30%",
+        "Demografia aporta hasta 40 puntos, competencia hasta 30 y trafico hasta 30. "
+        "El SVA es la suma de esos aportes (maximo teorico 100).",
+    ),
+    (
+        "Redondeo del SVA",
+        "La suma ponderada puede traer decimales (ej. 78.7); el reporte muestra el entero "
+        "mas cercano (ej. 79) para facilitar la lectura.",
+    ),
+]
+
+
+def _lectura_llana_demografico(dem: dict[str, Any]) -> str:
+    score = float(dem["score"])
+    dens = float(dem["densidad_hab_km2"])
+    if score >= 80:
+        return (
+            f"Hay buena concentracion de personas en tu radio ({dens:,.0f} hab/km2); "
+            f"el pilar demografico aporta {score:.0f}/100."
+        )
+    if score >= 50:
+        return (
+            f"La densidad es aceptable ({dens:,.0f} hab/km2) pero no maxima; "
+            f"el pilar demografico queda en {score:.0f}/100."
+        )
+    return (
+        f"Poca poblacion concentrada en el radio ({dens:,.0f} hab/km2); "
+        f"el pilar demografico limita el SVA ({score:.0f}/100)."
+    )
+
+
+def _lectura_llana_competencia(comp: dict[str, Any]) -> str:
+    n = int(comp["competidores_conteo"])
+    score = float(comp["score"])
+    if n == 0 or comp["isc"] <= 0:
+        return "No hay competidores detectados en el radio; este pilar no resta puntos (100/100)."
+    if score >= 80:
+        return (
+            f"Se detectaron {n} rivales, pero con poca presion muy cercana; "
+            f"el pilar de competencia queda alto ({score:.0f}/100)."
+        )
+    if score >= 50:
+        return (
+            f"Hay {n} competidores y varios compiten cerca de tu punto; "
+            f"por eso el pilar baja a {score:.0f}/100 (no depende solo del numero, sino de la distancia)."
+        )
+    return (
+        f"Alta saturacion: {n} rivales con varios muy proximos; "
+        f"el pilar de competencia presiona fuerte el SVA ({score:.0f}/100)."
+    )
+
+
+def _lectura_llana_trafico(traf: dict[str, Any], tier: str) -> str:
+    score = float(traf["score"])
+    if tier == "premium" and "BestTime" in traf.get("fuente", ""):
+        return (
+            f"La afluencia peatonal medida en la zona equivale a {score:.1f}%; "
+            f"ese porcentaje es tu score de trafico."
+        )
+    return (
+        f"En plan {tier.capitalize()} no hubo medicion peatonal BestTime para esta coordenada; "
+        f"se usa un valor base de {score:.0f} para no sobre-penalizar ni sobre-favorecer el punto."
+    )
+
 
 def calcular_isc_desde_competidores(competidores: list[dict]) -> float:
     """ISC = Σ 1 / max(distancia_metros, 10)² — penaliza rivales muy cercanos."""
@@ -86,21 +157,21 @@ def detalle_pilar_demografico(poblacion: int, radio_metros: int) -> dict[str, An
     score, densidad_redondeada = calcular_score_demografico(poblacion, radio_metros)
 
     if densidad <= DENSIDAD_MINIMA_HAB_KM2:
-        regla = f"Densidad ≤ {DENSIDAD_MINIMA_HAB_KM2:,.0f} hab/km² → score fijo 15"
+        regla = f"Densidad <= {DENSIDAD_MINIMA_HAB_KM2:,.0f} hab/km2 -> score fijo 15"
         log_d = log_min = log_opt = None
     elif densidad >= DENSIDAD_OPTIMA_HAB_KM2:
-        regla = f"Densidad ≥ {DENSIDAD_OPTIMA_HAB_KM2:,.0f} hab/km² → score fijo 100"
+        regla = f"Densidad >= {DENSIDAD_OPTIMA_HAB_KM2:,.0f} hab/km2 -> score fijo 100"
         log_d = log_min = log_opt = None
     else:
         log_d = math.log10(densidad)
         log_min = math.log10(DENSIDAD_MINIMA_HAB_KM2)
         log_opt = math.log10(DENSIDAD_OPTIMA_HAB_KM2)
         regla = (
-            f"15 + ((log₁₀(densidad) − log₁₀({DENSIDAD_MINIMA_HAB_KM2:,.0f})) / "
-            f"(log₁₀({DENSIDAD_OPTIMA_HAB_KM2:,.0f}) − log₁₀({DENSIDAD_MINIMA_HAB_KM2:,.0f}))) × 85"
+            f"15 + ((log10(densidad) - log10({DENSIDAD_MINIMA_HAB_KM2:,.0f})) / "
+            f"(log10({DENSIDAD_OPTIMA_HAB_KM2:,.0f}) - log10({DENSIDAD_MINIMA_HAB_KM2:,.0f}))) x 85"
         )
 
-    return {
+    resultado = {
         "poblacion": poblacion,
         "radio_metros": radio_metros,
         "area_km2": round(area_km2, 3),
@@ -110,6 +181,8 @@ def detalle_pilar_demografico(poblacion: int, radio_metros: int) -> dict[str, An
         "score": score,
         "aporte_ponderado": round(score * PESO_DEMOGRAFICO, 1),
     }
+    resultado["lectura_llana"] = _lectura_llana_demografico(resultado)
+    return resultado
 
 
 def detalle_pilar_competencia(isc: float, competidores_conteo: int) -> dict[str, Any]:
@@ -117,17 +190,17 @@ def detalle_pilar_competencia(isc: float, competidores_conteo: int) -> dict[str,
     score = calcular_score_competencia(isc)
 
     if isc <= 0:
-        regla = "Sin competidores → score fijo 100"
+        regla = "Sin competidores -> score fijo 100"
     elif factor is not None and factor <= ISC_LOG_MIN:
-        regla = f"log₁₀(ISC) ≤ {ISC_LOG_MIN:g} → score fijo 100 (baja saturación espacial)"
+        regla = f"log10(ISC) <= {ISC_LOG_MIN:g} -> score fijo 100 (baja saturacion espacial)"
     elif factor is not None and factor >= ISC_LOG_MAX:
-        regla = f"log₁₀(ISC) ≥ {ISC_LOG_MAX:g} → score fijo 10 (alta saturación espacial)"
+        regla = f"log10(ISC) >= {ISC_LOG_MAX:g} -> score fijo 10 (alta saturacion espacial)"
     else:
         regla = (
-            f"100 − ((log₁₀(ISC) − ({ISC_LOG_MIN:g})) / ({ISC_LOG_MAX:g} − ({ISC_LOG_MIN:g}))) × 90"
+            f"100 - ((log10(ISC) - ({ISC_LOG_MIN:g})) / ({ISC_LOG_MAX:g} - ({ISC_LOG_MIN:g}))) x 90"
         )
 
-    return {
+    resultado = {
         "competidores_conteo": competidores_conteo,
         "isc": isc,
         "factor_log_isc": round(factor, 4) if factor is not None else None,
@@ -135,10 +208,12 @@ def detalle_pilar_competencia(isc: float, competidores_conteo: int) -> dict[str,
         "score": score,
         "aporte_ponderado": round(score * PESO_COMPETENCIA, 1),
         "nota": (
-            "El ISC no es el número de competidores: suma 1/distancia² de cada rival. "
-            "Dos locales a 50 m penalizan mucho más que diez a 800 m."
+            "El ISC no es el numero de competidores: suma 1/distancia^2 de cada rival. "
+            "Dos locales a 50 m penalizan mucho mas que diez a 800 m."
         ),
     }
+    resultado["lectura_llana"] = _lectura_llana_competencia(resultado)
+    return resultado
 
 
 def detalle_pilar_trafico(tier: str, afluencia: dict | None, score_traf: float) -> dict[str, Any]:
@@ -153,13 +228,15 @@ def detalle_pilar_trafico(tier: str, afluencia: dict | None, score_traf: float) 
         regla = f"Score fijo {SCORE_TRAFICO_SIN_BESTTIME} cuando no hay afluencia BestTime calibrada"
         detalle = f"Valor aplicado: {SCORE_TRAFICO_SIN_BESTTIME}"
 
-    return {
+    resultado = {
         "fuente": fuente,
         "regla": regla,
         "detalle": detalle,
         "score": score_traf,
         "aporte_ponderado": round(score_traf * PESO_TRAFICO, 1),
     }
+    resultado["lectura_llana"] = _lectura_llana_trafico(resultado, tier)
+    return resultado
 
 
 def desglose_sva_completo(
@@ -190,8 +267,8 @@ def desglose_sva_completo(
         "sva_entero": sva_entero,
         "sva_reportado": int(analisis.get("sva", sva_entero)),
         "formula_final": (
-            f"({score_dem:.1f} × 0.4) + ({score_comp:.1f} × 0.3) + ({score_traf:.1f} × 0.3) "
-            f"= {sva_ponderado:.1f} → redondeo {sva_entero}"
+            f"({score_dem:.1f} x 0.4) + ({score_comp:.1f} x 0.3) + ({score_traf:.1f} x 0.3) "
+            f"= {sva_ponderado:.1f} -> redondeo {sva_entero}"
         ),
     }
 
