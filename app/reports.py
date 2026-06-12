@@ -445,15 +445,19 @@ class NumberedCanvas(canvas.Canvas):
             page_text = f"Página {self._pageNumber} de {page_count}"
             self.drawRightString(612 - 54, 42, page_text)
 
-            # Invitación a agendar asesoría / videollamada
-            self.setFont("Helvetica-Bold", 6.5)
-            self.setFillColor(colors.HexColor("#2563eb"))  # Azul enlace
+            # Disclaimer orientativo (sin enlace comercial)
+            self.setFont("Helvetica", 6.5)
+            self.setFillColor(colors.HexColor("#64748b"))
             self.drawString(
                 54,
-                30,
-                "— ¿DESEAS AGENDAR UNA ENTREVISTA POR VIDEOLLAMADA CON EL EQUIPO DE ESTUDIOS DE MERCADO? HAZ CLIC AQUÍ.",
+                32,
+                "Este informe es orientativo y basado en datos públicos y estimaciones.",
             )
-            self.linkURL("https://estudiosdemercado.phiqus.com/agenda", rect=(54, 25, 520, 35))
+            self.drawString(
+                54,
+                24,
+                "No garantiza rentabilidad ni sustituye visita al sitio, asesoría legal o financiera.",
+            )
 
         self.restoreState()
 
@@ -765,6 +769,18 @@ class ReportLabGenerator:
             status_txt = "<font color='#dc2626'><b>RIESGOSA (VIABILIDAD BAJA)</b></font>"
 
         story.append(Paragraph(f"<b>Diagnóstico preliminar:</b> {status_txt}", s_body))
+
+        from app.lectura_estrategica import generar_conclusion_detallada
+
+        conclusion_ejecutiva = generar_conclusion_detallada(
+            analisis,
+            orden.rubro,
+            tier=orden.tier_adquirido,
+            radio_metros=int(orden.radio_metros),
+        )
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("<b>Conclusión general — por qué obtuviste este score:</b>", s_h2))
+        story.append(Paragraph(conclusion_ejecutiva, s_body))
 
         story.append(Spacer(1, 15))
         story.append(Paragraph(f"<b>Ubicación física resuelta:</b><br/>{analisis['direccion']}", s_body))
@@ -1197,8 +1213,9 @@ class ReportLabGenerator:
         # SECCIÓN 5 (DIFERIDA): LECTURA ESTRATÉGICA DEL PUNTO
         # =====================================================================
         from app.bedrock import _generar_consideraciones_apertura
+        from app.lectura_estrategica import enriquecer_lista_lectura
 
-        s_body_foda = ParagraphStyle("Body_Foda", parent=s_body, fontSize=8.2, leading=10.5, spaceAfter=2.5)
+        s_body_foda = ParagraphStyle("Body_Foda", parent=s_body, fontSize=8.2, leading=11, spaceAfter=3)
         s_h2_foda = ParagraphStyle("Heading2_Foda", parent=s_h2, fontSize=9.5, leading=12, spaceBefore=4, spaceAfter=2)
 
         if not foda_dict.get("consideraciones_apertura"):
@@ -1219,10 +1236,9 @@ class ReportLabGenerator:
             textColor=colors.HexColor("#334155"),
         )
 
-        fort_list = foda_dict.get("fortalezas", [])
-        op_list = foda_dict.get("oportunidades", [])
-        cons_list = foda_dict.get("consideraciones_apertura", [])
-        conclusion_txt = _texto_si_es_real(foda_dict.get("conclusion"))
+        fort_list = enriquecer_lista_lectura(foda_dict.get("fortalezas", []), analisis)
+        op_list = enriquecer_lista_lectura(foda_dict.get("oportunidades", []), analisis)
+        cons_list = enriquecer_lista_lectura(foda_dict.get("consideraciones_apertura", []), analisis)
         dictamen_txt = _texto_si_es_real(foda_dict.get("dictamen_final"))
 
         bloque_foda: list = []
@@ -1252,10 +1268,6 @@ class ReportLabGenerator:
             bloque_foda.append(lectura_table)
             bloque_foda.append(Spacer(1, 8))
 
-        if conclusion_txt:
-            bloque_foda.append(Paragraph("Conclusión General:", s_h2_foda))
-            bloque_foda.append(Paragraph(conclusion_txt, s_body_foda))
-
         if dictamen_txt:
             bloque_foda.append(Spacer(1, 8))
             bloque_foda.append(Paragraph("<b>Dictamen Final del Consultor:</b>", s_h2_foda))
@@ -1265,8 +1277,8 @@ class ReportLabGenerator:
             bloque_diagnostico.append(Paragraph("5. LECTURA ESTRATÉGICA DEL PUNTO", s_h1))
             bloque_diagnostico.append(
                 Paragraph(
-                    "Orientación basada en métricas de INEGI, Google Places y afluencia. "
-                    "<b>No sustituye un estudio de mercado ni una proyección financiera.</b>",
+                    "Lectura ampliada de fortalezas, oportunidades y consideraciones. "
+                    "La síntesis del score y cómo mejorarlo está en el <b>Resumen Ejecutivo</b>.",
                     s_body_foda,
                 )
             )
@@ -1293,6 +1305,17 @@ class ReportLabGenerator:
                 s_body,
             )
         )
+
+        bloque_metodologia.append(Spacer(1, 10))
+        bloque_metodologia.append(Paragraph("<b>Resumen metodológico y glosario:</b>", s_h2))
+        from app.lectura_estrategica import bloques_metodologia_resumen
+
+        for titulo, cuerpo in bloques_metodologia_resumen(
+            analisis,
+            tier=orden.tier_adquirido,
+            radio_metros=int(orden.radio_metros),
+        ):
+            bloque_metodologia.append(Paragraph(f"• <b>{titulo}:</b> {cuerpo}", s_bullet))
 
         bloque_metodologia.append(Spacer(1, 10))
         bloque_metodologia.append(Paragraph("<b>Conceptos Clave de Localización:</b>", s_h2))

@@ -60,6 +60,8 @@ def generar_informe_task(orden_id: int):
             modo_analisis_aliados=modo_aliados,
             config_aliados_guiados=config_guiada,
         )
+        resultado["radio_metros"] = orden.radio_metros
+        resultado["tier_adquirido"] = orden.tier_adquirido
 
         # Cálculo multi-radio REAL con PostGIS: población y densidad por anillo de cobertura.
         # Solo la población se re-consulta por radio; competidores/aliados se miden únicamente

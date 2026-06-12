@@ -223,6 +223,8 @@ def obtener_resultado_analisis(
             analisis_cuant["direccion"] = direccion_res["formato_completo"]
             analisis_cuant["competidores_adicionales"] = orden.competidores_adicionales
             analisis_cuant["aliados_adicionales"] = orden.aliados_adicionales
+            analisis_cuant["radio_metros"] = orden.radio_metros
+            analisis_cuant["tier_adquirido"] = orden.tier_adquirido
 
             # 3. Invocar LLM para diagnóstico FODA (Groq → Bedrock → respaldo cuantitativo)
             try:

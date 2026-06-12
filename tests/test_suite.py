@@ -386,6 +386,47 @@ def test_competidores_mas_cercanos_y_lectura():
     assert "aceptable" in lectura_competidor_cercano(lista[2]).lower()
 
 
+def test_lectura_estrategica_enriquecimiento_y_conclusion():
+    from app.lectura_estrategica import (
+        bloques_metodologia_resumen,
+        enriquecer_item_lectura,
+        generar_conclusion_detallada,
+    )
+
+    analisis = {
+        "sva": 62,
+        "poblacion_ponderada": 12500,
+        "densidad_hab_km2": 4200.5,
+        "competidores_conteo": 8,
+        "score_demog": 72,
+        "score_competencia": 54,
+        "score_trafico": 55,
+        "nse": {
+            "nse_etiqueta": "NSE A/B",
+            "metricas": {
+                "escolaridad_promedio": 14.6,
+                "internet_pct": 88.2,
+                "autos_pct": 62.1,
+                "fuente": "censo",
+            },
+        },
+        "aliados_conteos": {"escuela": 3, "transporte": 2},
+    }
+    expandido = enriquecer_item_lectura("NSE A/B con escolaridad promedio de 14.6", analisis)
+    assert "14.6" in expandido
+    assert "internet" in expandido.lower()
+    assert len(expandido) > 80
+
+    conclusion = generar_conclusion_detallada(analisis, "Cafetería", tier="pro", radio_metros=1000)
+    assert "62/100" in conclusion
+    assert "40%" in conclusion
+    assert "Para mejorar" in conclusion or "mejorar" in conclusion.lower()
+
+    bloques = bloques_metodologia_resumen(analisis, tier="pro", radio_metros=1000)
+    assert any("ISC" in t for t, _ in bloques)
+    assert any("Nivel socioeconómico" in t for t, _ in bloques)
+
+
 def test_interpretacion_demografia_por_rubro():
     from app.reports import _interpretacion_distribucion_poblacional
 

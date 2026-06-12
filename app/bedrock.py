@@ -203,6 +203,44 @@ def _generar_consideraciones_apertura(datos_entorno: dict) -> list[str]:
     return [c_sva, c_comp, c_extra]
 
 
+def _fortalezas_respaldo_detalladas(datos_entorno: dict) -> list[str]:
+    from app.lectura_estrategica import enriquecer_lista_lectura
+
+    poblacion = datos_entorno.get("poblacion_ponderada", 0)
+    densidad = datos_entorno.get("densidad_hab_km2", 0)
+    competencia = datos_entorno.get("competidores_conteo", 0)
+    nse_info = datos_entorno.get("nse") or {}
+    nse_etiqueta = nse_info.get("nse_etiqueta", "No disponible")
+    metricas = nse_info.get("metricas") or {}
+
+    borrador = [
+        f"Base demográfica de {poblacion:,} personas ({densidad:,.1f} hab/km² en el radio analizado).",
+        (
+            f"NSE {nse_etiqueta} con escolaridad promedio de "
+            f"{float(metricas.get('escolaridad_promedio', 0) or 0):.1f} años."
+        ),
+    ]
+    if competencia == 0:
+        borrador.append("Sin competidores directos detectados en el radio de influencia contratado.")
+
+    conteos_aliados = {
+        k: v for k, v in (datos_entorno.get("aliados_conteos") or {}).items() if k != "ia_auto"
+    }
+    total_atractores = sum(conteos_aliados.values())
+    if total_atractores > 0:
+        borrador.append(
+            f"Índice de atractores: {total_atractores} puntos de interés en {len(conteos_aliados)} categorías."
+        )
+
+    afl = datos_entorno.get("afluencia_peatonal") or {}
+    if afl.get("status") == "success" and afl.get("dia_pico"):
+        borrador.append(
+            f"Afluencia peatonal: día pico {afl.get('dia_pico')} hora {afl.get('hora_pico', 'N/D')}."
+        )
+
+    return enriquecer_lista_lectura(borrador, datos_entorno, max_items=3)
+
+
 _CAMPOS_CUALITATIVOS_LLM = frozenset({"fortalezas", "oportunidades"})
 
 
@@ -226,9 +264,18 @@ def _aplicar_politica_honesta_foda(
     for campo in _CAMPOS_CUALITATIVOS_LLM:
         items = _recortar_lista_texto(foda_llm.get(campo), max_items=3)
         if items:
-            resultado[campo] = items
+            from app.lectura_estrategica import enriquecer_lista_lectura
+
+            resultado[campo] = enriquecer_lista_lectura(items, datos_entorno, max_items=3)
 
     resultado["consideraciones_apertura"] = _generar_consideraciones_apertura(datos_entorno)
+    tier = datos_entorno.get("tier_adquirido") or "premium"
+    radio = int(datos_entorno.get("radio_metros") or 1000)
+    from app.lectura_estrategica import generar_conclusion_detallada
+
+    resultado["conclusion"] = generar_conclusion_detallada(
+        datos_entorno, rubro, tier=tier, radio_metros=radio
+    )
     return resultado
 
 
@@ -388,41 +435,24 @@ def _foda_respaldo_cuantitativo(
     densidad = datos_entorno.get("densidad_hab_km2", 0)
     nse_info = datos_entorno.get("nse") or {}
     nse_etiqueta = nse_info.get("nse_etiqueta", "No disponible")
-    fortalezas_list = [
-        f"Base demográfica de {poblacion:,} personas ({densidad:,.1f} hab/km² en el radio analizado).",
-        f"Ubicación en {direcc} con accesibilidad vial en zona urbana.",
-    ]
-    if competencia == 0:
-        fortalezas_list.append("Sin competidores directos detectados en el radio de influencia contratado.")
-
-    conteos_aliados = {
-        k: v for k, v in (datos_entorno.get("aliados_conteos") or {}).items() if k != "ia_auto"
-    }
-    total_atractores = sum(conteos_aliados.values())
-    if total_atractores > 0:
-        fortalezas_list.append(
-            f"Índice de atractores: {total_atractores} puntos de interés en {len(conteos_aliados)} categorías."
-        )
-
-    afl = datos_entorno.get("afluencia_peatonal") or {}
-    if afl.get("status") == "success" and afl.get("dia_pico"):
-        fortalezas_list.append(
-            f"Afluencia peatonal: día pico {afl.get('dia_pico')} "
-            f"con hora máxima {afl.get('hora_pico', 'N/D')}."
-        )
-    fortalezas_list = _recortar_lista_texto(fortalezas_list, max_items=3)
+    fortalezas_list = _fortalezas_respaldo_detalladas(datos_entorno)
 
     quejas_reales = _quejas_desde_competencia_real(datos_entorno)
+
+    tier = datos_entorno.get("tier_adquirido") or "premium"
+    radio = int(datos_entorno.get("radio_metros") or 1000)
+    from app.lectura_estrategica import generar_conclusion_detallada
+
+    conclusion_larga = generar_conclusion_detallada(
+        datos_entorno, rubro, tier=tier, radio_metros=radio
+    )
 
     return {
         "_fuente": "respaldo_cuantitativo",
         "fortalezas": fortalezas_list,
         "oportunidades": [],
         "consideraciones_apertura": _generar_consideraciones_apertura(datos_entorno),
-        "conclusion": (
-            f"El punto cuenta con un Score SVA de {sva}/100 y {competencia} competidores en el radio. "
-            f"{veredicto_conclusion}"
-        ),
+        "conclusion": conclusion_larga,
         "segmentacion_nicho": (
             f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}' "
             f"y NSE predominante {nse_etiqueta}."
@@ -509,8 +539,9 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         '  "oportunidades": ["exactamente 3 bullets"]\n'
         "}\n"
         "REGLAS:\n"
-        "- Exactamente 3 ítems por lista, máximo 120 caracteres cada uno.\n"
-        "- Cada bullet debe citar al menos un dato del contexto (población, densidad, SVA, competidores, atractores).\n"
+        "- Exactamente 3 ítems por lista, máximo 200 caracteres cada uno.\n"
+        "- Cada bullet debe ser una oración completa: dato + qué significa para el negocio (no solo cifras sueltas).\n"
+        "- Si mencionas NSE o escolaridad, explica poder adquisitivo o perfil de cliente en una frase adicional.\n"
         "- Tono descriptivo u orientativo; sin lenguaje de amenaza, debilidad ni predicción de fracaso/éxito.\n"
         "- PROHIBIDO: montos en pesos, porcentajes inventados, TIR, payback, penetración de mercado, nombres de "
         "personas o reseñas textuales inventadas.\n"
