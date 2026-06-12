@@ -301,26 +301,60 @@ def test_resolver_aliados_intenciones_reordenan_sin_agregar():
     assert con_escuela[0] == "school"
 
 
-def test_justificacion_sva_explica_saturacion_competencia():
-    from app.reports import _justificacion_score_sva
-
-    texto = _justificacion_score_sva(
-        {
-            "sva": 54,
-            "score_demog": 72.0,
-            "score_competencia": 54.4,
-            "score_trafico": 55.0,
-            "competidores_conteo": 12,
-            "isc": 0.015,
-            "densidad_hab_km2": 1450.0,
-        },
-        rubro="florería",
-        tier="pro",
+def test_sva_calculo_transparente_y_simulador():
+    from app.sva_calculo import (
+        calcular_score_competencia,
+        componer_sva,
+        desglose_sva_completo,
+        escenarios_simulacion_sva,
     )
-    assert "54/100" in texto or "54.4" in texto
-    assert "54.4" in texto
-    assert "competencia" in texto.lower()
-    assert "ISC" in texto
+
+    analisis = {
+        "score_demog": 72.2,
+        "score_trafico": 55.0,
+        "competidores_conteo": 12,
+        "densidad_hab_km2": 1450.0,
+        "poblacion_ponderada": 2500,
+        "competidores_listado": [
+            {"distancia_metros": 80},
+            {"distancia_metros": 150},
+            {"distancia_metros": 220},
+            {"distancia_metros": 310},
+            {"distancia_metros": 400},
+            {"distancia_metros": 520},
+            {"distancia_metros": 610},
+            {"distancia_metros": 700},
+            {"distancia_metros": 820},
+            {"distancia_metros": 900},
+            {"distancia_metros": 1050},
+            {"distancia_metros": 1200},
+        ],
+    }
+    isc_ejemplo = 0.0001064
+    score_comp = calcular_score_competencia(isc_ejemplo)
+    assert score_comp == 54.4
+    analisis["isc"] = isc_ejemplo
+    analisis["score_competencia"] = score_comp
+    _, analisis["sva"] = componer_sva(72.2, score_comp, 55.0)
+
+    desglose = desglose_sva_completo(analisis, tier="pro", radio_metros=1000)
+    assert desglose["competencia"]["factor_log_isc"] is not None
+    assert "log₁₀(ISC)" in desglose["competencia"]["regla"]
+    assert desglose["demografico"]["score"] == 72.2
+    assert desglose["sva_entero"] == desglose["sva_reportado"]
+
+    escenarios = escenarios_simulacion_sva(analisis, tier="pro", radio_metros=1000)
+    assert escenarios[0]["escenario"].startswith("Situación actual")
+    assert escenarios[0]["competidores"] == 12
+    assert escenarios[0]["sva"] == analisis["sva"]
+    mitad = next(e for e in escenarios if "más cercanos" in e["escenario"] and e["competidores"] == 6)
+    assert mitad["delta_vs_actual"] != 0
+    sin_comp = next(e for e in escenarios if e["competidores"] == 0)
+    assert sin_comp["score_competencia"] == 100.0
+    assert sin_comp["sva"] > escenarios[0]["sva"]
+
+    _, sva_calc = componer_sva(72.2, score_comp, 55.0)
+    assert sva_calc == 62
 
 
 def test_interpretacion_demografia_por_rubro():

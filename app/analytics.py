@@ -136,32 +136,12 @@ def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
     }
 
 
-# Referencias de densidad (hab/km²) en el radio contratado — calibradas para contexto urbano mexicano.
-# No comparan población absoluta del municipio contra metrópolis; miden concentración en el área de captación.
-DENSIDAD_MINIMA_HAB_KM2 = 120.0   # Por debajo: mercado muy disperso (zona rural o periurbana)
-DENSIDAD_OPTIMA_HAB_KM2 = 2000.0  # A partir de aquí: demanda local sólida (centro urbano compacto)
-
-
-def calcular_score_demografico(poblacion: int, radio_metros: int) -> tuple[float, float]:
-    """
-    Pilar demográfico estandarizado por densidad en el radio de influencia (hab/km²),
-    no por población absoluta. Así un pueblo compacto no se compara contra una metrópoli entera.
-    """
-    radio_km = radio_metros / 1000.0
-    area_km2 = math.pi * radio_km * radio_km
-    densidad = (poblacion / area_km2) if area_km2 > 0 else 0.0
-
-    if densidad <= DENSIDAD_MINIMA_HAB_KM2:
-        score = 15.0
-    elif densidad >= DENSIDAD_OPTIMA_HAB_KM2:
-        score = 100.0
-    else:
-        log_d = math.log10(densidad)
-        log_min = math.log10(DENSIDAD_MINIMA_HAB_KM2)
-        log_opt = math.log10(DENSIDAD_OPTIMA_HAB_KM2)
-        score = 15.0 + ((log_d - log_min) / (log_opt - log_min)) * 85.0
-
-    return round(min(100.0, max(0.0, score)), 1), round(densidad, 1)
+from app.sva_calculo import (
+    DENSIDAD_MINIMA_HAB_KM2,
+    DENSIDAD_OPTIMA_HAB_KM2,
+    calcular_score_demografico,
+    calcular_score_competencia,
+)
 
 
 def _agregar_aliados_al_listado(
@@ -562,17 +542,8 @@ def procesar_calculo_analitico(
     # A. Score Demográfico por densidad en el radio (hab/km²), no por población absoluta
     score_demog, densidad_hab_km2 = calcular_score_demografico(pob_total, radio)
 
-    # B. Score de Competencia (A menor saturación, mayor score)
-    if not competidores:
-        score_competencia = 100.0
-    else:
-        factor_saturacion = math.log10(isc) if isc > 0 else -10
-        if factor_saturacion <= -6:
-            score_competencia = 100.0
-        elif factor_saturacion >= -2:
-            score_competencia = 10.0
-        else:
-            score_competencia = 100.0 - ((factor_saturacion - (-6)) / ((-2) - (-6)) * 90.0)
+    # B. Score de Competencia (ISC + escala logarítmica; ver app.sva_calculo)
+    score_competencia = calcular_score_competencia(isc)
 
     # C. Score de Atracción de Tráfico (Basado en afluencia o POIs atractores)
     if tier == "premium" and afluencia.get("status") == "success":

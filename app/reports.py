@@ -77,75 +77,182 @@ def _pct_poblacion(valor: int, total: int) -> float:
     return round((valor / total) * 100, 1)
 
 
-def _justificacion_score_sva(analisis: dict, rubro: str, tier: str) -> str:
-    """Párrafo que explica cómo se compone y por qué resulta el SVA mostrado."""
-    rubro_txt = rubro_legible(rubro)
-    sva = analisis.get("sva", 0)
-    score_dem = float(analisis.get("score_demog", 50.0))
-    score_comp = float(analisis.get("score_competencia", 50.0))
-    score_traf = float(analisis.get("score_trafico", 50.0))
-    comp_n = int(analisis.get("competidores_conteo", 0))
-    isc = float(analisis.get("isc", 0.0))
-    dens = float(analisis.get("densidad_hab_km2", 0.0))
-
-    aporte_dem = round(score_dem * 0.4, 1)
-    aporte_comp = round(score_comp * 0.3, 1)
-    aporte_traf = round(score_traf * 0.3, 1)
-    sva_ponderado = round(aporte_dem + aporte_comp + aporte_traf, 1)
-
-    pilares = (
-        ("demográfico", score_dem, aporte_dem),
-        ("de competencia", score_comp, aporte_comp),
-        ("de atractores y tráfico", score_traf, aporte_traf),
-    )
-    pilar_limitante = min(pilares, key=lambda p: p[1])
-
-    if score_dem >= 80:
-        dem_txt = f"la densidad de {dens:,.1f} hab/km² respalda una base de demanda sólida ({score_dem:.1f}/100)"
-    elif score_dem >= 50:
-        dem_txt = f"la densidad de {dens:,.1f} hab/km² es aceptable pero no óptima ({score_dem:.1f}/100)"
-    else:
-        dem_txt = f"la baja densidad de {dens:,.1f} hab/km² reduce el mercado capturable ({score_dem:.1f}/100)"
-
-    isc_fmt = f"{isc:.6f}"
-    if comp_n == 0:
-        comp_txt = "no hay competidores directos detectados, por lo que este pilar aporta el máximo (100/100)"
-    elif score_comp >= 80:
-        comp_txt = (
-            f"los {comp_n} competidor(es) generan poca fricción (ISC {isc_fmt}), "
-            f"dejando el pilar en {score_comp:.1f}/100"
+def _texto_entrada_demografica(dem: dict) -> str:
+    if dem.get("log_densidad") is not None:
+        return (
+            f"{dem['poblacion']:,} hab. en radio {dem['radio_metros']:,} m "
+            f"(área {dem['area_km2']:.2f} km²) → {dem['densidad_hab_km2']:,.1f} hab/km² "
+            f"(log₁₀ = {dem['log_densidad']:.4f})"
         )
-    elif score_comp >= 50:
-        comp_txt = (
-            f"los {comp_n} competidores en el radio producen saturación moderada (ISC {isc_fmt}), "
-            f"traducida en {score_comp:.1f}/100: a más rivales cercanos, menor puntuación"
-        )
-    else:
-        comp_txt = (
-            f"la alta saturación — {comp_n} competidores con ISC {isc_fmt} — "
-            f"reduce este pilar a <b>{score_comp:.1f}/100</b> porque varios negocios muy próximos "
-            f"compiten por el mismo flujo de clientes"
-        )
-
-    afluencia = analisis.get("afluencia_peatonal") or {}
-    if tier == "premium" and afluencia.get("status") == "success":
-        traf_txt = (
-            f"la afluencia peatonal medida (BestTime) calibró el pilar en {score_traf:.1f}/100"
-        )
-    else:
-        traf_txt = (
-            f"el tráfico y atractores del entorno se estimaron en {score_traf:.1f}/100 "
-            f"(sin afluencia peatonal calibrada en plan {tier.capitalize()})"
-        )
-
     return (
-        f"El <b>SVA de {sva}/100</b> para <b>{rubro_txt}</b> combina tres pilares con pesos fijos: "
-        f"demografía aporta {aporte_dem} de 40 posibles, competencia {aporte_comp} de 30 y tráfico {aporte_traf} de 30 "
-        f"({sva_ponderado:.1f}/100 antes del redondeo). En demografía, {dem_txt}; en competencia, {comp_txt}; "
-        f"en tráfico, {traf_txt}. El factor que más presiona el resultado es el pilar <b>{pilar_limitante[0]}</b> "
-        f"({pilar_limitante[1]:.1f}/100, {pilar_limitante[2]} pts ponderados), por eso el score global "
-        f"refleja ese equilibrio y no solo el conteo de competidores."
+        f"{dem['poblacion']:,} hab. en radio {dem['radio_metros']:,} m "
+        f"→ {dem['densidad_hab_km2']:,.1f} hab/km²"
     )
+
+
+def _texto_entrada_competencia(comp: dict) -> str:
+    isc = float(comp["isc"])
+    factor = comp.get("factor_log_isc")
+    n = comp["competidores_conteo"]
+    isc_txt = f"{isc:.6f}"
+    if factor is not None:
+        return f"{n} competidores → ISC {isc_txt} → log₁₀(ISC) = {factor:.4f}"
+    return f"{n} competidores → ISC {isc_txt}"
+
+
+def _agregar_seccion_transparencia_sva(
+    story,
+    analisis: dict,
+    *,
+    tier: str,
+    radio_metros: int,
+    s_h2,
+    s_body,
+    s_table_header,
+    s_table_cell,
+) -> None:
+    """Tablas paso a paso + mini simulador para la sección ¿Por qué este Score de Viabilidad?"""
+    from app.sva_calculo import desglose_sva_completo, escenarios_simulacion_sva
+
+    desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
+    dem = desglose["demografico"]
+    comp = desglose["competencia"]
+    traf = desglose["trafico"]
+
+    story.append(
+        Paragraph(
+            "El SVA no es una opinión de la IA: es una suma ponderada con fórmulas fijas. "
+            "Cada pilar usa datos medidos en tu radio; abajo se muestran las entradas, la regla aplicada "
+            "y el aporte al resultado final.",
+            s_body,
+        )
+    )
+    story.append(Spacer(1, 6))
+
+    paso_a_paso = [
+        [
+            Paragraph("Pilar", s_table_header),
+            Paragraph("Entrada medida", s_table_header),
+            Paragraph("Fórmula aplicada", s_table_header),
+            Paragraph("Score", s_table_header),
+            Paragraph("× Peso", s_table_header),
+            Paragraph("Aporte", s_table_header),
+        ],
+        [
+            Paragraph("Demografía", s_table_cell),
+            Paragraph(_texto_entrada_demografica(dem), s_table_cell),
+            Paragraph(dem["regla"], s_table_cell),
+            Paragraph(f"{dem['score']:.1f}", s_table_cell),
+            Paragraph("40%", s_table_cell),
+            Paragraph(f"{dem['aporte_ponderado']:.1f}", s_table_cell),
+        ],
+        [
+            Paragraph("Competencia", s_table_cell),
+            Paragraph(_texto_entrada_competencia(comp), s_table_cell),
+            Paragraph(comp["regla"], s_table_cell),
+            Paragraph(f"{comp['score']:.1f}", s_table_cell),
+            Paragraph("30%", s_table_cell),
+            Paragraph(f"{comp['aporte_ponderado']:.1f}", s_table_cell),
+        ],
+        [
+            Paragraph("Tráfico", s_table_cell),
+            Paragraph(traf["detalle"], s_table_cell),
+            Paragraph(traf["regla"], s_table_cell),
+            Paragraph(f"{traf['score']:.1f}", s_table_cell),
+            Paragraph("30%", s_table_cell),
+            Paragraph(f"{traf['aporte_ponderado']:.1f}", s_table_cell),
+        ],
+    ]
+    tabla_pasos = Table(paso_a_paso, colWidths=[58, 118, 118, 42, 42, 46])
+    tabla_pasos.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                ("PADDING", (0, 0), (-1, -1), 5),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
+    story.append(tabla_pasos)
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f"<i>{comp['nota']}</i>", s_body))
+    story.append(Spacer(1, 4))
+    story.append(
+        Paragraph(
+            f"<b>Resultado:</b> {desglose['formula_final']}. "
+            f"El reporte muestra <b>{desglose['sva_reportado']}/100</b>.",
+            s_body,
+        )
+    )
+    story.append(Spacer(1, 4))
+    story.append(
+        Paragraph(
+            f"<b>Fuente del pilar tráfico:</b> {traf['fuente']}.",
+            s_body,
+        )
+    )
+
+    escenarios = escenarios_simulacion_sva(analisis, tier=tier, radio_metros=radio_metros)
+    if len(escenarios) > 1:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("<b>Mini simulador — ¿qué pasaría si cambia la competencia?</b>", s_h2))
+        story.append(
+            Paragraph(
+                "Escenarios hipotéticos recalculados con las mismas fórmulas. "
+                "Se conservan demografía y tráfico actuales; solo varía el ISC según cuántos "
+                "competidores (y a qué distancia) permanecen en el radio.",
+                s_body,
+            )
+        )
+        story.append(Spacer(1, 6))
+
+        sim_data = [
+            [
+                Paragraph("Escenario", s_table_header),
+                Paragraph("Competidores", s_table_header),
+                Paragraph("ISC", s_table_header),
+                Paragraph("Score competencia", s_table_header),
+                Paragraph("SVA estimado", s_table_header),
+                Paragraph("Δ vs actual", s_table_header),
+            ]
+        ]
+        for esc in escenarios:
+            delta = esc["delta_vs_actual"]
+            delta_txt = "—" if esc["escenario"].startswith("Situación actual") else f"{delta:+d}"
+            sim_data.append(
+                [
+                    Paragraph(esc["escenario"], s_table_cell),
+                    Paragraph(str(esc["competidores"]), s_table_cell),
+                    Paragraph(f"{float(esc['isc']):.6f}", s_table_cell),
+                    Paragraph(f"{esc['score_competencia']:.1f}", s_table_cell),
+                    Paragraph(f"{esc['sva']}/100", s_table_cell),
+                    Paragraph(delta_txt, s_table_cell),
+                ]
+            )
+
+        sim_table = Table(sim_data, colWidths=[150, 58, 72, 78, 68, 58])
+        sim_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                    ("PADDING", (0, 0), (-1, -1), 4),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ]
+            )
+        )
+        story.append(sim_table)
+        story.append(Spacer(1, 4))
+        notas_sim = [esc["nota"] for esc in escenarios if not esc["escenario"].startswith("Situación actual")]
+        if notas_sim:
+            story.append(Paragraph(f"<i>{notas_sim[0]}</i>", s_body))
 
 
 def _interpretacion_distribucion_poblacional(
@@ -687,7 +794,7 @@ class ReportLabGenerator:
         # Composición del SVA integrada al resumen (antes era sección independiente)
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Composición del Score de Viabilidad (SVA):</b>", s_h2))
-        from app.analytics import DENSIDAD_MINIMA_HAB_KM2, DENSIDAD_OPTIMA_HAB_KM2
+        from app.sva_calculo import DENSIDAD_MINIMA_HAB_KM2, DENSIDAD_OPTIMA_HAB_KM2
 
         story.append(
             Paragraph(
@@ -788,11 +895,15 @@ class ReportLabGenerator:
         story.append(pilares_table)
         story.append(Spacer(1, 8))
         story.append(Paragraph("<b>¿Por qué este Score de Viabilidad?</b>", s_h2))
-        story.append(
-            Paragraph(
-                _justificacion_score_sva(analisis, orden.rubro, orden.tier_adquirido),
-                s_body,
-            )
+        _agregar_seccion_transparencia_sva(
+            story,
+            analisis,
+            tier=orden.tier_adquirido,
+            radio_metros=int(orden.radio_metros),
+            s_h2=s_h2,
+            s_body=s_body,
+            s_table_header=s_table_header,
+            s_table_cell=s_table_cell,
         )
 
         story.append(PageBreak())
