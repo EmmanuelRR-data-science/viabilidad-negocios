@@ -191,6 +191,97 @@ def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
     assert "mascotas" in kw.lower() or "collares" in kw.lower()
 
 
+def test_resolver_aliados_matriz_cafeteria():
+    from app.aliados_deterministico import resolver_aliados_por_rubro
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, ia_auto, fuente = resolver_tipos_aliados_busqueda(
+        ["ia_auto"],
+        rubro="cafetería de especialidad",
+    )
+    assert fuente == "matriz_rubro"
+    assert ia_auto is True
+    assert tipos == ["school", "transit_station", "bank", "shopping_mall"]
+    assert resolver_aliados_por_rubro("café gourmet") == tipos
+
+
+def test_resolver_aliados_matriz_farmacia():
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, _, fuente = resolver_tipos_aliados_busqueda(
+        ["ia_auto"],
+        rubro="farmacia de barrio",
+    )
+    assert fuente == "matriz_rubro"
+    assert tipos == ["doctor", "supermarket", "transit_station", "convenience_store"]
+
+
+def test_resolver_aliados_matriz_mascotas():
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, _, fuente = resolver_tipos_aliados_busqueda(
+        ["ia_auto"],
+        rubro="accesorios para mascotas",
+    )
+    assert fuente == "matriz_rubro"
+    assert "supermarket" in tipos
+    assert "park" in tipos
+
+
+def test_resolver_aliados_matriz_default_sin_rubro_conocido():
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, _, fuente = resolver_tipos_aliados_busqueda(
+        ["ia_auto"],
+        rubro="servicios profesionales varios",
+    )
+    assert fuente == "matriz_rubro"
+    assert tipos == ["transit_station", "school", "bank"]
+
+
+def test_resolver_aliados_intenciones_reordenan_sin_agregar():
+    from app.aliados_deterministico import resolver_aliados_por_rubro
+
+    base = resolver_aliados_por_rubro("cafetería")
+    con_escuela = resolver_aliados_por_rubro(
+        "cafetería",
+        intenciones="cerca de escuela primaria y colegio",
+    )
+    assert set(con_escuela) == set(base)
+    assert con_escuela[0] == "school"
+
+
+def test_resolver_aliados_matriz_floreria():
+    from app.aliados_deterministico import resolver_aliados_por_rubro
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, _, fuente = resolver_tipos_aliados_busqueda(
+        ["ia_auto"],
+        rubro="florería boutique",
+    )
+    assert fuente == "matriz_rubro"
+    assert tipos == ["shopping_mall", "school", "doctor", "restaurant"]
+
+    con_hospital = resolver_aliados_por_rubro(
+        "florería",
+        intenciones="arreglos para hospital y condolencias",
+    )
+    assert con_hospital[0] == "doctor"
+    assert set(con_hospital) == set(tipos)
+
+
+def test_resolver_aliados_prioriza_categorias_usuario():
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, ia_auto, fuente = resolver_tipos_aliados_busqueda(
+        ["park", "bank", "ia_auto"],
+        rubro="cafetería",
+    )
+    assert fuente == "categorias_usuario"
+    assert ia_auto is True
+    assert tipos == ["park", "bank"]
+
+
 def test_filtro_giro_competidores_por_reseñas():
     """Excluye competidores cuyas reseñas no coinciden con el rubro (ej. acuario vs accesorios mascotas)."""
     rubro = "accesorios para mascotas"

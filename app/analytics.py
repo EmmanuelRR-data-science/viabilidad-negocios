@@ -359,7 +359,7 @@ def procesar_calculo_analitico(
     ia_autodetect_aliados = bool(aliados_seleccionados and "ia_auto" in aliados_seleccionados)
 
     categorias_ia: dict = {"competidores": [], "aliados": []}
-    if ia_autodetect_competidores or ia_autodetect_aliados:
+    if ia_autodetect_competidores:
         try:
             from app.bedrock import determinar_categorias_ia
 
@@ -371,13 +371,12 @@ def procesar_calculo_analitico(
                 competidores_adicionales=competidores_adicionales,
             )
             logger.info(
-                "Categorías IA para '%s' (intenciones: %s): %s",
+                "Categorías IA competidores para '%s': %s",
                 rubro,
-                "sí" if intenciones else "no",
-                categorias_ia,
+                categorias_ia.get("competidores"),
             )
         except Exception as ia_err:
-            logger.error("Error al determinar categorías por IA: %s", ia_err)
+            logger.error("Error al determinar categorías IA de competidores: %s", ia_err)
 
     tipos_competidores, ia_comp_activa, fuente_comp = resolver_tipos_competidores_busqueda(
         competidores_seleccionados,
@@ -388,7 +387,7 @@ def procesar_calculo_analitico(
     tipos_aliados, ia_aliados_activa, fuente_aliados = resolver_tipos_aliados_busqueda(
         aliados_seleccionados,
         rubro=rubro,
-        categorias_ia=categorias_ia,
+        intenciones=intenciones,
     )
     if ia_comp_activa:
         ia_autodetect_competidores = True
@@ -606,4 +605,6 @@ def procesar_calculo_analitico(
         "aliados_seleccionados": aliados_sel_orig,
         "competidores_ia_auto": ia_autodetect_competidores,
         "aliados_ia_auto": ia_autodetect_aliados,
+        "aliados_fuente_busqueda": fuente_aliados,
+        "intenciones": intenciones,
     }

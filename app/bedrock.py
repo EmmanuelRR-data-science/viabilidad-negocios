@@ -341,6 +341,13 @@ def _quejas_desde_competencia_real(datos_entorno: dict) -> list[str]:
     return quejas
 
 
+def _desc_aliados_matriz(rubro: str, intenciones: str | None = None) -> str:
+    from app.aliados_deterministico import etiquetas_aliados_legibles, resolver_aliados_por_rubro
+
+    tipos = resolver_aliados_por_rubro(rubro, intenciones=intenciones)
+    return f"Matriz de geomarketing por rubro ({etiquetas_aliados_legibles(tipos)})"
+
+
 def _foda_respaldo_cuantitativo(
     datos_entorno: dict,
     rubro: str,
@@ -362,7 +369,10 @@ def _foda_respaldo_cuantitativo(
     aliados_sel_clean = [a for a in aliados_sel if a != "ia_auto"] if aliados_sel else []
 
     comp_desc = "determinados automáticamente por IA" if comp_ia else ", ".join(comp_sel_clean)
-    aliados_desc = "determinados automáticamente por IA" if aliados_ia else ", ".join(aliados_sel_clean)
+    if aliados_ia:
+        aliados_desc = _desc_aliados_matriz(rubro, intenciones=datos_entorno.get("intenciones"))
+    else:
+        aliados_desc = ", ".join(aliados_sel_clean)
     comp_sel_str = f" ({comp_desc})" if (comp_sel_clean or comp_ia) else ""
 
     if sva >= 80:
@@ -548,7 +558,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         comp_sel_str = "Ninguna (giro estándar)"
 
     if aliados_ia_auto:
-        aliados_sel_str = "Autodetección inteligente por Inteligencia Artificial (basada en el rubro)"
+        aliados_sel_str = _desc_aliados_matriz(rubro, intenciones=intenciones)
     elif aliados_sel_clean:
         aliados_sel_str = ", ".join(aliados_sel_clean)
     else:
@@ -562,11 +572,15 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
     nse_fuente = nse_metricas.get("fuente", "desconocida")
 
     ia_directives = ""
-    if competidores_ia_auto or aliados_ia_auto:
-        ia_directives = (
-            "\n[INDICACIÓN ESPECIAL DE AUTODETECCIÓN POR IA]\n"
-            "El usuario activó autodetección de competidores y/o aliados. En fortalezas u oportunidades, menciona "
-            "solo categorías o tipos comerciales del contexto, sin inventar nombres de marcas no proporcionados.\n"
+    if competidores_ia_auto:
+        ia_directives += (
+            "\n[COMPETIDORES: autodetección por IA]\n"
+            "Menciona solo categorías de competidores del contexto, sin inventar marcas.\n"
+        )
+    if aliados_ia_auto:
+        ia_directives += (
+            "\n[ALIADOS: matriz determinista por rubro]\n"
+            "Los atractores provienen de una matriz fija de geomarketing; cita solo las categorías listadas arriba.\n"
         )
 
     user_prompt = (

@@ -81,7 +81,7 @@ def resolver_tipos_aliados_busqueda(
     aliados_seleccionados: list[str] | None,
     *,
     rubro: str,
-    categorias_ia: dict,
+    intenciones: str | None = None,
 ) -> tuple[list[str] | None, bool, str]:
     manual = _categorias_manuales(aliados_seleccionados)
     ia_auto = bool(aliados_seleccionados and "ia_auto" in aliados_seleccionados)
@@ -90,9 +90,9 @@ def resolver_tipos_aliados_busqueda(
         return manual, ia_auto, "categorias_usuario"
 
     if ia_auto:
-        sugeridos = [t for t in categorias_ia.get("aliados", []) if t]
-        if not sugeridos:
-            sugeridos = ["transit_station", "school", "bank"]
-        return sugeridos, True, "ia_rubro_intenciones"
+        from app.aliados_deterministico import resolver_aliados_por_rubro
+
+        tipos = resolver_aliados_por_rubro(rubro, intenciones=intenciones)
+        return tipos, True, "matriz_rubro"
 
     return None, False, "atractores_default"
