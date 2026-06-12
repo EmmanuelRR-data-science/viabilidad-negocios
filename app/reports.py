@@ -1324,13 +1324,6 @@ class ReportLabGenerator:
 
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Competencia Detallada en la Zona:</b>", s_h2))
-        story.append(
-            Paragraph(
-                "Visualización detallada de los establecimientos competidores mapeados. "
-                "Los datos se obtienen identificando tipos comerciales equivalentes según las clasificaciones oficiales de actividad económica.",
-                s_body,
-            )
-        )
         if getattr(orden, "competidores_adicionales", None):
             story.append(
                 Paragraph(
@@ -1347,11 +1340,20 @@ class ReportLabGenerator:
             resolver_competidores_destacados_para_reporte,
         )
 
-        comp_list = analisis.get("competidores_listado", [])
+        comp_list = list(analisis.get("competidores_listado", []))
         asegurar_distancias_competidores(
             comp_list,
             float(orden.latitud),
             float(orden.longitud),
+        )
+        total_comp_detectados = int(analisis.get("competidores_conteo") or len(comp_list))
+        story.append(
+            Paragraph(
+                f"Listado completo de los <b>{total_comp_detectados}</b> establecimientos competidores detectados "
+                f"en el radio (misma lista que el dashboard). Los datos provienen de Google Places según el giro "
+                f"y las categorías analizadas.",
+                s_body,
+            )
         )
         enriquecer_reseñas = orden.tier_adquirido in ["pro", "premium"]
         mejor_valorados = resolver_competidores_destacados_para_reporte(
@@ -1384,7 +1386,7 @@ class ReportLabGenerator:
             ],
         ]
 
-        real_directs = comp_list[:4]
+        real_directs = comp_list
         if not real_directs:
             comp_table_data.append(
                 [
