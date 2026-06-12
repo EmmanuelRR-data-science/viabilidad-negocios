@@ -247,3 +247,172 @@ def generar_heatmap_afluencia(afl_data: dict) -> bytes | None:
     except Exception as err:
         logger.error("Error generando heatmap de afluencia: %s", err)
         return None
+
+
+def generar_grafica_edades_amplias(
+    pob0_14: int,
+    pob15_64: int,
+    pob65_mas: int,
+    *,
+    pob_total: int = 0,
+) -> bytes | None:
+    """Básico: 3 franjas etarias INEGI (0-14, 15-64, 65+)."""
+    if not _CHARTS_DISPONIBLES:
+        return None
+    valores = [pob0_14, pob15_64, pob65_mas]
+    if sum(valores) <= 0:
+        return None
+    try:
+        labels = ["0-14 años", "15-64 años", "65+ años"]
+        colores = ["#60a5fa", "#2563eb", "#1e3a8a"]
+        total = pob_total or sum(valores)
+        pcts = [round(v / total * 100, 1) if total else 0 for v in valores]
+
+        fig, ax = plt.subplots(figsize=(7.2, 3.6))
+        bars = ax.bar(labels, valores, color=colores, width=0.55, zorder=3)
+        ax.set_ylabel("Habitantes (ponderados)", fontsize=9, color="#64748b")
+        ax.set_title(
+            "Distribución por Grupos de Edad — Censo INEGI 2020",
+            fontsize=11,
+            fontweight="bold",
+            color="#0f172a",
+            pad=10,
+        )
+        ax.grid(axis="y", linestyle="--", alpha=0.25, zorder=0)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        for bar, val, pct in zip(bars, valores, pcts, strict=True):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(valores) * 0.02,
+                f"{val:,}\n({pct}%)",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                fontweight="bold",
+                color="#0f172a",
+            )
+        fig.tight_layout()
+        return _fig_to_png(fig)
+    except Exception as err:
+        logger.error("Error generando gráfica edades amplias: %s", err)
+        return None
+
+
+def generar_piramide_poblacional(piramide: list, *, pob_total: int = 0) -> bytes | None:
+    """Pro/Premium: pirámide horizontal por sexo."""
+    if not _CHARTS_DISPONIBLES or not piramide:
+        return None
+    try:
+        grupos = [g["etiqueta"] for g in piramide]
+        mujeres = [g["mujeres"] for g in piramide]
+        hombres = [g["hombres"] for g in piramide]
+        if sum(mujeres) + sum(hombres) <= 0:
+            return None
+
+        total = pob_total or (sum(mujeres) + sum(hombres))
+        max_val = max(max(mujeres), max(hombres), 1)
+
+        fig, ax = plt.subplots(figsize=(7.2, max(3.8, len(grupos) * 0.42 + 1.5)))
+        y = np.arange(len(grupos))
+        ax.barh(y, [-v for v in mujeres], color="#ec4899", alpha=0.85, height=0.62, label="Mujeres")
+        ax.barh(y, hombres, color="#3b82f6", alpha=0.85, height=0.62, label="Hombres")
+        ax.set_yticks(y)
+        ax.set_yticklabels(grupos, fontsize=8)
+        ax.axvline(0, color="#94a3b8", linewidth=0.8)
+        ax.set_xlabel("Habitantes (ponderados en el radio)", fontsize=9, color="#64748b")
+        ax.set_title(
+            "Pirámide Poblacional por Sexo — Censo INEGI 2020",
+            fontsize=11,
+            fontweight="bold",
+            color="#0f172a",
+            pad=10,
+        )
+        lim = max_val * 1.25
+        ax.set_xlim(-lim, lim)
+        ax.legend(loc="lower center", ncol=2, fontsize=8, frameon=False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        for i, (f, m) in enumerate(zip(mujeres, hombres, strict=True)):
+            if f > 0:
+                pct_f = round(f / total * 100, 1) if total else 0
+                ax.text(-f - max_val * 0.02, i, f"{f:,} ({pct_f}%)", ha="right", va="center", fontsize=6.5)
+            if m > 0:
+                pct_m = round(m / total * 100, 1) if total else 0
+                ax.text(m + max_val * 0.02, i, f"{m:,} ({pct_m}%)", ha="left", va="center", fontsize=6.5)
+
+        fig.tight_layout()
+        return _fig_to_png(fig)
+    except Exception as err:
+        logger.error("Error generando pirámide poblacional: %s", err)
+        return None
+
+
+def generar_grafica_laboral(pea: int, pocupada: int, pdesocup: int, pe_inac: int) -> bytes | None:
+    """Premium: población económicamente activa, ocupada, desocupada e inactiva."""
+    if not _CHARTS_DISPONIBLES:
+        return None
+    valores = [pea, pocupada, pdesocup, pe_inac]
+    if sum(valores) <= 0:
+        return None
+    try:
+        labels = ["PEA", "Ocupada", "Desocupada", "Inactiva"]
+        colores = ["#0ea5e9", "#22c55e", "#f97316", "#94a3b8"]
+        fig, ax = plt.subplots(figsize=(7.2, 3.4))
+        ax.bar(labels, valores, color=colores, width=0.55, zorder=3)
+        ax.set_ylabel("Personas (ponderadas)", fontsize=9, color="#64748b")
+        ax.set_title(
+            "Población Económicamente Activa — Censo INEGI 2020",
+            fontsize=11,
+            fontweight="bold",
+            color="#0f172a",
+            pad=10,
+        )
+        ax.grid(axis="y", linestyle="--", alpha=0.25, zorder=0)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        for i, val in enumerate(valores):
+            if val > 0:
+                ax.text(i, val + max(valores) * 0.03, f"{val:,}", ha="center", fontsize=8, fontweight="bold")
+        fig.tight_layout()
+        return _fig_to_png(fig)
+    except Exception as err:
+        logger.error("Error generando gráfica laboral: %s", err)
+        return None
+
+
+def generar_grafica_escolaridad(
+    p15a17a: int,
+    p18a24a: int,
+    escolar_6_14: int,
+) -> bytes | None:
+    """Premium: población en edad escolar que asiste (estimación INEGI)."""
+    if not _CHARTS_DISPONIBLES:
+        return None
+    valores = [escolar_6_14, p15a17a, p18a24a]
+    if sum(valores) <= 0:
+        return None
+    try:
+        labels = ["6-14 años\n(edad escolar)", "15-17 años\n(asisten)", "18-24 años\n(asisten)"]
+        fig, ax = plt.subplots(figsize=(7.2, 3.4))
+        ax.bar(labels, valores, color=["#8b5cf6", "#a855f7", "#c084fc"], width=0.55, zorder=3)
+        ax.set_ylabel("Personas (ponderadas)", fontsize=9, color="#64748b")
+        ax.set_title(
+            "Población en Edad Escolar — Censo INEGI 2020",
+            fontsize=11,
+            fontweight="bold",
+            color="#0f172a",
+            pad=10,
+        )
+        ax.grid(axis="y", linestyle="--", alpha=0.25, zorder=0)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        for i, val in enumerate(valores):
+            if val > 0:
+                ax.text(i, val + max(valores) * 0.03, f"{val:,}", ha="center", fontsize=8, fontweight="bold")
+        fig.tight_layout()
+        return _fig_to_png(fig)
+    except Exception as err:
+        logger.error("Error generando gráfica escolaridad: %s", err)
+        return None

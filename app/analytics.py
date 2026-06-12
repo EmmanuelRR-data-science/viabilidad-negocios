@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.besttime import obtener_afluencia
+from app.demografia_segmentos import calcular_segmentacion_demografica
 from app.nse import calcular_nse
 from app.google_places import (
     buscar_competidores,
@@ -312,6 +313,14 @@ def procesar_calculo_analitico(
 
         nse = construir_nse_fallback(lat, lng)
 
+    try:
+        segmentacion_demografica = calcular_segmentacion_demografica(db, lat, lng, radio)
+    except Exception as seg_err:
+        logger.error("No se pudo calcular segmentación demográfica: %s", seg_err)
+        from app.demografia_segmentos import _vacía
+
+        segmentacion_demografica = _vacía()
+
     # 2. Cruce de categorías
     google_type, categoria = resolver_google_type(db, rubro)
     logger.info(f"Mapeo de rubro '{rubro}' resuelto a: Google Type = '{google_type}' | Categoria = '{categoria}'")
@@ -531,6 +540,7 @@ def procesar_calculo_analitico(
         "score_trafico": round(score_trafico, 1),
         "sva": sva_final,
         "nse": nse,
+        "segmentacion_demografica": segmentacion_demografica,
         "bancos_conteo": bancos_conteo,
         "escuelas_conteo": escuelas_conteo,
         "transporte_conteo": transporte_conteo,

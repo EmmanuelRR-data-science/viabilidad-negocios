@@ -23,6 +23,7 @@ from sqlalchemy.engine import Engine
 
 from app.ingest_censo_helpers import (
     ENSURE_NSE_COLUMNS_SQL,
+    ENSURE_SEGMENTO_COLUMNS_SQL,
     UPSERT_AGEB_SQL,
     censo_ageb_from_row,
     merge_ageb_record,
@@ -57,6 +58,7 @@ def ensure_ageb_schema(engine: Engine) -> None:
         """)
         )
         conn.execute(text(ENSURE_NSE_COLUMNS_SQL))
+        conn.execute(text(ENSURE_SEGMENTO_COLUMNS_SQL))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_agebs_geom ON agebs_demografia USING GIST (geom);"))
         conn.commit()
 
@@ -205,10 +207,14 @@ def get_demografia_stats(engine: Engine) -> dict:
         with_nse = conn.execute(
             text("SELECT COUNT(*) FROM agebs_demografia WHERE graproes IS NOT NULL AND graproes > 0")
         ).scalar() or 0
+        with_segmentos = conn.execute(
+            text("SELECT COUNT(*) FROM agebs_demografia WHERE pob0_14 IS NOT NULL AND pob0_14 >= 0")
+        ).scalar() or 0
     return {
         "total_agebs": int(total_agebs),
         "agebs_con_geometria": int(with_geom),
         "agebs_con_nse": int(with_nse),
+        "agebs_con_segmentos": int(with_segmentos),
     }
 
 

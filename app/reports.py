@@ -732,6 +732,100 @@ class ReportLabGenerator:
             )
             story.append(demo_table)
 
+            segmentacion = analisis.get("segmentacion_demografica") or {}
+            if segmentacion.get("fuente") == "censo_2020":
+                from app.chart_images import (
+                    generar_grafica_edades_amplias,
+                    generar_grafica_escolaridad,
+                    generar_grafica_laboral,
+                    generar_piramide_poblacional,
+                )
+                from app.demografia_segmentos import segmentos_destacados_por_rubro
+
+                story.append(Spacer(1, 10))
+                story.append(Paragraph("<b>Distribución Poblacional en el Radio:</b>", s_h2))
+
+                if orden.tier_adquirido == "basico":
+                    png_edades = generar_grafica_edades_amplias(
+                        segmentacion.get("pob0_14", 0),
+                        segmentacion.get("pob15_64", 0),
+                        segmentacion.get("pob65_mas", 0),
+                        pob_total=pob_tot,
+                    )
+                    _embed_chart_png(story, png_edades, width=468, height=200)
+                elif orden.tier_adquirido == "pro":
+                    png_piramide = generar_piramide_poblacional(
+                        segmentacion.get("piramide", []),
+                        pob_total=pob_tot,
+                    )
+                    _embed_chart_png(story, png_piramide, width=468, height=280)
+                else:
+                    png_piramide = generar_piramide_poblacional(
+                        segmentacion.get("piramide", []),
+                        pob_total=pob_tot,
+                    )
+                    _embed_chart_png(story, png_piramide, width=468, height=260)
+
+                    png_labor = generar_grafica_laboral(
+                        segmentacion.get("pea", 0),
+                        segmentacion.get("pocupada", 0),
+                        segmentacion.get("pdesocup", 0),
+                        segmentacion.get("pe_inac", 0),
+                    )
+                    _embed_chart_png(story, png_labor, width=468, height=180)
+
+                    escolar_6_14 = sum(
+                        g["mujeres"] + g["hombres"]
+                        for g in segmentacion.get("piramide", [])
+                        if g.get("etiqueta") in ("6-11 años", "12-14 años")
+                    )
+                    png_escolar = generar_grafica_escolaridad(
+                        segmentacion.get("p15a17a", 0),
+                        segmentacion.get("p18a24a", 0),
+                        escolar_6_14,
+                    )
+                    _embed_chart_png(story, png_escolar, width=468, height=180)
+
+                    destacados = segmentos_destacados_por_rubro(orden.rubro, segmentacion, pob_tot)
+                    if destacados:
+                        story.append(Spacer(1, 8))
+                        story.append(
+                            Paragraph(
+                                "<b>Segmentos Censales Relevantes para tu Rubro (datos INEGI):</b>",
+                                s_h2,
+                            )
+                        )
+                        seg_censo_data = [
+                            [
+                                Paragraph("Segmento", s_table_header),
+                                Paragraph("Habitantes", s_table_header),
+                                Paragraph("% del radio", s_table_header),
+                                Paragraph("Relevancia", s_table_header),
+                            ]
+                        ]
+                        for etiqueta, hab, pct, nota in destacados:
+                            seg_censo_data.append(
+                                [
+                                    Paragraph(etiqueta, s_table_cell),
+                                    Paragraph(f"{hab:,}", s_table_cell),
+                                    Paragraph(f"{pct}%", s_table_cell),
+                                    Paragraph(nota, s_table_cell),
+                                ]
+                            )
+                        seg_censo_table = Table(seg_censo_data, colWidths=[150, 80, 70, 204])
+                        seg_censo_table.setStyle(
+                            TableStyle(
+                                [
+                                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                                    ("PADDING", (0, 0), (-1, -1), 6),
+                                ]
+                            )
+                        )
+                        story.append(seg_censo_table)
+
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Nota de precisión en el análisis:</b>", s_h2))
         story.append(

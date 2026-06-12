@@ -23,5 +23,6 @@ engine = sqlalchemy.create_engine(DB_URL)
 resumen = run_ingest_censo_nacional(engine, FUENTES_DIR)
 print(
     f"Listo: {resumen['total_agebs']:,} AGEBs | "
-    f"con NSE: {resumen['agebs_con_nse']:,}"
+    f"con NSE: {resumen['agebs_con_nse']:,} | "
+    f"con segmentos: {resumen.get('agebs_con_segmentos', 0):,}"
 )

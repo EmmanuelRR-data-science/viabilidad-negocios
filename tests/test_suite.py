@@ -143,6 +143,20 @@ def test_calcular_nse_con_db():
         db.close()
 
 
+def test_segmentacion_demografica_con_db():
+    from app.demografia_segmentos import calcular_segmentacion_demografica
+
+    db = SessionLocal()
+    try:
+        seg = calcular_segmentacion_demografica(db, 19.3719, -99.1896, 1000)
+        assert "piramide" in seg
+        if seg["fuente"] == "censo_2020":
+            assert seg["pob15_64"] > 0
+            assert len(seg["piramide"]) >= 6
+    finally:
+        db.close()
+
+
 def test_filtro_giro_competidores_por_reseñas():
     """Excluye competidores cuyas reseñas no coinciden con el rubro (ej. acuario vs accesorios mascotas)."""
     rubro = "accesorios para mascotas"

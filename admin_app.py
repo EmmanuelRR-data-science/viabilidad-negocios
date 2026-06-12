@@ -14,7 +14,7 @@ from shapely.geometry import shape
 from shapely.ops import transform
 from sqlalchemy import text
 
-from app.ingest_censo_helpers import UPSERT_AGEB_SQL, censo_ageb_from_row
+from app.ingest_censo_helpers import ENSURE_SEGMENTO_COLUMNS_SQL, UPSERT_AGEB_SQL, censo_ageb_from_row
 from app.ingest_nacional import ensure_ageb_schema, get_demografia_stats, ingest_state
 
 # Configuración de la página
@@ -167,6 +167,7 @@ def init_db_schemas(engine):
                   ADD COLUMN IF NOT EXISTS vph_pc NUMERIC(8,2) DEFAULT NULL;
             """)
             )
+            conn.execute(text(ENSURE_SEGMENTO_COLUMNS_SQL))
 
             # Tabla categorias_cruce
             conn.execute(
