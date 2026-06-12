@@ -1404,7 +1404,9 @@ class ReportLabGenerator:
         from app.analytics import (
             MIN_RESENAS_DESTACADO,
             asegurar_distancias_competidores,
+            competidores_mas_cercanos,
             formatear_distancia_metros,
+            lectura_competidor_cercano,
             resolver_competidores_destacados_para_reporte,
         )
 
@@ -1578,6 +1580,71 @@ class ReportLabGenerator:
                 )
             )
             story.append(top_table)
+
+        mas_cercanos = competidores_mas_cercanos(comp_list, top_n=8) if comp_list else []
+        if mas_cercanos:
+            story.append(Spacer(1, 10))
+            story.append(
+                Paragraph(
+                    "<b>Competidores mas cercanos (por distancia, sin filtro de calificacion):</b>",
+                    s_h2,
+                )
+            )
+            story.append(
+                Paragraph(
+                    "Mismos datos de Google Places que el listado completo, ordenados por proximidad. "
+                    "Incluye locales mal valorados o con pocas reseñas que no aparecen en «mejor valorados». "
+                    "La cercania afecta la saturacion del punto aunque el rival no sea referente en Google.",
+                    s_body,
+                )
+            )
+            story.append(Spacer(1, 6))
+            cercanos_data = [
+                [
+                    Paragraph("Establecimiento", s_table_header),
+                    Paragraph("Distancia", s_table_header),
+                    Paragraph("Calificacion", s_table_header),
+                    Paragraph("Resenas", s_table_header),
+                    Paragraph("Lectura", s_table_header),
+                ]
+            ]
+            for item in mas_cercanos:
+                rating = float(item.get("rating") or 0)
+                resenas = int(item.get("user_ratings_total") or 0)
+                rating_txt = f"{rating:.1f} / 5.0" if rating > 0 else "Sin rating"
+                cercanos_data.append(
+                    [
+                        Paragraph(item.get("nombre", "—"), s_table_cell),
+                        Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
+                        Paragraph(rating_txt, s_table_cell),
+                        Paragraph(str(resenas) if resenas > 0 else "—", s_table_cell),
+                        Paragraph(lectura_competidor_cercano(item), s_table_cell),
+                    ]
+                )
+            cercanos_table = Table(cercanos_data, colWidths=[115, 62, 68, 48, 211])
+            cercanos_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#475569")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                        ("PADDING", (0, 0), (-1, -1), 4),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("FONTSIZE", (0, 0), (-1, -1), 7),
+                    ]
+                )
+            )
+            story.append(cercanos_table)
+            story.append(Spacer(1, 4))
+            story.append(
+                Paragraph(
+                    "<font size='7' color='#64748b'><i>Esta lista no sustituye el listado completo ni "
+                    "la seccion «mejor valorados» (minimo 5 reseñas). Si un local no aparece aqui, "
+                    "no fue detectado por Google Places en el radio analizado.</i></font>",
+                    s_body,
+                )
+            )
 
         from xml.sax.saxutils import escape as xml_escape
 

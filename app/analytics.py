@@ -84,6 +84,40 @@ def competidores_mejor_valorados(
     return validos[:top_n]
 
 
+def competidores_mas_cercanos(competidores: list[dict], *, top_n: int = 8) -> list[dict]:
+    """Top competidores por distancia al punto, sin filtrar por rating ni reseñas."""
+    con_distancia = [c for c in competidores if c.get("distancia_metros") is not None]
+    con_distancia.sort(key=lambda c: float(c.get("distancia_metros") or 999999.0))
+    return con_distancia[:top_n]
+
+
+def lectura_competidor_cercano(item: dict, *, min_resenas: int = MIN_RESENAS_DESTACADO) -> str:
+    """Interpretacion determinista para rivales proximos (sin IA)."""
+    rating = float(item.get("rating") or 0)
+    resenas = int(item.get("user_ratings_total") or 0)
+
+    if rating >= 4.5 and resenas >= min_resenas:
+        return (
+            "Rival cercano y bien valorado en Google: friccion directa en calidad y ubicacion."
+        )
+    if rating >= 3.0 and resenas >= min_resenas:
+        return "Competidor aceptable muy proximo; diferenciate en servicio y propuesta."
+    if rating > 0 and rating < 3.0:
+        return (
+            "Reputacion debil en Google; ocupa posicion cercana. Oportunidad de superar su "
+            "propuesta, pero valida visibilidad y calidad para no repetir su patron."
+        )
+    if resenas < min_resenas:
+        return (
+            "Pocas reseñas en Google (muestra no representativa); presencia fisica cercana. "
+            "Confirma en campo si compite por el mismo cliente."
+        )
+    return (
+        "Sin calificacion publica en Google; presencia fisica cercana. Valida en campo "
+        "si es competencia directa del giro."
+    )
+
+
 def resolver_competidores_destacados(
     competidores: list[dict],
     *,

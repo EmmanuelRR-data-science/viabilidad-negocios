@@ -365,6 +365,27 @@ def test_sva_calculo_transparente_y_simulador():
     assert sva_calc == 62
 
 
+def test_competidores_mas_cercanos_y_lectura():
+    from app.analytics import (
+        competidores_mas_cercanos,
+        lectura_competidor_cercano,
+    )
+
+    lista = [
+        {"nombre": "Lejos", "distancia_metros": 900, "rating": 4.8, "user_ratings_total": 120},
+        {"nombre": "Cerca malo", "distancia_metros": 45, "rating": 2.0, "user_ratings_total": 8},
+        {"nombre": "Medio", "distancia_metros": 200, "rating": 3.5, "user_ratings_total": 15},
+    ]
+    cercanos = competidores_mas_cercanos(lista, top_n=2)
+    assert [c["nombre"] for c in cercanos] == ["Cerca malo", "Medio"]
+
+    assert "debil" in lectura_competidor_cercano(lista[1]).lower()
+    assert "friccion directa" in lectura_competidor_cercano(
+        {"rating": 4.8, "user_ratings_total": 120}
+    ).lower()
+    assert "aceptable" in lectura_competidor_cercano(lista[2]).lower()
+
+
 def test_interpretacion_demografia_por_rubro():
     from app.reports import _interpretacion_distribucion_poblacional
 
