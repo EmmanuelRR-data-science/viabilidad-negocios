@@ -1371,7 +1371,12 @@ function renderLecturaEstrategica(iaAnalisis) {
     if (conclusionEl) {
         const texto = iaAnalisis.conclusion;
         if (texto) {
-            conclusionEl.textContent = texto;
+            // Reportes antiguos pueden traer <b> para PDF; renderizar negritas sin mostrar etiquetas crudas.
+            if (/<\/?b>/i.test(texto)) {
+                conclusionEl.innerHTML = texto;
+            } else {
+                conclusionEl.textContent = texto;
+            }
             conclusionEl.classList.remove("hidden");
         } else {
             conclusionEl.textContent = "";

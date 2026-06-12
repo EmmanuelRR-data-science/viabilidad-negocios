@@ -421,6 +421,12 @@ def test_lectura_estrategica_enriquecimiento_y_conclusion():
     assert "62/100" in conclusion
     assert "40%" in conclusion
     assert "Para mejorar" in conclusion or "mejorar" in conclusion.lower()
+    assert "<b>" not in conclusion
+
+    conclusion_html = generar_conclusion_detallada(
+        analisis, "Cafetería", tier="pro", radio_metros=1000, html=True
+    )
+    assert "<b>" in conclusion_html
 
     bloques = bloques_metodologia_resumen(analisis, tier="pro", radio_metros=1000)
     assert any("ISC" in t for t, _ in bloques)

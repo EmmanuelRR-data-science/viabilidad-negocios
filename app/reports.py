@@ -777,6 +777,7 @@ class ReportLabGenerator:
             orden.rubro,
             tier=orden.tier_adquirido,
             radio_metros=int(orden.radio_metros),
+            html=True,
         )
         story.append(Spacer(1, 10))
         story.append(Paragraph("<b>Conclusión general — por qué obtuviste este score:</b>", s_h2))

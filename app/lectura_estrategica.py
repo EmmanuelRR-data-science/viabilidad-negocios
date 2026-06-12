@@ -144,12 +144,17 @@ def _condiciones_mejora_sva(analisis: dict, *, tier: str, radio_metros: int) -> 
     return sugerencias[:3]
 
 
+def _negrita(texto: str, *, html: bool) -> str:
+    return f"<b>{texto}</b>" if html else texto
+
+
 def generar_conclusion_detallada(
     analisis: dict,
     rubro: str,
     *,
     tier: str,
     radio_metros: int,
+    html: bool = False,
 ) -> str:
     """Párrafo ejecutivo: por qué el SVA, factores y cómo mejorarlo."""
     from app.sva_calculo import desglose_sva_completo
@@ -171,17 +176,20 @@ def generar_conclusion_detallada(
 
     mejoras = _condiciones_mejora_sva(analisis, tier=tier, radio_metros=radio_metros)
     mejora_txt = " ".join(f"({i + 1}) {m}" for i, m in enumerate(mejoras))
+    score_dem = f"{dem['score']:.0f}/100"
+    score_comp = f"{comp['score']:.0f}/100"
+    score_traf = f"{traf['score']:.0f}/100"
 
     return (
-        f"Obtuviste un <b>Score de Viabilidad (SVA) de {sva}/100</b>, por lo que {veredicto} "
-        f"para el giro <b>{rubro}</b> en un radio de {radio_metros:,} m. "
+        f"Obtuviste un {_negrita(f'Score de Viabilidad (SVA) de {sva}/100', html=html)}, por lo que {veredicto} "
+        f"para el giro {_negrita(rubro, html=html)} en un radio de {radio_metros:,} m. "
         f"El resultado no es una opinión: suma tres pilares con pesos fijos — "
-        f"demografía <b>{dem['score']:.0f}/100</b> (40%), "
-        f"competencia <b>{comp['score']:.0f}/100</b> (30%) con {competencia} rivales medidos, "
-        f"y tráfico/atractores <b>{traf['score']:.0f}/100</b> (30%). "
-        f"El mercado residente se perfila como <b>{nse_etiq}</b>. "
+        f"demografía {_negrita(score_dem, html=html)} (40%), "
+        f"competencia {_negrita(score_comp, html=html)} (30%) con {competencia} rivales medidos, "
+        f"y tráfico/atractores {_negrita(score_traf, html=html)} (30%). "
+        f"El mercado residente se perfila como {_negrita(nse_etiq, html=html)}. "
         f"{dem.get('lectura_llana', '')} {comp.get('lectura_llana', '')} {traf.get('lectura_llana', '')} "
-        f"<b>Para mejorar o defender el score:</b> {mejora_txt}"
+        f"{_negrita('Para mejorar o defender el score:', html=html)} {mejora_txt}"
     )
 
 
