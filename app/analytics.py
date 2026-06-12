@@ -313,6 +313,8 @@ def procesar_calculo_analitico(
     competidores_adicionales: str | None = None,
     aliados_adicionales: str | None = None,
     intenciones: str | None = None,
+    modo_analisis_aliados: str = "automatico",
+    config_aliados_guiados: dict | None = None,
 ) -> dict:
     """
     Orquesta todo el motor analítico cuantitativo:
@@ -366,12 +368,24 @@ def procesar_calculo_analitico(
     aliados_seen_keys: set[tuple[float, float]] = set()
 
     competidores_sel_orig = competidores_seleccionados
-    aliados_sel_orig = aliados_seleccionados
+    modo_aliados = (modo_analisis_aliados or "automatico").lower()
+    config_guiada: dict = {}
+    if modo_aliados == "guiado":
+        from app.aliados_guiados import validar_config_guiada
+
+        config_guiada = validar_config_guiada(config_aliados_guiados, modo="guiado")
+        aliados_sel_orig = list(config_guiada.get("atractores_confirmados") or [])
+    else:
+        aliados_sel_orig = aliados_seleccionados
 
     ia_autodetect_competidores = bool(
         competidores_seleccionados and "ia_auto" in competidores_seleccionados
     )
-    ia_autodetect_aliados = bool(aliados_seleccionados and "ia_auto" in aliados_seleccionados)
+    ia_autodetect_aliados = bool(
+        modo_aliados != "guiado"
+        and aliados_seleccionados
+        and "ia_auto" in aliados_seleccionados
+    )
 
     categorias_ia: dict = {"competidores": [], "aliados": []}
     if ia_autodetect_competidores:
@@ -400,9 +414,11 @@ def procesar_calculo_analitico(
         categorias_ia=categorias_ia,
     )
     tipos_aliados, ia_aliados_activa, fuente_aliados = resolver_tipos_aliados_busqueda(
-        aliados_seleccionados,
+        aliados_sel_orig if modo_aliados != "guiado" else None,
         rubro=rubro,
-        intenciones=intenciones,
+        intenciones=intenciones if modo_aliados != "guiado" else None,
+        modo_analisis_aliados=modo_aliados,
+        config_aliados_guiados=config_guiada if modo_aliados == "guiado" else None,
     )
     if ia_comp_activa:
         ia_autodetect_competidores = True
@@ -622,5 +638,7 @@ def procesar_calculo_analitico(
         "competidores_ia_auto": ia_autodetect_competidores,
         "aliados_ia_auto": ia_autodetect_aliados,
         "aliados_fuente_busqueda": fuente_aliados,
+        "modo_analisis_aliados": modo_aliados,
+        "config_aliados_guiados": config_guiada if modo_aliados == "guiado" else None,
         "intenciones": intenciones,
     }

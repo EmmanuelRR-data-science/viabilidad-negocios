@@ -230,6 +230,55 @@
                     <label for="aliados-adicionales-input" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Aliados o franquicias específicas a considerar</label>
                     <input type="text" id="aliados-adicionales-input" placeholder="Ej: OXXO, farmacias, gimnasio específico..." style="width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); color: var(--text-primary); font-size: 14px; outline: none;">
                 </div>
+
+                <!-- Modo guiado de aliados (Premium) -->
+                <div class="form-group aliados-guiado-panel" id="aliados-guiado-panel">
+                    <button type="button" class="aliados-guiado-toggle" id="aliados-guiado-toggle" aria-expanded="false">
+                        <span>🧭 Descubrir mis aliados paso a paso</span>
+                        <span class="aliados-guiado-chevron">▼</span>
+                    </button>
+                    <div class="aliados-guiado-body hidden" id="aliados-guiado-body">
+                        <p class="helper-text" style="margin-bottom: 12px;">
+                            Los aliados no compiten contigo: son lugares que concentran gente cerca de tu local. Responde en lenguaje sencillo y nosotros buscaremos esos tipos en tu radio.
+                        </p>
+
+                        <div class="aliados-guiado-step">
+                            <label class="aliados-guiado-step-title">1. ¿A quién le venderás principalmente? <small>(1–3)</small></label>
+                            <div class="checkbox-group glass-card" id="guiado-perfil-checkboxes">
+                                <label class="checkbox-item"><input type="checkbox" value="publico_general"> Público en general</label>
+                                <label class="checkbox-item"><input type="checkbox" value="familias"> Familias con niños</label>
+                                <label class="checkbox-item"><input type="checkbox" value="estudiantes"> Estudiantes y jóvenes</label>
+                                <label class="checkbox-item"><input type="checkbox" value="oficinistas"> Oficinistas</label>
+                                <label class="checkbox-item"><input type="checkbox" value="transporte_publico"> Transporte público</label>
+                                <label class="checkbox-item"><input type="checkbox" value="compradores_paso"> Compradores de paso</label>
+                                <label class="checkbox-item"><input type="checkbox" value="salud_bienestar"> Salud y bienestar</label>
+                                <label class="checkbox-item"><input type="checkbox" value="adultos_mayores"> Adultos mayores</label>
+                            </div>
+                        </div>
+
+                        <div class="aliados-guiado-step">
+                            <label class="aliados-guiado-step-title">2. ¿Cuándo esperas más clientes? <small>(1–2)</small></label>
+                            <div class="checkbox-group glass-card" id="guiado-horario-checkboxes">
+                                <label class="checkbox-item"><input type="checkbox" value="manana"> Mañana (6:00–12:00)</label>
+                                <label class="checkbox-item"><input type="checkbox" value="mediodia"> Mediodía / comida</label>
+                                <label class="checkbox-item"><input type="checkbox" value="tarde"> Tarde / salida de trabajo</label>
+                                <label class="checkbox-item"><input type="checkbox" value="noche_finde"> Noche y fin de semana</label>
+                            </div>
+                        </div>
+
+                        <div class="aliados-guiado-step">
+                            <label class="aliados-guiado-step-title">3. ¿Qué lugares traen gente cerca de ti? <small>(2–5)</small></label>
+                            <p class="helper-text" id="guiado-atractores-hint">Completa los pasos 1 y 2 para ver sugerencias personalizadas.</p>
+                            <div class="checkbox-group glass-card" id="guiado-atractores-checkboxes"></div>
+                        </div>
+
+                        <div class="aliados-guiado-resumen glass-card hidden" id="guiados-aliados-resumen">
+                            <p class="coords-title">Tu configuración de aliados</p>
+                            <p id="guiado-resumen-text" class="helper-text"></p>
+                        </div>
+                        <p class="helper-text aliados-guiado-aviso hidden" id="guiado-aviso-error"></p>
+                    </div>
+                </div>
                 
                 <!-- Coordenadas Capturadas (Feedback Cartográfico) -->
                 <div class="coords-box glass-card" id="coords-display">

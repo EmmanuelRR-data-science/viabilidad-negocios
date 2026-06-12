@@ -988,3 +988,198 @@ def test_buscar_direccion_api():
     assert "longitud" in data["resultados"][0]
     assert "direccion" in data["resultados"][0]
     assert "Reforma 222" in data["resultados"][0]["direccion"]
+
+
+def test_sugerir_atractores_floreria_familias_tar():
+    from app.aliados_guiados import sugerir_atractores
+
+    sugerencias = sugerir_atractores(
+        "florería",
+        perfil_cliente=["familias"],
+        horarios_pico=["tarde"],
+    )
+    tipos = [s["tipo"] for s in sugerencias if s["sugerido"]]
+    assert "school" in tipos
+    assert any(s["puntaje"] > 0 for s in sugerencias)
+
+
+def test_sugerir_atractores_publico_general_solo():
+    from app.aliados_guiados import sugerir_atractores
+
+    sugerencias = sugerir_atractores(
+        "abarrotes",
+        perfil_cliente=["publico_general"],
+        horarios_pico=["manana"],
+    )
+    sugeridos = [s for s in sugerencias if s["sugerido"]]
+    tipos = {s["tipo"] for s in sugeridos}
+    assert "transit_station" in tipos or "convenience_store" in tipos
+    assert any("tráfico mixto" in s["motivo"].lower() or "trafico mixto" in s["motivo"].lower() for s in sugerencias)
+
+
+def test_validar_config_guiada_minimo_dos_atractores():
+    from app.aliados_guiados import validar_config_guiada
+    import pytest
+
+    with pytest.raises(ValueError, match="al menos 2"):
+        validar_config_guiada(
+            {
+                "perfil_cliente": ["familias"],
+                "horarios_pico": ["tarde"],
+                "atractores_confirmados": ["school"],
+            },
+            modo="guiado",
+        )
+
+    ok = validar_config_guiada(
+        {
+            "perfil_cliente": ["publico_general"],
+            "horarios_pico": ["mediodia"],
+            "atractores_confirmados": ["transit_station", "supermarket"],
+        },
+        modo="guiado",
+    )
+    assert ok["atractores_confirmados"] == ["transit_station", "supermarket"]
+
+
+def test_resolver_aliados_modo_guiado_sin_llm():
+    from app.competencia_busqueda import resolver_tipos_aliados_busqueda
+
+    tipos, ia_auto, fuente = resolver_tipos_aliados_busqueda(
+        None,
+        rubro="florería",
+        modo_analisis_aliados="guiado",
+        config_aliados_guiados={
+            "perfil_cliente": ["familias"],
+            "horarios_pico": ["tarde"],
+            "atractores_confirmados": ["school", "shopping_mall"],
+        },
+    )
+    assert tipos == ["school", "shopping_mall"]
+    assert ia_auto is False
+    assert fuente == "guiado_usuario"
+
+
+def test_crear_preferencia_guiado_solo_premium():
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    payload_pro = {
+        "tier_adquirido": "pro",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "florería",
+        "modo_analisis_aliados": "guiado",
+        "config_aliados_guiados": {
+            "perfil_cliente": ["familias"],
+            "horarios_pico": ["tarde"],
+            "atractores_confirmados": ["school", "park"],
+        },
+    }
+    response_pro = client.post("/api/pagos/preferencia", json=payload_pro, headers=headers)
+    assert response_pro.status_code == 422
+    assert "solo está disponible en Tier Premium" in response_pro.text
+
+    payload_prem = {
+        "tier_adquirido": "premium",
+        "latitud": 19.432608,
+        "longitud": -99.133208,
+        "radio_metros": 1000,
+        "rubro": "florería",
+        "modo_analisis_aliados": "guiado",
+        "config_aliados_guiados": {
+            "perfil_cliente": ["familias"],
+            "horarios_pico": ["tarde"],
+            "atractores_confirmados": ["school", "park"],
+        },
+        "aliados_adicionales": "OXXO",
+    }
+    response_prem = client.post("/api/pagos/preferencia", json=payload_prem, headers=headers)
+    assert response_prem.status_code == 201
+
+
+def test_api_sugerir_aliados_guiados():
+    headers = {"Authorization": "Bearer test-jwt-token"}
+    response = client.post(
+        "/api/analizar/aliados/sugerir",
+        json={
+            "rubro": "cafetería",
+            "perfil_cliente": ["estudiantes"],
+            "horarios_pico": ["manana"],
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert len(data["sugerencias"]) >= 10
+    assert any(s["sugerido"] for s in data["sugerencias"])
+
+
+def test_pdf_incluye_configuracion_guiada():
+    from types import SimpleNamespace
+
+    from app.aliados_guiados import (
+        etiquetas_atractores_legibles,
+        etiquetas_horario_legibles,
+        etiquetas_perfil_legibles,
+    )
+    from app.reports import ReportLabGenerator
+
+    config = {
+        "perfil_cliente": ["familias"],
+        "horarios_pico": ["tarde"],
+        "atractores_confirmados": ["school", "transit_station"],
+    }
+    assert "Familias" in etiquetas_perfil_legibles(config["perfil_cliente"])
+    assert "Tarde" in etiquetas_horario_legibles(config["horarios_pico"])
+    assert "Escuelas" in etiquetas_atractores_legibles(config["atractores_confirmados"])
+
+    analisis = {
+        "modo_analisis_aliados": "guiado",
+        "config_aliados_guiados": config,
+        "aliados_conteos": {"school": 3, "transit_station": 2},
+        "aliados_listado": [],
+        "competidores_listado": [],
+        "competidores_destacados": [],
+        "competidores_conteo": 0,
+        "bancos_conteo": 0,
+        "escuelas_conteo": 3,
+        "transporte_conteo": 2,
+        "poblacion_ponderada": 10000,
+        "densidad_hab_km2": 5000,
+        "score_demog": 80,
+        "score_competencia": 70,
+        "score_trafico": 60,
+        "sva": 75,
+        "rubro": "florería",
+        "direccion": "CDMX",
+        "afluencia_peatonal": {"status": "unavailable"},
+        "segmentacion_demografica": {},
+        "nse": {"nse_etiqueta": "C+ (Medio Alto)", "nse_score": 62, "metricas": {"fuente": "censo_2020"}},
+    }
+    orden = SimpleNamespace(
+        id=9999,
+        checkout_id="chk_guiado_test",
+        tier_adquirido="premium",
+        rubro="florería",
+        radio_metros=1000,
+        latitud=19.43,
+        longitud=-99.13,
+        aliados_adicionales="OXXO",
+        modo_analisis_aliados="guiado",
+        config_aliados_guiados=None,
+        competidores_adicionales=None,
+        intenciones=None,
+        competidores_seleccionados=None,
+        aliados_seleccionados=None,
+    )
+    foda = {
+        "fortalezas": ["Zona con demanda."],
+        "oportunidades": ["Diferenciación."],
+        "consideraciones_apertura": ["Validar renta."],
+        "conclusion": "Viabilidad moderada.",
+        "dictamen_final": "Aceptable con condiciones.",
+    }
+    pdf = ReportLabGenerator.construir_reporte_pdf(orden, analisis, foda)
+    assert isinstance(pdf, bytes)
+    assert len(pdf) > 5000

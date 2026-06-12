@@ -224,6 +224,8 @@ def init_db_schemas(engine):
                     aliados_seleccionados TEXT,
                     competidores_adicionales TEXT,
                     aliados_adicionales TEXT,
+                    modo_analisis_aliados VARCHAR(20) NOT NULL DEFAULT 'automatico',
+                    config_aliados_guiados TEXT,
                     resultado_json TEXT,
                     foda_json TEXT,
                     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

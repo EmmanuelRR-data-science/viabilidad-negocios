@@ -1,5 +1,13 @@
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.aliados_guiados import validar_config_guiada
+
+
+class ConfigAliadosGuiadosInput(BaseModel):
+    perfil_cliente: list[str] = Field(..., min_length=1, max_length=3)
+    horarios_pico: list[str] = Field(..., min_length=1, max_length=2)
+    atractores_confirmados: list[str] = Field(..., min_length=2, max_length=5)
+
 
 class PreferenciaCreate(BaseModel):
     """
@@ -16,6 +24,22 @@ class PreferenciaCreate(BaseModel):
     aliados_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para aliados")
     competidores_adicionales: str | None = Field(None, description="Marcas o competidores específicos de texto libre")
     aliados_adicionales: str | None = Field(None, description="Aliados o franquicias específicas de texto libre")
+    modo_analisis_aliados: str = Field(
+        "automatico",
+        description="Modo de resolución de aliados: 'automatico' o 'guiado' (Premium)",
+    )
+    config_aliados_guiados: ConfigAliadosGuiadosInput | None = Field(
+        None,
+        description="Respuestas del cuestionario guiado de aliados",
+    )
+
+    @field_validator("modo_analisis_aliados")
+    @classmethod
+    def validate_modo_aliados(cls, v: str) -> str:
+        modo = (v or "automatico").lower().strip()
+        if modo not in ("automatico", "guiado"):
+            raise ValueError("modo_analisis_aliados debe ser 'automatico' o 'guiado'.")
+        return modo
 
     @field_validator("tier_adquirido")
     @classmethod
@@ -44,8 +68,26 @@ class PreferenciaCreate(BaseModel):
         elif tier == "premium":
             if comps and len(comps) > 5:
                 raise ValueError("El Tier Premium permite un máximo de 5 competidores personalizados.")
-            if allies and len(allies) > 5:
+            if self.modo_analisis_aliados == "guiado":
+                if allies and len(allies) > 0:
+                    raise ValueError(
+                        "En modo guiado no envíes aliados_seleccionados; usa config_aliados_guiados."
+                    )
+                try:
+                    config_dict = (
+                        self.config_aliados_guiados.model_dump()
+                        if self.config_aliados_guiados
+                        else None
+                    )
+                    validar_config_guiada(config_dict, modo="guiado")
+                except ValueError as exc:
+                    raise ValueError(str(exc)) from exc
+            elif allies and len(allies) > 5:
                 raise ValueError("El Tier Premium permite un máximo de 5 aliados personalizados.")
+        if self.modo_analisis_aliados == "guiado" and tier != "premium":
+            raise ValueError("El modo guiado de aliados solo está disponible en Tier Premium.")
+        if self.modo_analisis_aliados == "guiado" and not self.config_aliados_guiados:
+            raise ValueError("El modo guiado requiere config_aliados_guiados.")
         return self
 
 

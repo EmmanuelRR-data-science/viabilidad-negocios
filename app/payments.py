@@ -78,6 +78,11 @@ def crear_preferencia_cobro(
 
     # 4. Registrar la orden en estado 'pending' en la base de datos RDS PostgreSQL
     try:
+        aliados_guardar = (
+            payload.config_aliados_guiados.atractores_confirmados
+            if payload.modo_analisis_aliados == "guiado" and payload.config_aliados_guiados
+            else payload.aliados_seleccionados
+        )
         nueva_orden = OrdenPago(
             cognito_user_id=user.cognito_user_id,
             email=user.email,
@@ -93,9 +98,13 @@ def crear_preferencia_cobro(
             competidores_seleccionados=json.dumps(payload.competidores_seleccionados)
             if payload.competidores_seleccionados
             else None,
-            aliados_seleccionados=json.dumps(payload.aliados_seleccionados) if payload.aliados_seleccionados else None,
+            aliados_seleccionados=json.dumps(aliados_guardar) if aliados_guardar else None,
             competidores_adicionales=payload.competidores_adicionales,
             aliados_adicionales=payload.aliados_adicionales,
+            modo_analisis_aliados=payload.modo_analisis_aliados,
+            config_aliados_guiados=json.dumps(payload.config_aliados_guiados.model_dump())
+            if payload.config_aliados_guiados
+            else None,
         )
         db.add(nueva_orden)
         db.commit()

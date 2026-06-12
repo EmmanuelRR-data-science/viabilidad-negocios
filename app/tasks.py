@@ -38,6 +38,10 @@ def generar_informe_task(orden_id: int):
 
         competidores_sel = json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
         aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
+        config_guiada = json.loads(orden.config_aliados_guiados) if orden.config_aliados_guiados else None
+        modo_aliados = getattr(orden, "modo_analisis_aliados", None) or "automatico"
+        if modo_aliados == "guiado" and config_guiada:
+            aliados_sel = config_guiada.get("atractores_confirmados")
 
         # 1. Ejecutar el cálculo analítico real geoespacial (PostGIS, Places, BestTime)
         logger.info(f"[TASK] Calculando analíticas para coordenadas: ({orden.latitud}, {orden.longitud})...")
@@ -53,6 +57,8 @@ def generar_informe_task(orden_id: int):
             competidores_adicionales=orden.competidores_adicionales,
             aliados_adicionales=orden.aliados_adicionales,
             intenciones=orden.intenciones,
+            modo_analisis_aliados=modo_aliados,
+            config_aliados_guiados=config_guiada,
         )
 
         # Cálculo multi-radio REAL con PostGIS: población y densidad por anillo de cobertura.

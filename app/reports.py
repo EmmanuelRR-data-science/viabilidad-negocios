@@ -1871,6 +1871,68 @@ class ReportLabGenerator:
             )
             story.append(Spacer(1, 5))
 
+        modo_aliados = getattr(orden, "modo_analisis_aliados", None) or analisis.get(
+            "modo_analisis_aliados", "automatico"
+        )
+        config_guiada = analisis.get("config_aliados_guiados")
+        if not config_guiada and getattr(orden, "config_aliados_guiados", None):
+            import json as _json
+
+            try:
+                config_guiada = _json.loads(orden.config_aliados_guiados)
+            except Exception:
+                config_guiada = None
+
+        if orden.tier_adquirido == "premium" and modo_aliados == "guiado" and config_guiada:
+            from app.aliados_guiados import (
+                etiquetas_atractores_legibles,
+                etiquetas_horario_legibles,
+                etiquetas_perfil_legibles,
+            )
+
+            story.append(
+                Paragraph(
+                    "<i>Atractores definidos por configuración guiada del solicitante "
+                    "(sin inferencia automática de categorías).</i>",
+                    s_body,
+                )
+            )
+            story.append(Spacer(1, 6))
+            cfg_rows = [
+                ["Perfil de cliente", etiquetas_perfil_legibles(config_guiada.get("perfil_cliente"))],
+                ["Horarios clave", etiquetas_horario_legibles(config_guiada.get("horarios_pico"))],
+                [
+                    "Tipos elegidos",
+                    etiquetas_atractores_legibles(config_guiada.get("atractores_confirmados")),
+                ],
+                [
+                    "Marcas adicionales",
+                    getattr(orden, "aliados_adicionales", None) or "No especificadas",
+                ],
+            ]
+            cfg_table_data = [
+                [Paragraph("Tu configuración", s_table_header), Paragraph("Detalle", s_table_header)]
+            ]
+            for etiqueta, valor in cfg_rows:
+                cfg_table_data.append(
+                    [Paragraph(etiqueta, s_table_cell), Paragraph(str(valor), s_table_cell)]
+                )
+            cfg_table = Table(cfg_table_data, colWidths=[170, 334])
+            cfg_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                        ("PADDING", (0, 0), (-1, -1), 6),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ]
+                )
+            )
+            story.append(cfg_table)
+            story.append(Spacer(1, 8))
+
         aliados_conteos = analisis.get("aliados_conteos", {})
 
         poi_table_data = [

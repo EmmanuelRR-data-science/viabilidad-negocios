@@ -34,7 +34,11 @@ const state = {
     // Transacciones y órdenes
     activeOrderId: null,
     activeCheckoutId: null,
-    activeTier: null
+    activeTier: null,
+
+    // Modo guiado de aliados (Premium)
+    aliadosGuiadoActivo: false,
+    aliadosGuiadoSugerencias: [],
 };
 
 // --- INICIALIZACIÓN AL CARGAR LA PÁGINA ---
@@ -172,6 +176,7 @@ function bindUIEvents() {
     
     // K. Enforzar límites de selección de checkboxes en el panel izquierdo (máximo 5 cada uno)
     setupLeftPanelCheckboxLimits();
+    setupAliadosGuiado();
     
     // L. Buscador de dirección flotante sobre el mapa
     setupMapSearchBox();
@@ -303,6 +308,244 @@ function setupLeftPanelCheckboxLimits() {
     };
     enforceLimits("competidores-checkboxes", 5, "competidores-adicionales-input", "competidores-ia-auto");
     enforceLimits("aliados-checkboxes", 5, "aliados-adicionales-input", "aliados-ia-auto");
+}
+
+const GUIADO_PERFIL_LABELS = {
+    publico_general: "Público en general",
+    familias: "Familias con niños",
+    estudiantes: "Estudiantes y jóvenes",
+    oficinistas: "Oficinistas",
+    transporte_publico: "Transporte público",
+    compradores_paso: "Compradores de paso",
+    salud_bienestar: "Salud y bienestar",
+    adultos_mayores: "Adultos mayores",
+};
+
+const GUIADO_HORARIO_LABELS = {
+    manana: "Mañana",
+    mediodia: "Mediodía",
+    tarde: "Tarde",
+    noche_finde: "Noche y fin de semana",
+};
+
+function getRubroActual() {
+    const giroSelect = document.getElementById("giro-select");
+    const customGiroInput = document.getElementById("custom-giro-input");
+    if (giroSelect?.value === "otro") {
+        return (customGiroInput?.value || "").trim() || state.selectedGiro;
+    }
+    return state.selectedGiro || giroSelect?.value || "";
+}
+
+function isAliadosGuiadoActivo() {
+    const body = document.getElementById("aliados-guiado-body");
+    return Boolean(state.aliadosGuiadoActivo && body && !body.classList.contains("hidden"));
+}
+
+function getGuiadoCheckedValues(containerId, max) {
+    const boxes = document.querySelectorAll(`#${containerId} input[type='checkbox']:checked`);
+    return Array.from(boxes).map(cb => cb.value).slice(0, max);
+}
+
+function setGuiadoError(msg) {
+    const aviso = document.getElementById("guiado-aviso-error");
+    if (!aviso) return;
+    if (msg) {
+        aviso.textContent = msg;
+        aviso.classList.remove("hidden");
+    } else {
+        aviso.textContent = "";
+        aviso.classList.add("hidden");
+    }
+}
+
+function renderGuiadoAtractores(sugerencias) {
+    const container = document.getElementById("guiado-atractores-checkboxes");
+    const hint = document.getElementById("guiado-atractores-hint");
+    if (!container) return;
+
+    const prevChecked = new Set(getGuiadoCheckedValues("guiado-atractores-checkboxes", 5));
+    container.innerHTML = "";
+
+    sugerencias.forEach(item => {
+        const label = document.createElement("label");
+        label.className = "checkbox-item guiado-atractor-item";
+        const checked = prevChecked.has(item.tipo) || (prevChecked.size === 0 && item.sugerido);
+        label.innerHTML = `
+            <input type="checkbox" value="${item.tipo}" ${checked ? "checked" : ""}>
+            <span class="guiado-atractor-text">
+                <strong>${item.etiqueta}</strong>
+                <small>${item.explicacion}</small>
+                <em class="guiado-atractor-motivo">${item.motivo}</em>
+            </span>
+        `;
+        container.appendChild(label);
+    });
+
+    if (hint) {
+        hint.textContent = "Marca entre 2 y 5 tipos de lugares. Las sugerencias se basan en tu giro y respuestas anteriores.";
+    }
+
+    container.querySelectorAll("input[type='checkbox']").forEach(cb => {
+        cb.addEventListener("change", () => {
+            enforceGuiadoLimit("guiado-atractores-checkboxes", 5, 2);
+            updateGuiadoResumen();
+        });
+    });
+    enforceGuiadoLimit("guiado-atractores-checkboxes", 5, 2);
+    updateGuiadoResumen();
+}
+
+function enforceGuiadoLimit(containerId, max, minOptional = 0) {
+    const boxes = Array.from(document.querySelectorAll(`#${containerId} input[type='checkbox']`));
+    const checked = boxes.filter(cb => cb.checked);
+    if (checked.length > max) {
+        checked[max].checked = false;
+    }
+    if (minOptional > 0 && checked.length < minOptional) {
+        setGuiadoError(`Selecciona al menos ${minOptional} tipos de lugares que creas relevantes para tu negocio.`);
+    } else if (containerId === "guiado-atractores-checkboxes") {
+        setGuiadoError("");
+    }
+}
+
+async function refreshGuiadoSugerencias() {
+    const perfiles = getGuiadoCheckedValues("guiado-perfil-checkboxes", 3);
+    const horarios = getGuiadoCheckedValues("guiado-horario-checkboxes", 2);
+    const rubro = getRubroActual();
+
+    if (perfiles.length === 0 || horarios.length === 0 || !rubro) {
+        return;
+    }
+
+    try {
+        const headers = getAuthHeaders();
+        headers["Content-Type"] = "application/json";
+        const response = await fetch("/api/analizar/aliados/sugerir", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+                rubro,
+                perfil_cliente: perfiles,
+                horarios_pico: horarios,
+            }),
+        });
+        if (!response.ok) {
+            throw new Error("No se pudieron cargar las sugerencias");
+        }
+        const data = await response.json();
+        state.aliadosGuiadoSugerencias = data.sugerencias || [];
+        renderGuiadoAtractores(state.aliadosGuiadoSugerencias);
+    } catch (err) {
+        logger("Error sugerencias guiadas:", err);
+        setGuiadoError("No pudimos cargar sugerencias. Intenta de nuevo en unos segundos.");
+    }
+}
+
+function updateGuiadoResumen() {
+    const resumenBox = document.getElementById("guiados-aliados-resumen");
+    const resumenText = document.getElementById("guiado-resumen-text");
+    if (!resumenBox || !resumenText) return;
+
+    const perfiles = getGuiadoCheckedValues("guiado-perfil-checkboxes", 3);
+    const horarios = getGuiadoCheckedValues("guiado-horario-checkboxes", 2);
+    const atractores = getGuiadoCheckedValues("guiado-atractores-checkboxes", 5);
+
+    if (perfiles.length === 0 && horarios.length === 0 && atractores.length === 0) {
+        resumenBox.classList.add("hidden");
+        return;
+    }
+
+    const perfilTxt = perfiles.map(p => GUIADO_PERFIL_LABELS[p] || p).join(", ") || "—";
+    const horarioTxt = horarios.map(h => GUIADO_HORARIO_LABELS[h] || h).join(", ") || "—";
+    const atractorTxt = atractores.map(t => {
+        const sug = (state.aliadosGuiadoSugerencias || []).find(s => s.tipo === t);
+        return sug?.etiqueta || t;
+    }).join(", ") || "—";
+
+    resumenText.innerHTML = `
+        <b>Cliente principal:</b> ${perfilTxt}<br>
+        <b>Horarios clave:</b> ${horarioTxt}<br>
+        <b>Buscaremos cerca:</b> ${atractorTxt}
+    `;
+    resumenBox.classList.remove("hidden");
+}
+
+function syncAliadosManualPanel(guiadoOn) {
+    const manualGroup = document.getElementById("aliados-checkboxes");
+    if (!manualGroup) return;
+    manualGroup.closest(".form-group")?.classList.toggle("aliados-manual-muted", guiadoOn);
+    if (guiadoOn) {
+        manualGroup.querySelectorAll("input[type='checkbox']").forEach(cb => { cb.checked = false; });
+    }
+}
+
+function collectAliadosPayload() {
+    if (!isAliadosGuiadoActivo()) {
+        const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
+        const aliadosSel = Array.from(aliadosCheckboxes).map(cb => cb.value);
+        return {
+            modo_analisis_aliados: "automatico",
+            config_aliados_guiados: null,
+            aliados_seleccionados: aliadosSel.length > 0 ? aliadosSel : null,
+        };
+    }
+
+    const perfiles = getGuiadoCheckedValues("guiado-perfil-checkboxes", 3);
+    const horarios = getGuiadoCheckedValues("guiado-horario-checkboxes", 2);
+    const atractores = getGuiadoCheckedValues("guiado-atractores-checkboxes", 5);
+
+    if (perfiles.length === 0 || horarios.length === 0 || atractores.length < 2) {
+        return { invalid: true };
+    }
+
+    const config = {
+        perfil_cliente: perfiles,
+        horarios_pico: horarios,
+        atractores_confirmados: atractores,
+    };
+
+    return {
+        modo_analisis_aliados: "guiado",
+        config_aliados_guiados: config,
+        aliados_seleccionados: atractores,
+    };
+}
+
+function setupAliadosGuiado() {
+    const toggle = document.getElementById("aliados-guiado-toggle");
+    const body = document.getElementById("aliados-guiado-body");
+    if (!toggle || !body) return;
+
+    toggle.addEventListener("click", () => {
+        const opening = body.classList.contains("hidden");
+        body.classList.toggle("hidden", !opening);
+        toggle.setAttribute("aria-expanded", opening ? "true" : "false");
+        state.aliadosGuiadoActivo = opening;
+        syncAliadosManualPanel(opening);
+        if (opening) {
+            refreshGuiadoSugerencias();
+        } else {
+            setGuiadoError("");
+        }
+    });
+
+    const bindGuiadoGroup = (containerId, max) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.querySelectorAll("input[type='checkbox']").forEach(cb => {
+            cb.addEventListener("change", () => {
+                enforceGuiadoLimit(containerId, max);
+                if (containerId !== "guiado-atractores-checkboxes") {
+                    refreshGuiadoSugerencias();
+                }
+                updateGuiadoResumen();
+            });
+        });
+    };
+
+    bindGuiadoGroup("guiado-perfil-checkboxes", 3);
+    bindGuiadoGroup("guiado-horario-checkboxes", 2);
 }
 
 function setupMapSearchBox() {
@@ -678,17 +921,26 @@ async function runPreviewAnalysis() {
         // Recopilar selecciones de competidores/aliados del formulario (incluido ia_auto)
         const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
         const competidoresSel = Array.from(compCheckboxes).map(cb => cb.value);
-        const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
-        const aliadosSel = Array.from(aliadosCheckboxes).map(cb => cb.value);
+        const aliadosPayload = collectAliadosPayload();
+        if (aliadosPayload.invalid) {
+            setGuiadoError("Completa el cuestionario guiado: perfil, horarios y al menos 2 tipos de lugares.");
+            btn.innerHTML = `<span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN`;
+            btn.removeAttribute("disabled");
+            return;
+        }
 
         const intenciones = document.getElementById("intenciones-textarea")?.value?.trim() || null;
         const compAdicionales = document.getElementById("competidores-adicionales-input")?.value?.trim() || null;
+        const aliadosAdicionales = document.getElementById("aliados-adicionales-input")?.value?.trim() || null;
 
         const previewBody = {
             competidores_seleccionados: competidoresSel.length > 0 ? competidoresSel : null,
-            aliados_seleccionados: aliadosSel.length > 0 ? aliadosSel : null,
+            aliados_seleccionados: aliadosPayload.aliados_seleccionados,
             intenciones,
             competidores_adicionales: compAdicionales,
+            aliados_adicionales: aliadosAdicionales,
+            modo_analisis_aliados: aliadosPayload.modo_analisis_aliados,
+            config_aliados_guiados: aliadosPayload.config_aliados_guiados,
         };
 
         const response = await fetch(`/api/analizar/previa?${queryParams}`, {
@@ -873,9 +1125,13 @@ async function openPaymentModal(tier) {
         const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
         let competidores_seleccionados = Array.from(compCheckboxes).map(cb => cb.value);
 
-        // Obtener aliados seleccionados
-        const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
-        let aliados_seleccionados = Array.from(aliadosCheckboxes).map(cb => cb.value);
+        // Obtener aliados (modo automático o guiado)
+        const aliadosPayload = collectAliadosPayload();
+        if (aliadosPayload.invalid) {
+            alert("Completa el cuestionario guiado de aliados: perfil, horarios y al menos 2 tipos de lugares.");
+            return;
+        }
+        let aliados_seleccionados = aliadosPayload.aliados_seleccionados;
 
         // Obtener entradas de texto libre
         const compAdicionales = document.getElementById("competidores-adicionales-input").value.trim();
@@ -915,7 +1171,11 @@ async function openPaymentModal(tier) {
             aliados_seleccionados = null;
         } else if (tier === "premium") {
             competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 5) : null;
-            aliados_seleccionados = aliados_seleccionados.length > 0 ? aliados_seleccionados.slice(0, 5) : null;
+            if (aliadosPayload.modo_analisis_aliados === "guiado") {
+                aliados_seleccionados = aliadosPayload.aliados_seleccionados;
+            } else {
+                aliados_seleccionados = aliados_seleccionados.length > 0 ? aliados_seleccionados.slice(0, 5) : null;
+            }
         }
 
         // Configurar textos del resumen visual en el modal
@@ -941,13 +1201,19 @@ async function openPaymentModal(tier) {
             summaryContainer.classList.remove("hidden");
             const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
             const allyLabels = aliados_seleccionados
-                ? aliados_seleccionados.map(a => (a === "ia_auto" ? categoryMap.ia_auto_aliado : (categoryMap[a] || a))).join(", ")
+                ? aliados_seleccionados.map(a => {
+                    if (a === "ia_auto") return categoryMap.ia_auto_aliado;
+                    const sug = (state.aliadosGuiadoSugerencias || []).find(s => s.tipo === a);
+                    return sug?.etiqueta || categoryMap[a] || a;
+                }).join(", ")
                 : "Bancos, Escuelas y Transporte por defecto";
             let compText = `🏪 <b>Competidores a analizar (Máx 5):</b> ${compLabels}`;
             if (compAdicionales) {
                 compText += ` (+ "${compAdicionales}")`;
             }
-            let allyText = `🌱 <b>Aliados a analizar (Máx 5):</b> ${allyLabels}`;
+            let allyText = aliadosPayload.modo_analisis_aliados === "guiado"
+                ? `🧭 <b>Aliados (modo guiado):</b> ${allyLabels}`
+                : `🌱 <b>Aliados a analizar (Máx 5):</b> ${allyLabels}`;
             if (aliadosAdicionales) {
                 allyText += ` (+ "${aliadosAdicionales}")`;
             }
@@ -965,9 +1231,11 @@ async function openPaymentModal(tier) {
             rubro: state.selectedGiro,
             intenciones: document.getElementById("intenciones-textarea").value.trim() || null,
             competidores_seleccionados: competidores_seleccionados,
-            aliados_seleccionados: aliados_seleccionados,
+            aliados_seleccionados: aliadosPayload.modo_analisis_aliados === "guiado" ? null : aliados_seleccionados,
             competidores_adicionales: compAdicionales || null,
-            aliados_adicionales: aliadosAdicionales || null
+            aliados_adicionales: aliadosAdicionales || null,
+            modo_analisis_aliados: aliadosPayload.modo_analisis_aliados,
+            config_aliados_guiados: aliadosPayload.config_aliados_guiados,
         };
         
         const response = await fetch("/api/pagos/preferencia", {

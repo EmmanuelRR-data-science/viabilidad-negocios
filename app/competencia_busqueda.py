@@ -135,7 +135,16 @@ def resolver_tipos_aliados_busqueda(
     *,
     rubro: str,
     intenciones: str | None = None,
+    modo_analisis_aliados: str = "automatico",
+    config_aliados_guiados: dict | None = None,
 ) -> tuple[list[str] | None, bool, str]:
+    if (modo_analisis_aliados or "automatico").lower() == "guiado":
+        from app.aliados_guiados import validar_config_guiada
+
+        config = validar_config_guiada(config_aliados_guiados, modo="guiado")
+        tipos = list(config.get("atractores_confirmados") or [])
+        return tipos, False, "guiado_usuario"
+
     manual = _categorias_manuales(aliados_seleccionados)
     ia_auto = bool(aliados_seleccionados and "ia_auto" in aliados_seleccionados)
 

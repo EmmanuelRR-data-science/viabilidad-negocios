@@ -29,6 +29,8 @@ class OrdenPago(Base):
     aliados_seleccionados = Column(Text, nullable=True)
     competidores_adicionales = Column(Text, nullable=True)
     aliados_adicionales = Column(Text, nullable=True)
+    modo_analisis_aliados = Column(String(20), nullable=False, default="automatico")
+    config_aliados_guiados = Column(Text, nullable=True)
     resultado_json = Column(Text, nullable=True)
     foda_json = Column(Text, nullable=True)
     fecha_creacion = Column(DateTime, server_default=func.now())

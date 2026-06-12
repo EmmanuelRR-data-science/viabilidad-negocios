@@ -1,7 +1,10 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
+from app.aliados_guiados import sugerir_atractores
 
 from app.analytics import procesar_calculo_analitico
 from app.auth import UserContext, get_current_user
@@ -14,6 +17,31 @@ from app.models import OrdenPago
 logger = logging.getLogger("routes_analytics")
 
 router = APIRouter(prefix="/api/analizar", tags=["Motor Analítico e INEGI"])
+
+
+class SugerirAliadosRequest(BaseModel):
+    rubro: str = Field(..., min_length=1)
+    perfil_cliente: list[str] = Field(..., min_length=1, max_length=3)
+    horarios_pico: list[str] = Field(..., min_length=1, max_length=2)
+
+
+@router.post("/aliados/sugerir", status_code=status.HTTP_200_OK)
+def sugerir_aliados_guiados(
+    body: SugerirAliadosRequest,
+    user: UserContext = Depends(get_current_user),
+):
+    """Motor determinista de sugerencias para el cuestionario guiado (sin LLM)."""
+    _ = user
+    try:
+        sugerencias = sugerir_atractores(
+            body.rubro,
+            perfil_cliente=body.perfil_cliente,
+            horarios_pico=body.horarios_pico,
+        )
+        return {"status": "success", "sugerencias": sugerencias}
+    except Exception as exc:
+        logger.error("Falla al sugerir aliados: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/geocodificar", status_code=status.HTTP_200_OK)
@@ -56,17 +84,25 @@ async def obtener_vista_previa_gratuita(
     aliados_sel = None
     intenciones = None
     competidores_adicionales = None
+    aliados_adicionales = None
+    modo_aliados = "automatico"
+    config_guiada = None
     try:
         body = await request.json()
         competidores_sel = body.get("competidores_seleccionados")
         aliados_sel = body.get("aliados_seleccionados")
         intenciones = body.get("intenciones")
         competidores_adicionales = body.get("competidores_adicionales")
+        aliados_adicionales = body.get("aliados_adicionales")
+        modo_aliados = (body.get("modo_analisis_aliados") or "automatico").lower()
+        config_guiada = body.get("config_aliados_guiados")
+        if modo_aliados == "guiado" and config_guiada:
+            aliados_sel = config_guiada.get("atractores_confirmados")
         logger.info(
-            "Vista previa — Competidores: %s | Aliados: %s | IA contexto: %s",
+            "Vista previa — Competidores: %s | Aliados: %s | Modo aliados: %s",
             competidores_sel,
             aliados_sel,
-            bool(intenciones),
+            modo_aliados,
         )
     except Exception:
         # No hay body o no es JSON válido — proceder con defaults
@@ -80,6 +116,9 @@ async def obtener_vista_previa_gratuita(
             aliados_seleccionados=aliados_sel,
             intenciones=intenciones,
             competidores_adicionales=competidores_adicionales,
+            aliados_adicionales=aliados_adicionales,
+            modo_analisis_aliados=modo_aliados,
+            config_aliados_guiados=config_guiada,
         )
 
         return {
@@ -157,6 +196,12 @@ def obtener_resultado_analisis(
                 json.loads(orden.competidores_seleccionados) if orden.competidores_seleccionados else None
             )
             aliados_sel = json.loads(orden.aliados_seleccionados) if orden.aliados_seleccionados else None
+            config_guiada = (
+                json.loads(orden.config_aliados_guiados) if orden.config_aliados_guiados else None
+            )
+            modo_aliados = getattr(orden, "modo_analisis_aliados", None) or "automatico"
+            if modo_aliados == "guiado" and config_guiada:
+                aliados_sel = config_guiada.get("atractores_confirmados")
 
             analisis_cuant = procesar_calculo_analitico(
                 db=db,
@@ -170,6 +215,8 @@ def obtener_resultado_analisis(
                 competidores_adicionales=orden.competidores_adicionales,
                 aliados_adicionales=orden.aliados_adicionales,
                 intenciones=orden.intenciones,
+                modo_analisis_aliados=modo_aliados,
+                config_aliados_guiados=config_guiada,
             )
 
             # Inyectar dirección física y contexto personalizado
