@@ -225,7 +225,8 @@ def _agregar_seccion_transparencia_sva(
             Paragraph(
                 "Escenarios hipotéticos recalculados con las mismas fórmulas. "
                 "Se conservan demografía y tráfico actuales; solo varía el ISC según cuántos "
-                "competidores (y a qué distancia) permanecen en el radio.",
+                "competidores (y a qué distancia) permanecen en el radio. "
+                "<b>No son metas comerciales ni recomendaciones de ubicación.</b>",
                 s_body,
             )
         )
@@ -270,10 +271,15 @@ def _agregar_seccion_transparencia_sva(
             )
         )
         story.append(sim_table)
-        story.append(Spacer(1, 4))
-        notas_sim = [esc["nota"] for esc in escenarios if not esc["escenario"].startswith("Situación actual")]
-        if notas_sim:
-            story.append(Paragraph(f"<i>{notas_sim[0]}</i>", s_body))
+        story.append(Spacer(1, 6))
+        story.append(
+            Paragraph(
+                "<i>Un SVA alto con competencia real es posible cuando los rivales están lejos: "
+                "el conteo por sí solo no define el score. La fila «sin rivales» solo muestra un "
+                "contrafactual matemático, no una estrategia de negocio.</i>",
+                s_body,
+            )
+        )
 
 
 def _interpretacion_distribucion_poblacional(

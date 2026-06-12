@@ -104,6 +104,18 @@ def calcular_isc_desde_competidores(competidores: list[dict]) -> float:
     return isc
 
 
+def calcular_isc_distancias_escaladas(competidores: list[dict], factor: float = 2.0) -> float:
+    """ISC si cada rival estuviera a factor x su distancia actual (mismo conteo)."""
+    isc = 0.0
+    for comp in competidores:
+        dist = comp.get("distancia_metros")
+        if dist is None:
+            continue
+        dist_cap = max(float(dist) * factor, 10.0)
+        isc += 1.0 / (dist_cap**2)
+    return isc
+
+
 def factor_logaritmico_isc(isc: float) -> float | None:
     if isc <= 0:
         return None
@@ -352,12 +364,22 @@ def escenarios_simulacion_sva(
         )
 
     if comp_n > 0:
+        lista_isc = ordenados if ordenados else competidores
+        isc_doble_dist = calcular_isc_distancias_escaladas(lista_isc, factor=2.0)
         escenarios.append(
             _fila(
-                "Sin competidores en el radio",
+                "Rivales al doble de distancia (hipotético)",
+                comp_n,
+                isc_doble_dist,
+                "Misma cantidad de competidores, pero cada uno al doble de distancia lineal.",
+            )
+        )
+        escenarios.append(
+            _fila(
+                "Escenario hipotético: sin rivales en el radio (no es recomendación)",
                 0,
                 0.0,
-                "Pilar de competencia al máximo (100); no implica ausencia de demanda.",
+                "Contrafactual para ver el techo del pilar de competencia; no implica que debas buscar una zona sin rivales.",
             )
         )
 

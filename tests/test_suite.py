@@ -352,7 +352,12 @@ def test_sva_calculo_transparente_y_simulador():
     assert escenarios[0]["sva"] == analisis["sva"]
     mitad = next(e for e in escenarios if "más cercanos" in e["escenario"] and e["competidores"] == 6)
     assert mitad["delta_vs_actual"] != 0
-    sin_comp = next(e for e in escenarios if e["competidores"] == 0)
+    doble = next(e for e in escenarios if "doble de distancia" in e["escenario"])
+    assert doble["competidores"] == 12
+    assert doble["isc"] < isc_ejemplo
+    assert doble["sva"] >= escenarios[0]["sva"]
+    sin_comp = next(e for e in escenarios if "sin rivales" in e["escenario"])
+    assert sin_comp["competidores"] == 0
     assert sin_comp["score_competencia"] == 100.0
     assert sin_comp["sva"] > escenarios[0]["sva"]
 
