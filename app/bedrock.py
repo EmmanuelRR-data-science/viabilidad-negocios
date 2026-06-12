@@ -413,30 +413,11 @@ def _foda_respaldo_cuantitativo(
     fortalezas_list = _recortar_lista_texto(fortalezas_list, max_items=3)
 
     quejas_reales = _quejas_desde_competencia_real(datos_entorno)
-    if not quejas_reales:
-        quejas_reales = [
-            "Tiempos de espera elevados en horas pico (fricción típica del sector).",
-            "Relación precio-calidad percibida como desfavorable en competidores consolidados.",
-            "Espacio reducido o poco cómodo en locales saturados de la zona.",
-        ]
-
-    oportunidades_list = _recortar_lista_texto(
-        [
-            f"Demanda activa para el giro '{rubro}' en el perfil residencial local.",
-            "Captación de clientes insatisfechos con la competencia actual."
-            if competencia > 0
-            else "Primer movimiento en zona sin competidores directos detectados.",
-            "Alianzas con comercios de la zona para ampliar alcance del servicio."
-            if total_atractores > 0
-            else "Posicionamiento como referente local del giro en el micro-mercado.",
-        ],
-        max_items=3,
-    )
 
     return {
         "_fuente": "respaldo_cuantitativo",
         "fortalezas": fortalezas_list,
-        "oportunidades": oportunidades_list,
+        "oportunidades": [],
         "consideraciones_apertura": _generar_consideraciones_apertura(datos_entorno),
         "conclusion": (
             f"El punto cuenta con un Score SVA de {sva}/100 y {competencia} competidores en el radio. "
@@ -446,7 +427,6 @@ def _foda_respaldo_cuantitativo(
             f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}' "
             f"y NSE predominante {nse_etiqueta}."
         ),
-        "estrategia_precios": "Posicionamiento de precios acorde a la competencia y densidad demográfica local.",
         "dictamen_final": (
             f"Dictamen {veredicto_dictamen} para '{rubro}' en {direcc}, basado en datos INEGI y Places."
         ),

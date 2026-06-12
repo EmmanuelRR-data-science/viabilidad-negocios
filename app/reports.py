@@ -35,6 +35,42 @@ def rubro_legible(rubro: str) -> str:
     return RUBRO_DISPLAY.get(rubro.lower().strip(), rubro.replace("_", " ").strip().capitalize())
 
 
+_TEXTOS_FODA_GENERICOS_OMITIR = frozenset(
+    {
+        "Análisis de viabilidad concluido con éxito.",
+        "Población y segmento comercial cautivo detectados en el radio.",
+        "Posicionamiento de precios acorde a la competencia y densidad demográfica local.",
+        "Demanda residencial en el radio analizado.",
+        "Espacio para diferenciación en el giro.",
+        "Validar permisos, renta y operación con cifras reales.",
+        "Monitorear retornos de inversión.",
+    }
+)
+
+
+def _texto_si_es_real(valor: str | None) -> str | None:
+    if not valor or not str(valor).strip():
+        return None
+    texto = str(valor).strip()
+    if texto in _TEXTOS_FODA_GENERICOS_OMITIR:
+        return None
+    return texto
+
+
+def _bullets_reales(items: list, *, max_items: int = 3) -> str | None:
+    lista = [str(x).strip() for x in (items or []) if str(x).strip()][:max_items]
+    return "<br/>".join(f"• {x}" for x in lista) if lista else None
+
+
+def _tipo_comercial_legible(tipo: str | None, rubro: str) -> str:
+    from app.aliados_deterministico import nombre_categoria_places
+
+    if not tipo:
+        return rubro_legible(rubro)
+    clave = str(tipo).lower().replace(" ", "_").strip()
+    return nombre_categoria_places(clave)
+
+
 def _pct_poblacion(valor: int, total: int) -> float:
     if total <= 0:
         return 0.0
@@ -71,21 +107,22 @@ def _justificacion_score_sva(analisis: dict, rubro: str, tier: str) -> str:
     else:
         dem_txt = f"la baja densidad de {dens:,.1f} hab/km² reduce el mercado capturable ({score_dem:.1f}/100)"
 
+    isc_fmt = f"{isc:.6f}"
     if comp_n == 0:
         comp_txt = "no hay competidores directos detectados, por lo que este pilar aporta el máximo (100/100)"
     elif score_comp >= 80:
         comp_txt = (
-            f"los {comp_n} competidor(es) generan poca fricción (ISC {isc:.4f}), "
+            f"los {comp_n} competidor(es) generan poca fricción (ISC {isc_fmt}), "
             f"dejando el pilar en {score_comp:.1f}/100"
         )
     elif score_comp >= 50:
         comp_txt = (
-            f"los {comp_n} competidores en el radio producen saturación moderada (ISC {isc:.4f}), "
+            f"los {comp_n} competidores en el radio producen saturación moderada (ISC {isc_fmt}), "
             f"traducida en {score_comp:.1f}/100: a más rivales cercanos, menor puntuación"
         )
     else:
         comp_txt = (
-            f"la alta saturación — {comp_n} competidores con ISC {isc:.4f} — "
+            f"la alta saturación — {comp_n} competidores con ISC {isc_fmt} — "
             f"reduce este pilar a <b>{score_comp:.1f}/100</b> porque varios negocios muy próximos "
             f"compiten por el mismo flujo de clientes"
         )
@@ -343,13 +380,9 @@ class ReportLabGenerator:
 
                 foda_dict = json.loads(foda)
             except Exception:
-                foda_dict = {
-                    "fortalezas": ["Base demográfica favorable."],
-                    "oportunidades": ["Diferenciación de nicho."],
-                    "consideraciones_apertura": ["Validar costos de operación y permisos del giro."],
-                    "conclusion": str(foda),
-                    "recomendacion_roi": "Monitorear retornos de inversión.",
-                }
+                foda_dict = {}
+                if isinstance(foda, str) and foda.strip():
+                    foda_dict = {"conclusion": foda.strip()}
 
         # Inicializar plantilla de documento (Márgenes de 54pt = 0.75 pulgadas)
         doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=54, rightMargin=54, topMargin=70, bottomMargin=75)
@@ -592,16 +625,12 @@ class ReportLabGenerator:
         sva_val = analisis["sva"]
         if sva_val >= 80:
             status_txt = "<font color='#16a34a'><b>EXCELENTE (VIABILIDAD ALTA)</b></font>"
-            desc_txt = "La ubicación analizada presenta un potencial sobresaliente. La alta concentración de la demanda y el balance óptimo con los competidores locales sugieren un entorno propicio para capturar mercado rápidamente."
         elif sva_val >= 50:
             status_txt = "<font color='#ca8a04'><b>MODERADA (REQUIERE DIFERENCIACIÓN)</b></font>"
-            desc_txt = "El punto tiene un atractivo comercial intermedio. Existen flujos de demanda importantes, pero la competencia o los límites de atracción peatonal exigen una propuesta de valor única y estrategias activas de atracción."
         else:
             status_txt = "<font color='#dc2626'><b>RIESGOSA (VIABILIDAD BAJA)</b></font>"
-            desc_txt = "Se identifican retos estructurales críticos. La saturación de competidores consolidados en el radio de influencia o la baja densidad poblacional en la zona sugieren explorar ubicaciones alternativas."
 
         story.append(Paragraph(f"<b>Diagnóstico preliminar:</b> {status_txt}", s_body))
-        story.append(Paragraph(desc_txt, s_body))
 
         story.append(Spacer(1, 15))
         story.append(Paragraph(f"<b>Ubicación física resuelta:</b><br/>{analisis['direccion']}", s_body))
@@ -1012,81 +1041,19 @@ class ReportLabGenerator:
                 s_body,
             )
         )
-        # --- Premium: segmentación sectorial dentro del perfil del cliente ---
+        # --- Premium: segmentación de nicho solo si el análisis aportó texto real ---
         if orden.tier_adquirido == "premium":
-            story.append(Spacer(1, 12))
-            story.append(Paragraph("<b>Segmentos de Población Identificados:</b>", s_h2))
-            story.append(
-                Paragraph(
-                    foda_dict.get(
-                        "segmentacion_nicho",
-                        "Población y segmento comercial cautivo detectados en el radio.",
-                    ),
-                    s_body,
-                )
-            )
-            story.append(Spacer(1, 8))
+            seg_nicho = _texto_si_es_real(foda_dict.get("segmentacion_nicho"))
+            if seg_nicho:
+                story.append(Spacer(1, 12))
+                story.append(Paragraph("<b>Segmentación de Nicho:</b>", s_h2))
+                story.append(Paragraph(seg_nicho, s_body))
 
-            rubro_lower_seg = orden.rubro.lower()
-            if "cafe" in rubro_lower_seg:
-                segmentos = [
-                    ("Jóvenes Profesionistas y Freelancers", "Muy Alta", "Consumo diario, trabajo remoto, coworking"),
-                    ("Familias y Residentes locales", "Alta", "Reuniones de fin de semana, desayunos de convivencia"),
-                    ("Trabajadores y Oficinistas cercanos", "Muy Alta", "Consumo en horas pico matutinas y almuerzo"),
-                ]
-            elif "farma" in rubro_lower_seg:
-                segmentos = [
-                    ("Familias con hijos", "Muy Alta", "Consumo constante de fórmulas, pediatría y consulta"),
-                    ("Adultos Mayores / Seniors", "Muy Alta", "Medicamentos crónicos, consultas generales recurrentes"),
-                    ("Jóvenes y Adultos Solteros", "Media", "Compras estacionales, higiene y cuidado personal"),
-                ]
-            elif "gym" in rubro_lower_seg or "gimnasio" in rubro_lower_seg:
-                segmentos = [
-                    ("Jóvenes Profesionistas (22-35 años)", "Muy Alta", "Fitness, entrenamiento post-oficina"),
-                    ("Estudiantes universitarios", "Alta", "Entrenamiento en horas de bajo tráfico, tarifas promo"),
-                    ("Residentes de Edad Avanzada", "Baja", "Clases de bajo impacto y mantenimiento de salud"),
-                ]
-            else:
-                segmentos = [
-                    ("Residentes locales principales", "Alta", "Consumo recurrente, conveniencia y abasto inmediato"),
-                    ("Público Flotante / Transeúntes", "Media", "Compra espontánea por impulso y accesibilidad vial"),
-                    ("Comercios aliados colindantes", "Media", "Intercambio de suministros e insumos directos"),
-                ]
-
-            segmento_table_data = [
-                [
-                    Paragraph("Segmento de Consumidor", s_table_header),
-                    Paragraph("Afinidad Sectorial (Referencia)", s_table_header),
-                    Paragraph("Justificación y Hábito de Consumo", s_table_header),
-                ]
-            ]
-            for seg, afin, just in segmentos:
-                segmento_table_data.append(
-                    [
-                        Paragraph(seg, s_table_cell),
-                        Paragraph(afin, s_table_cell),
-                        Paragraph(just, s_table_cell),
-                    ]
-                )
-            seg_table = Table(segmento_table_data, colWidths=[150, 120, 234])
-            seg_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                        ("PADDING", (0, 0), (-1, -1), 8),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-            story.append(seg_table)
-
-            if foda_dict.get("estrategia_precios"):
+            estrategia = _texto_si_es_real(foda_dict.get("estrategia_precios"))
+            if estrategia:
                 story.append(Spacer(1, 8))
                 story.append(Paragraph("<b>Estrategia de Posicionamiento Comercial:</b>", s_h2))
-                story.append(Paragraph(foda_dict["estrategia_precios"], s_body))
+                story.append(Paragraph(estrategia, s_body))
 
         # =====================================================================
         # SECCIÓN 5 (DIFERIDA): LECTURA ESTRATÉGICA DEL PUNTO
@@ -1098,24 +1065,6 @@ class ReportLabGenerator:
 
         if not foda_dict.get("consideraciones_apertura"):
             foda_dict["consideraciones_apertura"] = _generar_consideraciones_apertura(analisis)
-
-        bloque_diagnostico.append(Paragraph("5. LECTURA ESTRATÉGICA DEL PUNTO", s_h1))
-        bloque_diagnostico.append(
-            Paragraph(
-                "Orientación basada en métricas de INEGI, Google Places y afluencia. "
-                "<b>No sustituye un estudio de mercado ni una proyección financiera.</b> "
-                "Las consideraciones son factores a validar, no advertencias de fracaso.",
-                s_body_foda,
-            )
-        )
-        if foda_dict.get("_fuente") == "respaldo_cuantitativo":
-            bloque_diagnostico.append(
-                Paragraph(
-                    "<i>Fortalezas y oportunidades generadas con métricas reales (modo pruebas sin LLM en la nube).</i>",
-                    s_body_foda,
-                )
-            )
-        bloque_diagnostico.append(Spacer(1, 6))
 
         s_col_title = ParagraphStyle(
             "DiagColTitle",
@@ -1132,47 +1081,66 @@ class ReportLabGenerator:
             textColor=colors.HexColor("#334155"),
         )
 
-        def _bullets(items: list, fallback: str) -> str:
-            lista = (items or [])[:3]
-            return "<br/>".join(f"• {x}" for x in lista) if lista else f"• {fallback}"
-
         fort_list = foda_dict.get("fortalezas", [])
         op_list = foda_dict.get("oportunidades", [])
         cons_list = foda_dict.get("consideraciones_apertura", [])
+        conclusion_txt = _texto_si_es_real(foda_dict.get("conclusion"))
+        dictamen_txt = _texto_si_es_real(foda_dict.get("dictamen_final"))
 
-        lectura_grid = [
-            [
-                Paragraph("<b>FORTALEZAS DEL PUNTO</b>", s_col_title),
-                Paragraph("<b>OPORTUNIDADES</b>", s_col_title),
-                Paragraph("<b>CONSIDERACIONES PARA LA APERTURA</b>", s_col_title),
-            ],
-            [
-                Paragraph(_bullets(fort_list, "Demanda residencial en el radio analizado."), s_col_body),
-                Paragraph(_bullets(op_list, "Espacio para diferenciación en el giro."), s_col_body),
-                Paragraph(_bullets(cons_list, "Validar permisos, renta y operación con cifras reales."), s_col_body),
-            ],
-        ]
+        bloque_foda: list = []
+        columnas_foda: list[tuple[str, str, str]] = []
+        if texto := _bullets_reales(fort_list):
+            columnas_foda.append(("<b>FORTALEZAS DEL PUNTO</b>", texto, "#f0fdf4"))
+        if texto := _bullets_reales(op_list):
+            columnas_foda.append(("<b>OPORTUNIDADES</b>", texto, "#eff6ff"))
+        if texto := _bullets_reales(cons_list):
+            columnas_foda.append(("<b>CONSIDERACIONES PARA LA APERTURA</b>", texto, "#fffbeb"))
 
-        lectura_table = Table(lectura_grid, colWidths=[168, 168, 168])
-        lectura_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#f0fdf4")),
-                    ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#eff6ff")),
-                    ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#fffbeb")),
-                    ("PADDING", (0, 0), (-1, -1), 7),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                ]
+        if columnas_foda:
+            ancho_col = 504 / len(columnas_foda)
+            lectura_grid = [
+                [Paragraph(titulo, s_col_title) for titulo, _, _ in columnas_foda],
+                [Paragraph(cuerpo, s_col_body) for _, cuerpo, _ in columnas_foda],
+            ]
+            lectura_table = Table(lectura_grid, colWidths=[ancho_col] * len(columnas_foda))
+            estilos_tabla = [
+                ("PADDING", (0, 0), (-1, -1), 7),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ]
+            for idx, (_, _, color_fondo) in enumerate(columnas_foda):
+                estilos_tabla.append(("BACKGROUND", (idx, 0), (idx, 0), colors.HexColor(color_fondo)))
+            lectura_table.setStyle(TableStyle(estilos_tabla))
+            bloque_foda.append(lectura_table)
+            bloque_foda.append(Spacer(1, 8))
+
+        if conclusion_txt:
+            bloque_foda.append(Paragraph("Conclusión General:", s_h2_foda))
+            bloque_foda.append(Paragraph(conclusion_txt, s_body_foda))
+
+        if dictamen_txt:
+            bloque_foda.append(Spacer(1, 8))
+            bloque_foda.append(Paragraph("<b>Dictamen Final del Consultor:</b>", s_h2_foda))
+            bloque_foda.append(Paragraph(dictamen_txt, s_body_foda))
+
+        if bloque_foda:
+            bloque_diagnostico.append(Paragraph("5. LECTURA ESTRATÉGICA DEL PUNTO", s_h1))
+            bloque_diagnostico.append(
+                Paragraph(
+                    "Orientación basada en métricas de INEGI, Google Places y afluencia. "
+                    "<b>No sustituye un estudio de mercado ni una proyección financiera.</b>",
+                    s_body_foda,
+                )
             )
-        )
-        bloque_diagnostico.append(lectura_table)
-        bloque_diagnostico.append(Spacer(1, 8))
-
-        bloque_diagnostico.append(Paragraph("Conclusión General:", s_h2_foda))
-        bloque_diagnostico.append(
-            Paragraph(foda_dict.get("conclusion", "Análisis de viabilidad concluido con éxito."), s_body_foda)
-        )
+            if foda_dict.get("_fuente") == "respaldo_cuantitativo":
+                bloque_diagnostico.append(
+                    Paragraph(
+                        "<i>Diagnóstico generado con métricas reales (modo sin LLM en la nube).</i>",
+                        s_body_foda,
+                    )
+                )
+            bloque_diagnostico.append(Spacer(1, 6))
+            bloque_diagnostico.extend(bloque_foda)
 
         # =====================================================================
         # SECCIÓN 6 (DIFERIDA): METODOLOGÍA — siempre al final del documento
@@ -1226,8 +1194,9 @@ class ReportLabGenerator:
         )
 
         def _cerrar_reporte():
-            story.append(PageBreak())
-            story.extend(bloque_diagnostico)
+            if bloque_diagnostico:
+                story.append(PageBreak())
+                story.extend(bloque_diagnostico)
             story.append(PageBreak())
             story.extend(bloque_metodologia)
             doc.build(story, canvasmaker=NumberedCanvas, onFirstPage=dibujar_portada_background)
@@ -1256,56 +1225,21 @@ class ReportLabGenerator:
 
         story.append(PageBreak())
         story.append(Paragraph("3. ANÁLISIS DE COMPETENCIA", s_h1))
-        story.append(Paragraph("<b>Mapa de Ubicación y Competencia:</b>", s_h2))
-        mapa_desc = (
-            "A continuación se presenta el mapa del área comercial analizada (misma base cartográfica y convención "
-            "de colores que el dashboard). La ubicación propuesta se marca con un pin "
-            "<font color='#2563eb'><b>AZUL</b></font>, los competidores directos en "
-            "<font color='#dc2626'><b>ROJO</b></font>"
-        )
-        if orden.tier_adquirido == "premium":
-            mapa_desc += (
-                " y los atractores/aliados comerciales en <font color='#10b981'><b>VERDE</b></font>. "
-                "El círculo semitransparente delimita el radio de influencia contratado."
-            )
-        else:
-            mapa_desc += ". El círculo semitransparente delimita el radio de influencia contratado."
-        story.append(Paragraph(mapa_desc, s_body))
-        story.append(Spacer(1, 15))
-
-        # Dibujar croquis estilizado de fallback si no hay mapa estático (DEV_MODE)
-        map_grid_fallback = [
-            ["", "", "NORTE", "", ""],
-            ["", "Zona Residencial (Demanda)", "", "Corredor Comercial", ""],
-            [
-                "OESTE",
-                "",
-                f"[ PUNTO DE INTERÉS ]\n({orden.latitud}, {orden.longitud})\nRadio: {orden.radio_metros}m",
-                "",
-                "ESTE",
-            ],
-            ["", "Vías de Acceso Primario", "", "Competidor Cercano", ""],
-            ["", "", "SUR", "", ""],
-        ]
-        map_table_fallback = Table(
-            map_grid_fallback, colWidths=[100, 100, 104, 100, 100], rowHeights=[40, 60, 100, 60, 40]
-        )
-        map_table_fallback.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (2, 2), (2, 2), colors.HexColor("#dbeafe")),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#cbd5e1")),
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
-                    ("BOX", (2, 2), (2, 2), 2, colors.HexColor("#2563eb")),
-                    ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                ]
-            )
-        )
-
         map_bytes = analisis.get("map_bytes")
         if map_bytes:
+            story.append(Paragraph("<b>Mapa de Ubicación y Competencia:</b>", s_h2))
+            mapa_desc = (
+                "Mapa del área comercial analizada (misma base cartográfica y convención de colores que el dashboard). "
+                "La ubicación propuesta se marca con un pin <font color='#2563eb'><b>AZUL</b></font>, "
+                "los competidores directos en <font color='#dc2626'><b>ROJO</b></font>"
+            )
+            if orden.tier_adquirido == "premium":
+                mapa_desc += (
+                    " y los atractores/aliados comerciales en <font color='#10b981'><b>VERDE</b></font>."
+                )
+            mapa_desc += " El círculo semitransparente delimita el radio de influencia contratado."
+            story.append(Paragraph(mapa_desc, s_body))
+            story.append(Spacer(1, 15))
             try:
                 from reportlab.platypus import Image
 
@@ -1315,12 +1249,8 @@ class ReportLabGenerator:
                 story.append(img)
             except Exception as img_err:
                 logger.error(f"Error al renderizar mapa estático en PDF: {img_err}")
-                story.append(map_table_fallback)
         else:
-            logger.info(
-                "ReportLab: No se detectaron bytes de mapa estático real. Renderizando croquis de fallback."
-            )
-            story.append(map_table_fallback)
+            logger.info("ReportLab: Sin mapa estático real; se omite la subsección de mapa en el PDF.")
 
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Competencia Detallada en la Zona:</b>", s_h2))
@@ -1375,23 +1305,17 @@ class ReportLabGenerator:
             [
                 Paragraph("Nombre del Establecimiento", s_table_header),
                 Paragraph("Giro / Tipo Comercial", s_table_header),
-                Paragraph("Calificación / Atractor", s_table_header),
+                Paragraph("Calificación Google", s_table_header),
                 Paragraph("Distancia al punto", s_table_header),
-            ],
-            [
-                Paragraph("<b>🎯 COMPETIDORES DIRECTOS DETECTADOS</b>", s_quadrant_title),
-                Paragraph("", s_table_cell),
-                Paragraph("", s_table_cell),
-                Paragraph("", s_table_cell),
             ],
         ]
 
-        real_directs = comp_list
-        if not real_directs:
+        if not comp_list:
             comp_table_data.append(
                 [
                     Paragraph(
-                        "<font color='#64748b'><i>Sin competidores directos detectados</i></font>", s_table_cell
+                        "<font color='#64748b'><i>0 competidores directos detectados en el radio</i></font>",
+                        s_table_cell,
                     ),
                     Paragraph("—", s_table_cell),
                     Paragraph("—", s_table_cell),
@@ -1399,60 +1323,16 @@ class ReportLabGenerator:
                 ]
             )
         else:
-            for item in real_directs:
+            for item in comp_list:
                 comp_table_data.append(
                     [
-                        Paragraph(item.get("nombre", "Comercio Local"), s_table_cell),
-                        Paragraph(item.get("tipo", orden.rubro.capitalize()), s_table_cell),
+                        Paragraph(item.get("nombre", "—"), s_table_cell),
+                        Paragraph(_tipo_comercial_legible(item.get("tipo"), orden.rubro), s_table_cell),
                         Paragraph(_etiqueta_rating_competidor(item), s_table_cell),
                         Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                     ]
                 )
 
-        comp_table_data.append(
-            [
-                Paragraph(
-                    "<b>🤝 ESTABLECIMIENTOS COMPLEMENTARIOS (ALIADOS REALES DETECTADOS)</b>", s_quadrant_title
-                ),
-                Paragraph("", s_table_cell),
-                Paragraph("", s_table_cell),
-                Paragraph("", s_table_cell),
-            ],
-        )
-
-        # Usar aliados reales detectados por la API de Google Places
-        aliados_reales = analisis.get("aliados_listado", [])
-
-        if aliados_reales:
-            for aliado in aliados_reales:
-                rating_str = f"⭐ {aliado['rating']} / 5.0" if aliado["rating"] > 0 else "Sin calificación"
-                reviews_str = (
-                    f"({aliado['user_ratings_total']} reseñas)" if aliado["user_ratings_total"] > 0 else ""
-                )
-                comp_table_data.append(
-                    [
-                        Paragraph(aliado["nombre"], s_table_cell),
-                        Paragraph(aliado["tipo"], s_table_cell),
-                        Paragraph(f"{rating_str} {reviews_str}".strip(), s_table_cell),
-                        Paragraph("—", s_table_cell),
-                    ]
-                )
-        else:
-            comp_table_data.append(
-                [
-                    Paragraph(
-                        "<font color='#64748b'><i>No se detectaron establecimientos complementarios (bancos, "
-                        "escuelas o transporte) en el radio analizado. Se recomienda un enfoque de "
-                        "marketing autónomo para la captación de tráfico peatonal.</i></font>",
-                        s_table_cell,
-                    ),
-                    Paragraph("", s_table_cell),
-                    Paragraph("", s_table_cell),
-                    Paragraph("", s_table_cell),
-                ]
-            )
-
-        num_direct_rows = len(real_directs) if real_directs else 1
         comp_table = Table(comp_table_data, colWidths=[130, 110, 130, 134])
         comp_table.setStyle(
             TableStyle(
@@ -1461,15 +1341,6 @@ class ReportLabGenerator:
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
                     ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("SPAN", (0, 1), (3, 1)),
-                    ("SPAN", (0, num_direct_rows + 2), (3, num_direct_rows + 2)),
-                    ("BACKGROUND", (0, 1), (3, 1), colors.HexColor("#f1f5f9")),
-                    (
-                        "BACKGROUND",
-                        (0, num_direct_rows + 2),
-                        (3, num_direct_rows + 2),
-                        colors.HexColor("#f1f5f9"),
-                    ),
                     ("PADDING", (0, 0), (-1, -1), 5),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ]
@@ -1477,6 +1348,46 @@ class ReportLabGenerator:
         )
 
         story.append(comp_table)
+
+        aliados_reales = analisis.get("aliados_listado", [])
+        if orden.tier_adquirido == "premium" and aliados_reales:
+            story.append(Spacer(1, 10))
+            story.append(
+                Paragraph("<b>Establecimientos Complementarios (Atractores de Tráfico):</b>", s_h2)
+            )
+            aliados_table_data = [
+                [
+                    Paragraph("Nombre", s_table_header),
+                    Paragraph("Categoría", s_table_header),
+                    Paragraph("Calificación Google", s_table_header),
+                ]
+            ]
+            for aliado in aliados_reales:
+                rating_str = f"⭐ {aliado['rating']} / 5.0" if aliado["rating"] > 0 else "Sin calificación"
+                reviews_str = (
+                    f"({aliado['user_ratings_total']} reseñas)" if aliado["user_ratings_total"] > 0 else ""
+                )
+                aliados_table_data.append(
+                    [
+                        Paragraph(aliado["nombre"], s_table_cell),
+                        Paragraph(_tipo_comercial_legible(aliado.get("tipo"), orden.rubro), s_table_cell),
+                        Paragraph(f"{rating_str} {reviews_str}".strip(), s_table_cell),
+                    ]
+                )
+            aliados_table = Table(aliados_table_data, colWidths=[200, 170, 134])
+            aliados_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                        ("PADDING", (0, 0), (-1, -1), 5),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ]
+                )
+            )
+            story.append(aliados_table)
         story.append(
             Paragraph(
                 "<font size='7' color='#64748b'><i>Nota: en la lista de cercanía pueden aparecer "
@@ -1529,15 +1440,6 @@ class ReportLabGenerator:
                 )
             )
             story.append(top_table)
-        else:
-            story.append(Spacer(1, 10))
-            story.append(
-                Paragraph(
-                    "<font color='#64748b'><i>Ningún competidor en la zona alcanza el mínimo de 5 reseñas "
-                    "en Google para incluirse en el ranking de valoraciones.</i></font>",
-                    s_body,
-                )
-            )
 
         from xml.sax.saxutils import escape as xml_escape
 
@@ -1569,19 +1471,18 @@ class ReportLabGenerator:
                     ]
                 )
 
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("<b>Comentarios de Google sobre competidores:</b>", s_h2))
-        story.append(
-            Paragraph(
-                "Extractos de reseñas públicas de Google Maps de los mismos competidores destacados "
-                "en la tabla anterior (mínimo 5 reseñas en Google), con distancia lineal desde tu punto. "
-                "Son opiniones de usuarios y no representan la postura de GeoViabilidad Hook. "
-                "El giro percibido en Google puede diferir del rubro analizado.",
-                s_body,
-            )
-        )
-        story.append(Spacer(1, 6))
         if reseñas_rows:
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("<b>Comentarios de Google sobre competidores:</b>", s_h2))
+            story.append(
+                Paragraph(
+                    "Extractos de reseñas públicas de Google Maps (mínimo 5 reseñas en Google), "
+                    "con distancia lineal desde tu punto. Son opiniones de usuarios y no representan "
+                    "la postura de GeoViabilidad Hook.",
+                    s_body,
+                )
+            )
+            story.append(Spacer(1, 6))
             reseñas_table = Table(
                 [
                     [
@@ -1606,14 +1507,6 @@ class ReportLabGenerator:
                 )
             )
             story.append(reseñas_table)
-        else:
-            story.append(
-                Paragraph(
-                    "<font color='#64748b'><i>No hay comentarios públicos disponibles para los competidores "
-                    "detectados en este radio.</i></font>",
-                    s_body,
-                )
-            )
 
         story.append(Spacer(1, 12))
         story.append(Paragraph("<b>Análisis de Saturación Comercial:</b>", s_h2))
@@ -1644,60 +1537,37 @@ class ReportLabGenerator:
         distancia_cercana = analisis.get("distancia_competidor_cercano", -1)
         dist_txt = f"{distancia_cercana} metros lineales" if distancia_cercana != -1 else "No detectados"
 
-        total_comp = len(comp_list)
-        if total_comp == 0:
-            densidad_txt = "Excelente (Sin competencia detectada en el radio)"
-        elif total_comp <= 3:
-            densidad_txt = "Baja saturación (Baja fricción en el cuadrante)"
-        elif total_comp <= 8:
-            densidad_txt = "Saturación moderada (Fricción intermedia, requiere diferenciación)"
-        else:
-            densidad_txt = "Alta saturación (Competencia intensa en el cuadrante)"
-
-        isc_val = analisis.get("isc", 0.0)
-        isc_formato = f"{isc_val:.6f}" if isc_val > 0 else "0.000000"
+        isc_val = float(analisis.get("isc", 0.0))
+        isc_formato = f"{isc_val:.6f}"
 
         saturacion_table_data = [
             [
                 Paragraph("Métrica de Fricción Espacial", s_table_header),
                 Paragraph("Valor Analítico Real", s_table_header),
-                Paragraph("Estatus de Competencia", s_table_header),
             ],
             [
                 Paragraph("Competidores Cercanos (< 250m)", s_table_cell),
                 Paragraph(f"{inmediatos} establecimientos", s_table_cell),
-                Paragraph(
-                    "Fricción inmediata alta" if inmediatos > 0 else "Entorno libre de fricción", s_table_cell
-                ),
             ],
             [
                 Paragraph("Competidores Intermedios (250m - 500m)", s_table_cell),
                 Paragraph(f"{cercanos} establecimientos", s_table_cell),
-                Paragraph("Fricción intermedia" if cercanos > 0 else "Entorno despejado", s_table_cell),
             ],
             [
                 Paragraph("Competidores Periféricos (> 500m)", s_table_cell),
                 Paragraph(f"{perifericos} establecimientos", s_table_cell),
-                Paragraph("Fricción periférica" if perifericos > 0 else "Sin competidores lejanos", s_table_cell),
             ],
             [
                 Paragraph("Distancia al Competidor Cercano", s_table_cell),
                 Paragraph(dist_txt, s_table_cell),
-                Paragraph(
-                    "Excelente distancia"
-                    if (distancia_cercana > 400 or distancia_cercana == -1)
-                    else "Competidor inmediato",
-                    s_table_cell,
-                ),
             ],
             [
                 Paragraph("Índice de Saturación Comercial (ISC)", s_table_cell),
                 Paragraph(isc_formato, s_table_cell),
-                Paragraph(densidad_txt, s_table_cell),
             ],
         ]
 
-        saturacion_table = Table(saturacion_table_data, colWidths=[200, 150, 154])
+        saturacion_table = Table(saturacion_table_data, colWidths=[280, 224])
         saturacion_table.setStyle(
             TableStyle(
                 [
@@ -1719,10 +1589,10 @@ class ReportLabGenerator:
 
             total_c = len(comp_list)
             rangos_def = [
-                ("Mal valorados (< 3.0 o sin rating)", 0.0, 3.0, "Oportunidad de captar clientes insatisfechos"),
-                ("Aceptables (3.0 - 3.9)", 3.0, 4.0, "Competencia vulnerable a diferenciación"),
-                ("Bien valorados (4.0 - 4.4)", 4.0, 4.5, "Competencia consolidada"),
-                ("Excelentes (4.5 - 5.0)", 4.5, 5.1, "Competencia de alto posicionamiento"),
+                ("Mal valorados (< 3.0 o sin rating)", 0.0, 3.0),
+                ("Aceptables (3.0 - 3.9)", 3.0, 4.0),
+                ("Bien valorados (4.0 - 4.4)", 4.0, 4.5),
+                ("Excelentes (4.5 - 5.0)", 4.5, 5.1),
             ]
 
             calidad_data = [
@@ -1730,10 +1600,9 @@ class ReportLabGenerator:
                     Paragraph("Rango de Calificación", s_table_header),
                     Paragraph("Competidores", s_table_header),
                     Paragraph("% del Total", s_table_header),
-                    Paragraph("Lectura Estratégica", s_table_header),
                 ]
             ]
-            for etiqueta, lim_inf, lim_sup, lectura in rangos_def:
+            for etiqueta, lim_inf, lim_sup in rangos_def:
                 cnt = sum(1 for c in comp_list if lim_inf <= float(c.get("rating", 0) or 0) < lim_sup)
                 pct = round(cnt / total_c * 100) if total_c else 0
                 calidad_data.append(
@@ -1741,7 +1610,6 @@ class ReportLabGenerator:
                         Paragraph(etiqueta, s_table_cell),
                         Paragraph(f"{cnt}", s_table_cell),
                         Paragraph(f"{pct}%", s_table_cell),
-                        Paragraph(lectura, s_table_cell),
                     ]
                 )
 
@@ -1752,12 +1620,11 @@ class ReportLabGenerator:
                 [
                     Paragraph("<b>Promedio de la zona</b>", s_table_cell),
                     Paragraph(f"<b>{rating_prom} / 5.0</b>", s_table_cell),
-                    Paragraph(f"<b>{resenas_tot:,}</b>", s_table_cell),
-                    Paragraph("Total de reseñas acumuladas en la zona", s_table_cell),
+                    Paragraph(f"<b>{resenas_tot:,} reseñas</b>", s_table_cell),
                 ]
             )
 
-            calidad_table = Table(calidad_data, colWidths=[160, 80, 70, 194])
+            calidad_table = Table(calidad_data, colWidths=[220, 120, 164])
             calidad_table.setStyle(
                 TableStyle(
                     [
@@ -1775,26 +1642,7 @@ class ReportLabGenerator:
             story.append(Paragraph("<b>Gráfica — Distribución de Competidores por Rating:</b>", s_h2))
             _embed_chart_png(story, generar_grafica_competidores(comp_list), width=468, height=200)
             story.append(Spacer(1, 6))
-        else:
-            story.append(Spacer(1, 15))
-            story.append(
-                Paragraph(
-                    "<font color='#16a34a'><b>Océano Azul Detectado:</b></font> No se detectaron competidores directos "
-                    "en el radio de influencia. Este entorno libre de competencia representa una oportunidad "
-                    "privilegiada para capturar mercado sin fricción directa.",
-                    s_body,
-                )
-            )
 
-        story.append(Paragraph("<b>Recomendación de Posicionamiento Estratégico:</b>", s_h2))
-        story.append(
-            Paragraph(
-                "El modelo de atracción comercial evalúa la probabilidad de éxito basándose en la ubicación. "
-                "En áreas de fricción media/alta, se recomienda un enfoque en valor agregado e "
-                "identidad de marca para maximizar la tasa de conversión sin entrar en guerras de precios destructivas.",
-                s_body,
-            )
-        )
         story.append(PageBreak())
 
         # SECCIÓN 4: TRÁFICO, ATRACTORES Y AFLUENCIA (Pro y Premium)
@@ -1824,105 +1672,70 @@ class ReportLabGenerator:
             [
                 Paragraph("Categoría de Punto de Interés (Atractor)", s_table_header),
                 Paragraph("Conteo en Radio", s_table_header),
-                Paragraph("Peso IAT", s_table_header),
             ],
         ]
 
-        # Iterar las categorías de aliados REALMENTE detectadas (aliados_conteos contiene
-        # las categorías ya resueltas por IA o seleccionadas), nunca el token interno 'ia_auto'.
-        conteos_reales = {k: v for k, v in aliados_conteos.items() if k != "ia_auto"}
+        from app.aliados_deterministico import nombre_categoria_places
+
+        conteos_reales = {k: v for k, v in aliados_conteos.items() if k != "ia_auto" and int(v or 0) > 0}
         if orden.tier_adquirido == "premium" and conteos_reales:
-            from app.aliados_deterministico import nombre_categoria_places
-
             for ally_type, cnt in conteos_reales.items():
-                tipo_nombre = nombre_categoria_places(ally_type)
-                # Determinar un peso de IAT semántico basado en el tipo
-                peso_iat = "Alto (Tráfico comercial)"
-                if any(x in ally_type for x in ["transit", "subway", "bus", "station"]):
-                    peso_iat = "Muy Alto (Flujo continuo)"
-                elif any(x in ally_type for x in ["bank", "finance"]):
-                    peso_iat = "Alto (Tráfico transaccional)"
-                elif any(x in ally_type for x in ["school", "university"]):
-                    peso_iat = "Medio (Tráfico matutino/tarde)"
-
                 poi_table_data.append(
                     [
-                        Paragraph(tipo_nombre, s_table_cell),
+                        Paragraph(nombre_categoria_places(ally_type), s_table_cell),
                         Paragraph(f"{cnt} detectados", s_table_cell),
-                        Paragraph(peso_iat, s_table_cell),
                     ]
                 )
         else:
-            real_bancos = analisis.get("bancos_conteo", 0)
-            real_escuelas = analisis.get("escuelas_conteo", 0)
-            real_transporte = analisis.get("transporte_conteo", 0)
-            poi_table_data.extend(
-                [
+            filas_pro = [
+                ("Bancos e Instituciones Financieras", int(analisis.get("bancos_conteo", 0))),
+                ("Escuelas e Instituciones Educativas", int(analisis.get("escuelas_conteo", 0))),
+                ("Paradas de Transporte Público", int(analisis.get("transporte_conteo", 0))),
+            ]
+            for etiqueta, cnt in filas_pro:
+                if cnt > 0:
+                    poi_table_data.append(
+                        [
+                            Paragraph(etiqueta, s_table_cell),
+                            Paragraph(f"{cnt} detectados", s_table_cell),
+                        ]
+                    )
+
+        if len(poi_table_data) > 1:
+            poi_table = Table(poi_table_data, colWidths=[300, 204])
+            poi_table.setStyle(
+                TableStyle(
                     [
-                        Paragraph("Bancos e Instituciones Financieras", s_table_cell),
-                        Paragraph(f"{real_bancos} bancos detectados", s_table_cell),
-                        Paragraph("Alto (Tráfico transaccional)", s_table_cell),
-                    ],
-                    [
-                        Paragraph("Escuelas e Instituciones Educativas", s_table_cell),
-                        Paragraph(f"{real_escuelas} escuelas detectadas", s_table_cell),
-                        Paragraph("Medio (Tráfico matutino/tarde)", s_table_cell),
-                    ],
-                    [
-                        Paragraph("Paradas de Transporte Público", s_table_cell),
-                        Paragraph(f"{real_transporte} paradas detectadas", s_table_cell),
-                        Paragraph("Muy Alto (Flujo continuo)", s_table_cell),
-                    ],
-                ]
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                        ("PADDING", (0, 0), (-1, -1), 6),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ]
+                )
             )
+            story.append(poi_table)
+            story.append(Spacer(1, 8))
 
-        poi_table = Table(poi_table_data, colWidths=[200, 120, 184])
-        poi_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                    ("PADDING", (0, 0), (-1, -1), 6),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ]
-            )
-        )
-
-        story.append(poi_table)
-        story.append(Spacer(1, 8))
-        story.append(Paragraph("<b>Gráfica — Atractores de Tráfico por Categoría:</b>", s_h2))
-        _embed_chart_png(
-            story,
-            generar_grafica_atractores(
-                aliados_conteos,
-                bancos=analisis.get("bancos_conteo", 0),
-                escuelas=analisis.get("escuelas_conteo", 0),
-                transporte=analisis.get("transporte_conteo", 0),
-            ),
-            width=468,
-            height=220,
-        )
-        story.append(Spacer(1, 12))
-        story.append(Paragraph("Conclusión del Forecast del Mercado:", s_h2))
-
-        # Conclusión coherente con los atractores realmente detectados
-        total_atractores_zona = sum(v for k, v in aliados_conteos.items() if k != "ia_auto") or (
-            analisis.get("bancos_conteo", 0) + analisis.get("escuelas_conteo", 0) + analisis.get("transporte_conteo", 0)
+        total_atractores_zona = sum(conteos_reales.values()) if conteos_reales else (
+            int(analisis.get("bancos_conteo", 0))
+            + int(analisis.get("escuelas_conteo", 0))
+            + int(analisis.get("transporte_conteo", 0))
         )
         if total_atractores_zona > 0:
-            conclusion_forecast = (
-                f"La confluencia de {total_atractores_zona} atractores detectados en el radio geográfico y el volumen "
-                "de población residente sustentan un piso de ventas favorable. Se proyecta que el nicho comercial "
-                "sea capturado de manera estable en un mediano plazo."
+            story.append(Paragraph("<b>Gráfica — Atractores de Tráfico por Categoría:</b>", s_h2))
+            _embed_chart_png(
+                story,
+                generar_grafica_atractores(
+                    aliados_conteos,
+                    bancos=analisis.get("bancos_conteo", 0),
+                    escuelas=analisis.get("escuelas_conteo", 0),
+                    transporte=analisis.get("transporte_conteo", 0),
+                ),
+                width=468,
+                height=220,
             )
-        else:
-            conclusion_forecast = (
-                "No se detectaron atractores de tráfico consolidados en el radio analizado, por lo que el flujo de "
-                "clientes dependerá principalmente de la población residente y de la capacidad propia del negocio "
-                "para generar tracción (marketing local y diferenciación)."
-            )
-        story.append(Paragraph(conclusion_forecast, s_body))
+            story.append(Spacer(1, 12))
 
         if orden.tier_adquirido == "pro":
             logger.info("ReportLab: Compilación Pro exitosa.")
@@ -1969,30 +1782,25 @@ class ReportLabGenerator:
                 [
                     Paragraph("Rango Horario", s_table_header),
                     Paragraph("Intensidad Peatonal (%)", s_table_header),
-                    Paragraph("Diagnóstico de Flujo", s_table_header),
                 ],
                 [
                     Paragraph("Mañana (08:00 - 12:00)", s_table_cell),
                     Paragraph(f"{int_manana}%", s_table_cell),
-                    Paragraph("Flujo de tránsito y escuelas", s_table_cell),
                 ],
                 [
                     Paragraph("Mediodía (12:00 - 16:00)", s_table_cell),
                     Paragraph(f"{int_mediodia}%", s_table_cell),
-                    Paragraph("Hora pico de almuerzo y comercio", s_table_cell),
                 ],
                 [
                     Paragraph("Tarde (16:00 - 20:00)", s_table_cell),
                     Paragraph(f"{int_tarde}%", s_table_cell),
-                    Paragraph("Salida laboral, máxima afluencia", s_table_cell),
                 ],
                 [
                     Paragraph("Noche (20:00 - 24:00)", s_table_cell),
                     Paragraph(f"{int_noche}%", s_table_cell),
-                    Paragraph("Descenso y cierre comercial", s_table_cell),
                 ],
             ]
-            afluencia_table = Table(afluencia_table_data, colWidths=[150, 150, 204])
+            afluencia_table = Table(afluencia_table_data, colWidths=[252, 252])
             afluencia_table.setStyle(
                 TableStyle(
                     [
@@ -2025,19 +1833,17 @@ class ReportLabGenerator:
                         Paragraph("Día", s_table_header),
                         Paragraph("Horas Pico (Mayor Afluencia)", s_table_header),
                         Paragraph("Horas Tranquilas", s_table_header),
-                        Paragraph("Interpretación de Flujo", s_table_header),
                     ]
                 ]
-                for dia, picos, tranquilas, interp in filas_horas:
+                for dia, picos, tranquilas, _interp in filas_horas:
                     horas_data.append(
                         [
                             Paragraph(dia, s_table_cell),
                             Paragraph(picos, s_table_cell),
                             Paragraph(tranquilas, s_table_cell),
-                            Paragraph(interp, s_table_cell),
                         ]
                     )
-                horas_table = Table(horas_data, colWidths=[80, 160, 130, 134])
+                horas_table = Table(horas_data, colWidths=[100, 200, 204])
                 horas_table.setStyle(
                     TableStyle(
                         [
@@ -2056,50 +1862,6 @@ class ReportLabGenerator:
                 "[PDF] BestTime no tiene datos reales de telemetría para esta coordenada. "
                 "Se omite la sección de Afluencia Peatonal del reporte."
             )
-
-        # Extras Premium en sección 5 (Diagnóstico IA): fricciones del sector
-        bloque_diagnostico.append(Spacer(1, 10))
-        bloque_diagnostico.append(Paragraph("<b>Fricciones Frecuentes del Sector (Análisis Generado por IA):</b>", s_h2))
-        bloque_diagnostico.append(
-            Paragraph(
-                "Síntesis generada por Inteligencia Artificial de las fricciones y quejas más comunes que los "
-                "consumidores suelen reportar en este giro comercial. No corresponden a reseñas textuales de "
-                "establecimientos específicos de la zona; utilízalas como referencia para diseñar tu propuesta "
-                "de valor superando las fricciones típicas del sector.",
-                s_body,
-            )
-        )
-        quejas_list = foda_dict.get("top_quejas_competidores", []) or [
-            "El servicio es extremadamente lento en las horas pico.",
-            "Los precios no corresponden a la calidad de los productos.",
-            "El espacio físico es demasiado reducido e incómodo.",
-            "Falta de variedad en el menú y opciones de especialidad.",
-            "No cuentan con estacionamiento ni facilidades de acceso.",
-        ]
-        quejas_data = [
-            [
-                Paragraph(f"<font color='#ef4444'><b>Fricción #{i + 1}:</b></font>", s_table_cell),
-                Paragraph(f"<i>{queja}</i>", s_table_cell),
-            ]
-            for i, queja in enumerate(quejas_list)
-        ]
-        quejas_table = Table(quejas_data, colWidths=[90, 414])
-        quejas_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fff5f5")),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#fecaca")),
-                    ("PADDING", (0, 0), (-1, -1), 4),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ]
-            )
-        )
-        bloque_diagnostico.append(quejas_table)
-
-        if foda_dict.get("dictamen_final"):
-            bloque_diagnostico.append(Spacer(1, 8))
-            bloque_diagnostico.append(Paragraph("<b>Dictamen Final del Consultor:</b>", s_h2))
-            bloque_diagnostico.append(Paragraph(foda_dict["dictamen_final"], s_body))
 
         logger.info("ReportLab: Compilación Premium exitosa.")
         return _cerrar_reporte()
