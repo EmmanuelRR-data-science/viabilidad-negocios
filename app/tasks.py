@@ -52,6 +52,7 @@ def generar_informe_task(orden_id: int):
             aliados_seleccionados=aliados_sel,
             competidores_adicionales=orden.competidores_adicionales,
             aliados_adicionales=orden.aliados_adicionales,
+            intenciones=orden.intenciones,
         )
 
         # Cálculo multi-radio REAL con PostGIS: población y densidad por anillo de cobertura.

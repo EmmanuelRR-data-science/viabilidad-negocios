@@ -694,13 +694,21 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
         )
 
 
-def determinar_categorias_ia(rubro: str) -> dict:
+def determinar_categorias_ia(
+    rubro: str,
+    *,
+    intenciones: str | None = None,
+    google_type: str | None = None,
+    categoria: str | None = None,
+    competidores_adicionales: str | None = None,
+) -> dict:
     """
     Determina de forma inteligente (usando el LLM) cuáles de las categorías
     soportadas por Google Places/nuestro sistema representan competidores y aliados
-    adecuados para el rubro ingresado.
+    adecuados para el rubro, intenciones y contexto del usuario.
     """
     rub_sanitizado = sanitizar_input_usuario(rubro, field="rubro") or rubro
+    int_sanitizado = sanitizar_input_usuario(intenciones, field="intenciones")
     rub_lower = rub_sanitizado.lower()
 
     # Fallbacks predefinidos en caso de falla o modo de desarrollo sin llaves
@@ -756,7 +764,15 @@ def determinar_categorias_ia(rubro: str) -> dict:
         "fast_food": {
             "competidores": ["fast_food", "restaurant"],
             "aliados": ["transit_station", "shopping_mall", "park", "convenience_store"]
-        }
+        },
+        "mascota": {
+            "competidores": ["store", "convenience_store"],
+            "aliados": ["park", "transit_station", "supermarket", "pharmacy"],
+        },
+        "accesorio": {
+            "competidores": ["store", "convenience_store"],
+            "aliados": ["supermarket", "transit_station", "shopping_mall"],
+        },
     }
 
     # Buscar coincidencia simple de subcadena en fallbacks
@@ -776,7 +792,7 @@ def determinar_categorias_ia(rubro: str) -> dict:
         "Categorías permitidas (DEBES usar ÚNICAMENTE palabras de esta lista):\n"
         '["cafe", "restaurant", "fast_food", "gym", "pharmacy", "bakery", "beauty_salon", '
         '"laundry", "doctor", "bank", "school", "transit_station", "supermarket", '
-        '"shopping_mall", "convenience_store", "park"]\n\n'
+        '"shopping_mall", "convenience_store", "park", "store", "establishment"]\n\n'
         "Debes responder estrictamente con un objeto JSON válido con la siguiente estructura:\n"
         "{\n"
         '  "competidores": ["categoria1", "categoria2"],\n'
@@ -785,10 +801,24 @@ def determinar_categorias_ia(rubro: str) -> dict:
         "Reglas:\n"
         "1. No inventes categorías. Usa solo las de la lista anterior.\n"
         "2. Incluye entre 1 y 4 categorías por lista.\n"
-        "3. No incluyas explicaciones ni texto fuera del JSON."
+        "3. No incluyas explicaciones ni texto fuera del JSON.\n"
+        "4. Prioriza siempre el giro exacto del usuario; usa sus intenciones para afinar sustitutos o nichos.\n"
+        "5. Si el giro es específico (ej. accesorios para mascotas, café de especialidad), evita categorías genéricas irrelevantes."
     )
 
-    user_prompt = f"Determina competidores y aliados estratégicos para el giro comercial: '{rub_sanitizado}'"
+    partes_usuario = [
+        f"Giro comercial del usuario: '{rub_sanitizado}'",
+        f"Mapeo interno sugerido del sistema: tipo '{google_type or 'N/D'}' / categoría '{categoria or 'N/D'}'",
+    ]
+    if int_sanitizado:
+        partes_usuario.append(f"Intenciones y contexto del negocio: '{int_sanitizado}'")
+    if competidores_adicionales:
+        partes_usuario.append(f"Marcas o competidores mencionados por el usuario: '{competidores_adicionales}'")
+    partes_usuario.append(
+        "Determina categorías de competidores (mismo sector o sustitutos directos) y aliados "
+        "(generadores de tráfico complementario) alineadas al giro e intenciones."
+    )
+    user_prompt = "\n".join(partes_usuario)
 
     # Intentar con Groq
     if GROQ_API_KEY and not GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in GROQ_API_KEY:
@@ -854,7 +884,7 @@ def filtrar_y_validar_categorias(res: dict, fallback: dict) -> dict:
         "cafe", "restaurant", "fast_food", "gym", "pharmacy", "bakery",
         "beauty_salon", "laundry", "doctor", "bank", "school",
         "transit_station", "supermarket", "shopping_mall",
-        "convenience_store", "park"
+        "convenience_store", "park", "store", "establishment",
     }
     comps = res.get("competidores", [])
     aliados = res.get("aliados", [])

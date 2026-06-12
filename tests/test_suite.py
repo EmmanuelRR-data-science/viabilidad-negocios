@@ -157,6 +157,40 @@ def test_segmentacion_demografica_con_db():
         db.close()
 
 
+def test_resolver_competidores_prioriza_categorias_usuario():
+    from app.competencia_busqueda import resolver_tipos_competidores_busqueda
+
+    tipos, _, fuente = resolver_tipos_competidores_busqueda(
+        ["cafe", "bakery", "ia_auto"],
+        rubro="cafetería gourmet",
+        google_type="cafe",
+        categorias_ia={"competidores": ["restaurant"], "aliados": []},
+    )
+    assert fuente == "categorias_usuario"
+    assert tipos == ["cafe", "bakery"]
+
+
+def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
+    from app.competencia_busqueda import keyword_places_para_ia, resolver_tipos_competidores_busqueda
+
+    tipos, _, fuente = resolver_tipos_competidores_busqueda(
+        ["ia_auto"],
+        rubro="accesorios para mascotas",
+        google_type="store",
+        categorias_ia={"competidores": ["store", "convenience_store"], "aliados": []},
+    )
+    assert fuente == "ia_rubro_intenciones"
+    assert "store" in tipos
+
+    kw = keyword_places_para_ia(
+        "accesorios para mascotas",
+        intenciones="tienda de collares y juguetes para perros",
+        google_type="store",
+    )
+    assert kw is not None
+    assert "mascotas" in kw.lower() or "collares" in kw.lower()
+
+
 def test_filtro_giro_competidores_por_reseñas():
     """Excluye competidores cuyas reseñas no coinciden con el rubro (ej. acuario vs accesorios mascotas)."""
     rubro = "accesorios para mascotas"

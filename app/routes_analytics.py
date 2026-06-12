@@ -54,11 +54,20 @@ async def obtener_vista_previa_gratuita(
     # Extraer selecciones opcionales del body JSON (si el frontend las envía)
     competidores_sel = None
     aliados_sel = None
+    intenciones = None
+    competidores_adicionales = None
     try:
         body = await request.json()
         competidores_sel = body.get("competidores_seleccionados")
         aliados_sel = body.get("aliados_seleccionados")
-        logger.info(f"Selecciones recibidas en vista previa — Competidores: {competidores_sel} | Aliados: {aliados_sel}")
+        intenciones = body.get("intenciones")
+        competidores_adicionales = body.get("competidores_adicionales")
+        logger.info(
+            "Vista previa — Competidores: %s | Aliados: %s | IA contexto: %s",
+            competidores_sel,
+            aliados_sel,
+            bool(intenciones),
+        )
     except Exception:
         # No hay body o no es JSON válido — proceder con defaults
         pass
@@ -69,6 +78,8 @@ async def obtener_vista_previa_gratuita(
             db, lat, lng, radio_metros, rubro, tier="premium",
             competidores_seleccionados=competidores_sel,
             aliados_seleccionados=aliados_sel,
+            intenciones=intenciones,
+            competidores_adicionales=competidores_adicionales,
         )
 
         return {
@@ -158,6 +169,7 @@ def obtener_resultado_analisis(
                 aliados_seleccionados=aliados_sel,
                 competidores_adicionales=orden.competidores_adicionales,
                 aliados_adicionales=orden.aliados_adicionales,
+                intenciones=orden.intenciones,
             )
 
             # Inyectar dirección física y contexto personalizado

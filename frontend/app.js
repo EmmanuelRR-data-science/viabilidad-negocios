@@ -681,9 +681,14 @@ async function runPreviewAnalysis() {
         const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
         const aliadosSel = Array.from(aliadosCheckboxes).map(cb => cb.value);
 
+        const intenciones = document.getElementById("intenciones-textarea")?.value?.trim() || null;
+        const compAdicionales = document.getElementById("competidores-adicionales-input")?.value?.trim() || null;
+
         const previewBody = {
             competidores_seleccionados: competidoresSel.length > 0 ? competidoresSel : null,
-            aliados_seleccionados: aliadosSel.length > 0 ? aliadosSel : null
+            aliados_seleccionados: aliadosSel.length > 0 ? aliadosSel : null,
+            intenciones,
+            competidores_adicionales: compAdicionales,
         };
 
         const response = await fetch(`/api/analizar/previa?${queryParams}`, {

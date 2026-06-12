@@ -5,6 +5,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.besttime import obtener_afluencia
+from app.competencia_busqueda import (
+    contexto_giro_completo,
+    keyword_places_para_ia,
+    resolver_tipos_aliados_busqueda,
+    resolver_tipos_competidores_busqueda,
+)
 from app.demografia_segmentos import calcular_segmentacion_demografica
 from app.nse import calcular_nse
 from app.google_places import (
@@ -112,7 +118,8 @@ def resolver_competidores_destacados_para_reporte(
             )
         except Exception as rev_err:
             logger.error("No se pudieron cargar reseñas para filtro de giro: %s", rev_err)
-    relevantes = filtrar_competidores_por_giro(rubro, candidatos)
+    contexto = contexto_giro_completo(rubro)
+    relevantes = filtrar_competidores_por_giro(contexto, candidatos)
     return relevantes[:top_n]
 
 
@@ -290,6 +297,7 @@ def procesar_calculo_analitico(
     aliados_seleccionados: list[str] | None = None,
     competidores_adicionales: str | None = None,
     aliados_adicionales: str | None = None,
+    intenciones: str | None = None,
 ) -> dict:
     """
     Orquesta todo el motor analítico cuantitativo:
@@ -345,36 +353,69 @@ def procesar_calculo_analitico(
     competidores_sel_orig = competidores_seleccionados
     aliados_sel_orig = aliados_seleccionados
 
-    ia_autodetect_competidores = False
-    if competidores_seleccionados and "ia_auto" in competidores_seleccionados:
-        ia_autodetect_competidores = True
+    ia_autodetect_competidores = bool(
+        competidores_seleccionados and "ia_auto" in competidores_seleccionados
+    )
+    ia_autodetect_aliados = bool(aliados_seleccionados and "ia_auto" in aliados_seleccionados)
 
-    ia_autodetect_aliados = False
-    if aliados_seleccionados and "ia_auto" in aliados_seleccionados:
-        ia_autodetect_aliados = True
-
+    categorias_ia: dict = {"competidores": [], "aliados": []}
     if ia_autodetect_competidores or ia_autodetect_aliados:
         try:
             from app.bedrock import determinar_categorias_ia
-            sugerencias = determinar_categorias_ia(rubro)
-            logger.info(f"Categorías sugeridas por IA para '{rubro}': {sugerencias}")
-            if ia_autodetect_competidores:
-                competidores_seleccionados = sugerencias.get("competidores", ["restaurant"])
-            if ia_autodetect_aliados:
-                aliados_seleccionados = sugerencias.get("aliados", ["transit_station"])
+
+            categorias_ia = determinar_categorias_ia(
+                rubro,
+                intenciones=intenciones,
+                google_type=google_type,
+                categoria=categoria,
+                competidores_adicionales=competidores_adicionales,
+            )
+            logger.info(
+                "Categorías IA para '%s' (intenciones: %s): %s",
+                rubro,
+                "sí" if intenciones else "no",
+                categorias_ia,
+            )
         except Exception as ia_err:
-            logger.error(f"Error al determinar categorías por IA: {ia_err}. Usando fallbacks estándar.")
-            if ia_autodetect_competidores:
-                competidores_seleccionados = None
-            if ia_autodetect_aliados:
-                aliados_seleccionados = None
+            logger.error("Error al determinar categorías por IA: %s", ia_err)
+
+    tipos_competidores, ia_comp_activa, fuente_comp = resolver_tipos_competidores_busqueda(
+        competidores_seleccionados,
+        rubro=rubro,
+        google_type=google_type,
+        categorias_ia=categorias_ia,
+    )
+    tipos_aliados, ia_aliados_activa, fuente_aliados = resolver_tipos_aliados_busqueda(
+        aliados_seleccionados,
+        rubro=rubro,
+        categorias_ia=categorias_ia,
+    )
+    if ia_comp_activa:
+        ia_autodetect_competidores = True
+    if ia_aliados_activa:
+        ia_autodetect_aliados = True
+
+    contexto_giro = contexto_giro_completo(rubro, intenciones)
+    keyword_ia = keyword_places_para_ia(
+        rubro,
+        intenciones=intenciones,
+        competidores_adicionales=competidores_adicionales,
+        google_type=google_type,
+    )
 
     if tier in ["basico", "pro", "premium"]:
-        if competidores_seleccionados:
-            logger.info(f"Buscando competidores personalizados por Places: {competidores_seleccionados}...")
+        if tipos_competidores:
+            logger.info(
+                "Buscando competidores por Places (%s): %s",
+                fuente_comp,
+                tipos_competidores,
+            )
             seen_keys = set()
-            for custom_type in competidores_seleccionados:
-                found = buscar_competidores(lat, lng, float(radio), custom_type)
+            for custom_type in tipos_competidores:
+                kw = keyword_ia if ia_autodetect_competidores and fuente_comp == "ia_rubro_intenciones" else None
+                if not kw and custom_type in ("store", "establishment") and competidores_adicionales:
+                    kw = competidores_adicionales.split(",")[0].strip()
+                found = buscar_competidores(lat, lng, float(radio), custom_type, keyword=kw)
                 for comp in found:
                     comp_key = (round(comp["latitud"], 5), round(comp["longitud"], 5))
                     if comp_key not in seen_keys:
@@ -384,7 +425,7 @@ def procesar_calculo_analitico(
         else:
             # Si el tipo resuelto es genérico ("store") pero el usuario dio competidores_adicionales,
             # lo usamos como keyword de búsqueda en Google Places.
-            keyword = None
+            keyword = keyword_ia
             if google_type == "store" and competidores_adicionales:
                 keyword = competidores_adicionales.strip()
 
@@ -393,7 +434,18 @@ def procesar_calculo_analitico(
                 comp["tipo"] = keyword.title() if keyword else categoria.replace("_", " ").title()
         logger.info(f"Competidores detectados en el radio por Places: {len(competidores)}")
 
-        # Calcular distancias e Índice de Saturación Comercial (Huff)
+        if competidores:
+            antes = len(competidores)
+            competidores = filtrar_competidores_por_giro(contexto_giro, competidores)
+            logger.info(
+                "Filtro de giro '%s': %s → %s competidores",
+                contexto_giro[:80],
+                antes,
+                len(competidores),
+            )
+            isc = 0.0
+            distancia_mas_cercana = float("inf")
+
         for comp in competidores:
             dist = calcular_distancia_haversine(lat, lng, comp["latitud"], comp["longitud"])
             comp["distancia_metros"] = round(dist, 1)
@@ -410,7 +462,7 @@ def procesar_calculo_analitico(
         try:
             competidores_destacados = resolver_competidores_destacados_para_reporte(
                 competidores,
-                rubro,
+                contexto_giro,
                 top_n=5,
                 enriquecer_reseñas=enriquecer_reseñas,
             )
@@ -419,10 +471,14 @@ def procesar_calculo_analitico(
             competidores_destacados = resolver_competidores_destacados(competidores, top_n=5)
 
         if True:
-            if aliados_seleccionados or aliados_adicionales:
-                if aliados_seleccionados:
-                    logger.info(f"Buscando aliados personalizados por Places: {aliados_seleccionados}...")
-                    for custom_type in aliados_seleccionados:
+            if tipos_aliados or aliados_adicionales:
+                if tipos_aliados:
+                    logger.info(
+                        "Buscando aliados por Places (%s): %s",
+                        fuente_aliados,
+                        tipos_aliados,
+                    )
+                    for custom_type in tipos_aliados:
                         try:
                             found_allies = buscar_competidores(lat, lng, float(radio), custom_type)
                             tipo_nombre = custom_type.replace("_", " ").title()
