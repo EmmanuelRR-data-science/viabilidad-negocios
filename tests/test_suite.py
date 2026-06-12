@@ -251,6 +251,44 @@ def test_resolver_aliados_intenciones_reordenan_sin_agregar():
     assert con_escuela[0] == "school"
 
 
+def test_justificacion_sva_explica_saturacion_competencia():
+    from app.reports import _justificacion_score_sva
+
+    texto = _justificacion_score_sva(
+        {
+            "sva": 54,
+            "score_demog": 72.0,
+            "score_competencia": 54.4,
+            "score_trafico": 55.0,
+            "competidores_conteo": 12,
+            "isc": 0.015,
+            "densidad_hab_km2": 1450.0,
+        },
+        rubro="florería",
+        tier="pro",
+    )
+    assert "54/100" in texto or "54.4" in texto
+    assert "54.4" in texto
+    assert "competencia" in texto.lower()
+    assert "ISC" in texto
+
+
+def test_interpretacion_demografia_por_rubro():
+    from app.reports import _interpretacion_distribucion_poblacional
+
+    seg = {
+        "pob0_14": 1200,
+        "pob15_64": 5000,
+        "pob65_mas": 800,
+        "pea": 3200,
+        "piramide": [],
+    }
+    texto = _interpretacion_distribucion_poblacional("florería", seg, 7000, "pro")
+    assert "florer" in texto.lower()
+    assert "7,000" in texto
+    assert "pirámide" in texto.lower() or "cohortes" in texto.lower()
+
+
 def test_resolver_aliados_matriz_floreria():
     from app.aliados_deterministico import resolver_aliados_por_rubro
     from app.competencia_busqueda import resolver_tipos_aliados_busqueda

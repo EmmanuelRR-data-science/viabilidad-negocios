@@ -35,6 +35,158 @@ def rubro_legible(rubro: str) -> str:
     return RUBRO_DISPLAY.get(rubro.lower().strip(), rubro.replace("_", " ").strip().capitalize())
 
 
+def _pct_poblacion(valor: int, total: int) -> float:
+    if total <= 0:
+        return 0.0
+    return round((valor / total) * 100, 1)
+
+
+def _justificacion_score_sva(analisis: dict, rubro: str, tier: str) -> str:
+    """Párrafo que explica cómo se compone y por qué resulta el SVA mostrado."""
+    rubro_txt = rubro_legible(rubro)
+    sva = analisis.get("sva", 0)
+    score_dem = float(analisis.get("score_demog", 50.0))
+    score_comp = float(analisis.get("score_competencia", 50.0))
+    score_traf = float(analisis.get("score_trafico", 50.0))
+    comp_n = int(analisis.get("competidores_conteo", 0))
+    isc = float(analisis.get("isc", 0.0))
+    dens = float(analisis.get("densidad_hab_km2", 0.0))
+
+    aporte_dem = round(score_dem * 0.4, 1)
+    aporte_comp = round(score_comp * 0.3, 1)
+    aporte_traf = round(score_traf * 0.3, 1)
+    sva_ponderado = round(aporte_dem + aporte_comp + aporte_traf, 1)
+
+    pilares = (
+        ("demográfico", score_dem, aporte_dem),
+        ("de competencia", score_comp, aporte_comp),
+        ("de atractores y tráfico", score_traf, aporte_traf),
+    )
+    pilar_limitante = min(pilares, key=lambda p: p[1])
+
+    if score_dem >= 80:
+        dem_txt = f"la densidad de {dens:,.1f} hab/km² respalda una base de demanda sólida ({score_dem:.1f}/100)"
+    elif score_dem >= 50:
+        dem_txt = f"la densidad de {dens:,.1f} hab/km² es aceptable pero no óptima ({score_dem:.1f}/100)"
+    else:
+        dem_txt = f"la baja densidad de {dens:,.1f} hab/km² reduce el mercado capturable ({score_dem:.1f}/100)"
+
+    if comp_n == 0:
+        comp_txt = "no hay competidores directos detectados, por lo que este pilar aporta el máximo (100/100)"
+    elif score_comp >= 80:
+        comp_txt = (
+            f"los {comp_n} competidor(es) generan poca fricción (ISC {isc:.4f}), "
+            f"dejando el pilar en {score_comp:.1f}/100"
+        )
+    elif score_comp >= 50:
+        comp_txt = (
+            f"los {comp_n} competidores en el radio producen saturación moderada (ISC {isc:.4f}), "
+            f"traducida en {score_comp:.1f}/100: a más rivales cercanos, menor puntuación"
+        )
+    else:
+        comp_txt = (
+            f"la alta saturación — {comp_n} competidores con ISC {isc:.4f} — "
+            f"reduce este pilar a <b>{score_comp:.1f}/100</b> porque varios negocios muy próximos "
+            f"compiten por el mismo flujo de clientes"
+        )
+
+    afluencia = analisis.get("afluencia_peatonal") or {}
+    if tier == "premium" and afluencia.get("status") == "success":
+        traf_txt = (
+            f"la afluencia peatonal medida (BestTime) calibró el pilar en {score_traf:.1f}/100"
+        )
+    else:
+        traf_txt = (
+            f"el tráfico y atractores del entorno se estimaron en {score_traf:.1f}/100 "
+            f"(sin afluencia peatonal calibrada en plan {tier.capitalize()})"
+        )
+
+    return (
+        f"El <b>SVA de {sva}/100</b> para <b>{rubro_txt}</b> combina tres pilares con pesos fijos: "
+        f"demografía aporta {aporte_dem} de 40 posibles, competencia {aporte_comp} de 30 y tráfico {aporte_traf} de 30 "
+        f"({sva_ponderado:.1f}/100 antes del redondeo). En demografía, {dem_txt}; en competencia, {comp_txt}; "
+        f"en tráfico, {traf_txt}. El factor que más presiona el resultado es el pilar <b>{pilar_limitante[0]}</b> "
+        f"({pilar_limitante[1]:.1f}/100, {pilar_limitante[2]} pts ponderados), por eso el score global "
+        f"refleja ese equilibrio y no solo el conteo de competidores."
+    )
+
+
+def _interpretacion_distribucion_poblacional(
+    rubro: str,
+    segmentacion: dict,
+    pob_total: int,
+    tier: str,
+) -> str:
+    """Interpreta las gráficas demográficas en función del giro del usuario."""
+    rubro_txt = rubro_legible(rubro)
+    rubro_l = (rubro or "").lower()
+
+    pob0_14 = int(segmentacion.get("pob0_14", 0))
+    pob15_64 = int(segmentacion.get("pob15_64", 0))
+    pob65 = int(segmentacion.get("pob65_mas", 0))
+    pea = int(segmentacion.get("pea", 0))
+    pct_15_64 = _pct_poblacion(pob15_64, pob_total)
+    pct_ninos = _pct_poblacion(pob0_14, pob_total)
+
+    intro = (
+        f"En el radio analizado viven <b>{pob_total:,}</b> personas; las gráficas muestran cómo se reparten por edad"
+    )
+    if tier == "premium":
+        intro += ", actividad laboral y escolaridad"
+    elif tier == "pro":
+        intro += " y su pirámide por cohortes"
+    intro += (
+        f". Para <b>{rubro_txt}</b>, estos datos ayudan a estimar quién puede consumir tu giro, "
+        f"en qué horarios y con qué frecuencia."
+    )
+
+    if "cafe" in rubro_l or "cafeter" in rubro_l:
+        giro_txt = (
+            f"El {pct_15_64}% en edad 15-64 años y una PEA de {pea:,} personas sugieren demanda en horarios "
+            f"laborales y de estudio; prioriza desayunos, breaks y consumo de paso cerca de oficinas o escuelas."
+        )
+    elif "flor" in rubro_l:
+        giro_txt = (
+            f"El {pct_ninos}% menor de 15 años y el {pct_15_64}% en edad productiva indican hogares con celebraciones "
+            f"recurrentes (escuela, aniversarios, condolencias); ubica campañas en fechas escolares y zonas con "
+            f"tráfico de visitas a clínicas o centros comerciales."
+        )
+    elif "farma" in rubro_l:
+        giro_txt = (
+            f"Familias ({pct_ninos}% menores de 15) y adultos mayores en la pirámide definen demanda de medicamentos "
+            f"de primera necesidad; un radio con PEA de {pea:,} personas también aporta compras de paso en jornada laboral."
+        )
+    elif "gym" in rubro_l or "gimnasio" in rubro_l:
+        giro_txt = (
+            f"La concentración de población 15-39 años en la pirámide y {pea:,} personas económicamente activas "
+            f"orientan horarios pico antes y después del trabajo; valida si hay estudiantes o jóvenes suficientes "
+            f"para sostener membresías."
+        )
+    elif "restaur" in rubro_l or "comida" in rubro_l:
+        giro_txt = (
+            f"El {pct_15_64}% en edad laboral y la PEA de {pea:,} personas respaldan comidas de jornada y fines de semana; "
+            f"compara la franja joven vs. adulta para decidir menú, ticket promedio y horario de mayor afluencia."
+        )
+    else:
+        giro_txt = (
+            f"El {pct_15_64}% en edad 15-64 años concentra la demanda comercial principal; "
+            f"la PEA de {pea:,} personas indica flujo cotidiano y el {pct_ninos}% menor de 15 años señala hogares "
+            f"familiares que pueden ampliar el ticket con compras complementarias."
+        )
+
+    if tier == "basico":
+        plan_txt = " En Básico ves tres franjas etarias; en Pro y Premium la pirámide y segmentos afinan el nicho."
+    elif tier == "pro":
+        plan_txt = " La pirámide detallada permite detectar si tu público objetivo es joven, familiar o mixto."
+    else:
+        plan_txt = (
+            " Los perfiles laboral y escolar complementan la pirámide para ajustar horarios, "
+            "personal y promociones al ritmo real del barrio."
+        )
+
+    return intro + " " + giro_txt + plan_txt
+
+
 def _embed_chart_png(story, png_bytes: bytes | None, *, width: float = 468, height: float | None = None) -> None:
     """Incrusta una gráfica PNG generada server-side en el flujo del PDF."""
     if not png_bytes:
@@ -605,6 +757,14 @@ class ReportLabGenerator:
             )
         )
         story.append(pilares_table)
+        story.append(Spacer(1, 8))
+        story.append(Paragraph("<b>¿Por qué este Score de Viabilidad?</b>", s_h2))
+        story.append(
+            Paragraph(
+                _justificacion_score_sva(analisis, orden.rubro, orden.tier_adquirido),
+                s_body,
+            )
+        )
 
         story.append(PageBreak())
 
@@ -786,6 +946,21 @@ class ReportLabGenerator:
                     )
                     _embed_chart_png(story, png_escolar, width=468, height=180)
 
+                story.append(Spacer(1, 6))
+                story.append(Paragraph("<b>Interpretación para tu giro:</b>", s_h2))
+                story.append(
+                    Paragraph(
+                        _interpretacion_distribucion_poblacional(
+                            orden.rubro,
+                            segmentacion,
+                            pob_tot,
+                            orden.tier_adquirido,
+                        ),
+                        s_body,
+                    )
+                )
+
+                if orden.tier_adquirido == "premium":
                     destacados = segmentos_destacados_por_rubro(orden.rubro, segmentacion, pob_tot)
                     if destacados:
                         story.append(Spacer(1, 8))
