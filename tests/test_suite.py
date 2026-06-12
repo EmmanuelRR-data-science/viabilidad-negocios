@@ -191,6 +191,14 @@ def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
     assert "mascotas" in kw.lower() or "collares" in kw.lower()
 
 
+def test_nombre_categoria_places_en_espanol():
+    from app.aliados_deterministico import nombre_categoria_places
+
+    assert nombre_categoria_places("shopping_mall") == "Centros Comerciales"
+    assert nombre_categoria_places("transit_station") == "Paradas de Transporte Público"
+    assert nombre_categoria_places("doctor") == "Consultorios Médicos"
+
+
 def test_filtro_giro_floreria_conserva_nombres_con_flores():
     rubro = "florería"
     candidatos = [

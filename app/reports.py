@@ -1832,8 +1832,10 @@ class ReportLabGenerator:
         # las categorías ya resueltas por IA o seleccionadas), nunca el token interno 'ia_auto'.
         conteos_reales = {k: v for k, v in aliados_conteos.items() if k != "ia_auto"}
         if orden.tier_adquirido == "premium" and conteos_reales:
+            from app.aliados_deterministico import nombre_categoria_places
+
             for ally_type, cnt in conteos_reales.items():
-                tipo_nombre = ally_type.replace("_", " ").title()
+                tipo_nombre = nombre_categoria_places(ally_type)
                 # Determinar un peso de IAT semántico basado en el tipo
                 peso_iat = "Alto (Tráfico comercial)"
                 if any(x in ally_type for x in ["transit", "subway", "bus", "station"]):

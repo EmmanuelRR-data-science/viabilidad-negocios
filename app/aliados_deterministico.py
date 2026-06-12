@@ -140,20 +140,36 @@ def resolver_aliados_por_rubro(rubro: str, *, intenciones: str | None = None) ->
     return tipos or list(_ALIADOS_DEFAULT)
 
 
+# Etiquetas en español para categorías Google Places (tabla IAT, gráficas, FODA).
+NOMBRES_CATEGORIAS_PLACES: dict[str, str] = {
+    "bank": "Bancos e Instituciones Financieras",
+    "school": "Escuelas e Instituciones Educativas",
+    "transit_station": "Paradas de Transporte Público",
+    "cafe": "Cafeterías",
+    "restaurant": "Restaurantes",
+    "fast_food": "Comida Rápida",
+    "gym": "Gimnasios",
+    "pharmacy": "Farmacias",
+    "bakery": "Panaderías",
+    "beauty_salon": "Estéticas y Salones de Belleza",
+    "laundry": "Lavanderías",
+    "doctor": "Consultorios Médicos",
+    "supermarket": "Supermercados",
+    "shopping_mall": "Centros Comerciales",
+    "convenience_store": "Abarrotes y Tiendas de Conveniencia",
+    "park": "Parques",
+    "store": "Tiendas y Comercios",
+    "establishment": "Establecimientos Comerciales",
+}
+
+
+def nombre_categoria_places(categoria: str) -> str:
+    """Traduce claves internas (bank, shopping_mall) a etiquetas en español."""
+    clave = (categoria or "").strip().lower()
+    if clave in NOMBRES_CATEGORIAS_PLACES:
+        return NOMBRES_CATEGORIAS_PLACES[clave]
+    return categoria.replace("_", " ").strip().title() if categoria else "Categoría"
+
+
 def etiquetas_aliados_legibles(tipos: list[str]) -> str:
-    nombres = {
-        "bank": "Bancos",
-        "school": "Escuelas",
-        "transit_station": "Transporte público",
-        "supermarket": "Supermercados",
-        "shopping_mall": "Centros comerciales",
-        "convenience_store": "Abarrotes / conveniencia",
-        "park": "Parques",
-        "pharmacy": "Farmacias",
-        "doctor": "Consultorios médicos",
-        "beauty_salon": "Estéticas",
-        "gym": "Gimnasios",
-        "cafe": "Cafeterías",
-        "restaurant": "Restaurantes",
-    }
-    return ", ".join(nombres.get(t, t.replace("_", " ").title()) for t in tipos)
+    return ", ".join(nombre_categoria_places(t) for t in tipos)

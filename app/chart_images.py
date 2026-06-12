@@ -32,24 +32,9 @@ RATING_COLORS = ["#f43f5e", "#f97316", "#fbbf24", "#22c55e"]
 DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 HORAS_HEATMAP = list(range(8, 23))  # 08:00 – 22:00, igual que el dashboard
 
-CATEGORY_LABELS = {
-    "bank": "Bancos y Finanzas",
-    "school": "Centros Educativos",
-    "transit_station": "Transporte Público",
-    "cafe": "Cafeterías",
-    "restaurant": "Restaurantes",
-    "fast_food": "Comida Rápida",
-    "gym": "Gimnasios",
-    "pharmacy": "Farmacias",
-    "bakery": "Panaderías",
-    "beauty_salon": "Estéticas",
-    "laundry": "Lavanderías",
-    "doctor": "Consultorios Médicos",
-    "supermarket": "Supermercados",
-    "shopping_mall": "Centros Comerciales",
-    "convenience_store": "Abarrotes y Conveniencia",
-    "park": "Parques",
-}
+from app.aliados_deterministico import NOMBRES_CATEGORIAS_PLACES, nombre_categoria_places
+
+CATEGORY_LABELS = NOMBRES_CATEGORIAS_PLACES
 
 
 def _fig_to_png(fig) -> bytes:
@@ -147,7 +132,7 @@ def generar_grafica_atractores(
 
     try:
         items = sorted(conteos.items(), key=lambda x: x[1], reverse=True)[:8]
-        labels = [CATEGORY_LABELS.get(k, k.replace("_", " ").title()) for k, _ in items]
+        labels = [nombre_categoria_places(k) for k, _ in items]
         valores = [v for _, v in items]
 
         fig, ax = plt.subplots(figsize=(7.2, max(2.8, len(items) * 0.45 + 1.2)))
