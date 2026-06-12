@@ -120,6 +120,38 @@ _DOMINIO_GIRO: dict[str, dict[str, list[str]]] = {
         "relacionados": ["estetica", "estética", "belleza", "corte", "uñas", "peinado", "spa", "facial"],
         "conflictos": ["gimnasio", "farmacia", "restaurante", "escuela", "taller"],
     },
+    "floreria": {
+        "anchors": ["floreria", "florería", "flor", "flores", "floral", "ramo", "arreglo"],
+        "relacionados": [
+            "flor",
+            "flores",
+            "floral",
+            "floreria",
+            "florería",
+            "ramo",
+            "arreglo",
+            "bouquet",
+            "corona",
+            "detalle",
+            "regalo",
+            "planta",
+            "plantas",
+        ],
+        "conflictos": [
+            "supermercado",
+            "comer",
+            "restaurante",
+            "cafeteria",
+            "cafetería",
+            "cafe",
+            "café",
+            "vidrio",
+            "ropa",
+            "parisina",
+            "market",
+            "abarrotes",
+        ],
+    },
 }
 
 
@@ -150,7 +182,12 @@ def _texto_evaluable_competidor(competidor: dict) -> tuple[str, str, str]:
 def _contiene_termino(texto: str, termino: str) -> bool:
     if not texto or not termino:
         return False
-    return bool(re.search(rf"\b{re.escape(termino)}", texto))
+    if re.search(rf"\b{re.escape(termino)}", texto):
+        return True
+    # Nombres comerciales pegados: bonitasflores, floresregalo, etc.
+    if len(termino) >= 4 and termino in texto.replace(" ", ""):
+        return True
+    return False
 
 
 def _contar_terminos(texto: str, terminos: list[str]) -> int:
@@ -158,11 +195,24 @@ def _contar_terminos(texto: str, terminos: list[str]) -> int:
 
 
 def _tokens_rubro_generico(rubro: str) -> list[str]:
-    return [
+    texto = _normalizar_texto_giro(rubro.split(".")[0])
+    tokens = [
         t
-        for t in _normalizar_texto_giro(rubro).split()
+        for t in texto.split()
         if len(t) > 3 and t not in _STOPWORDS_GIRO
     ]
+    variantes: list[str] = []
+    for t in tokens:
+        variantes.append(t)
+        if t.startswith("florer") or t == "flor":
+            variantes.extend(["flor", "flores", "floral", "floreria"])
+    vistos: set[str] = set()
+    resultado: list[str] = []
+    for v in variantes:
+        if v not in vistos:
+            vistos.add(v)
+            resultado.append(v)
+    return resultado
 
 
 def competidor_es_relevante_al_giro(rubro: str, competidor: dict) -> bool:
@@ -200,6 +250,8 @@ def competidor_es_relevante_al_giro(rubro: str, competidor: dict) -> bool:
                 return False
             if _contar_terminos(nombre, cfg["conflictos"]) >= 1:
                 return False
+
+        return rel >= 1
 
     return True
 

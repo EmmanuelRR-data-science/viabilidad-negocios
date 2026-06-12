@@ -446,10 +446,10 @@ def procesar_calculo_analitico(
 
         if competidores:
             antes = len(competidores)
-            competidores = filtrar_competidores_por_giro(contexto_giro, competidores)
+            competidores = filtrar_competidores_por_giro(rubro, competidores)
             logger.info(
                 "Filtro de giro '%s': %s → %s competidores",
-                contexto_giro[:80],
+                rubro[:80],
                 antes,
                 len(competidores),
             )

@@ -191,6 +191,37 @@ def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
     assert "mascotas" in kw.lower() or "collares" in kw.lower()
 
 
+def test_filtro_giro_floreria_conserva_nombres_con_flores():
+    rubro = "florería"
+    candidatos = [
+        {"nombre": "bonitasflores.com", "tipo": "Store"},
+        {"nombre": "Unbonitodetalle - flores y regalos", "tipo": "Store"},
+        {"nombre": "Mercado De Plantas", "tipo": "Store"},
+        {"nombre": "Florería Ricardo", "tipo": "Store"},
+        {"nombre": "City Market Pilares", "tipo": "Store"},
+        {"nombre": "Café El Jarocho Centenario", "tipo": "Store"},
+    ]
+    filtrados = filtrar_competidores_por_giro(rubro, candidatos)
+    nombres = {c["nombre"] for c in filtrados}
+    assert "bonitasflores.com" in nombres
+    assert "Unbonitodetalle - flores y regalos" in nombres
+    assert "Florería Ricardo" in nombres
+    assert "City Market Pilares" not in nombres
+    assert "Café El Jarocho Centenario" not in nombres
+    assert len(filtrados) >= 3
+
+
+def test_keyword_ia_no_duplica_rubro_en_intenciones():
+    from app.competencia_busqueda import keyword_places_para_ia
+
+    kw = keyword_places_para_ia(
+        "florería",
+        intenciones="florería que venda al público en general",
+        google_type="store",
+    )
+    assert kw == "florería que venda al público en general"
+
+
 def test_keyword_ia_ignora_intenciones_placeholder_y_usa_rubro():
     from app.competencia_busqueda import keyword_places_para_ia
 

@@ -54,8 +54,13 @@ def keyword_places_para_ia(
 
     rubro_kw = (rubro or "").strip()
     extra = _intenciones_utiles_para_keyword(intenciones)
-    if rubro_kw and extra and extra.lower() not in rubro_kw.lower():
-        return f"{rubro_kw} {extra}"[:100]
+    if rubro_kw and extra:
+        rubro_norm = rubro_kw.lower()
+        extra_norm = extra.lower()
+        if extra_norm.startswith(rubro_norm):
+            extra = extra[len(rubro_kw) :].lstrip(" .,;:-")
+        if extra and extra.lower() not in rubro_norm:
+            return f"{rubro_kw} {extra}"[:100]
     if rubro_kw:
         return rubro_kw[:80]
 
