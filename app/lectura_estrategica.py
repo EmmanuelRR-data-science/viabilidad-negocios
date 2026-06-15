@@ -93,7 +93,7 @@ def enriquecer_item_lectura(texto: str, analisis: dict) -> str:
                 f"alrededor de las {afl.get('hora_pico', 'N/D')}. Alinea horarios y promociones a esos picos."
             )
         return (
-            "No hubo medición peatonal BestTime en esta coordenada; el pilar de tráfico usa un valor "
+            "No hubo medición de tráfico peatonal en esta coordenada; el pilar usa un valor "
             "base. Valida en sitio los horarios de mayor paso antes de definir operación."
         )
 
@@ -133,8 +133,8 @@ def _condiciones_mejora_sva(analisis: dict, *, tier: str, radio_metros: int) -> 
         )
     if float(traf["score"]) < 65:
         sugerencias.append(
-            "Tráfico: ubicarse más cerca de atractores (transporte, escuelas, plazas) o validar "
-            f"afluencia en campo puede mejorar el pilar ({traf['score']:.0f}/100)."
+            "Tráfico peatonal: ubicarse más cerca de atractores (transporte, escuelas, plazas) o validar "
+            f"paso de personas en campo puede mejorar el pilar ({traf['score']:.0f}/100)."
         )
     if not sugerencias:
         sugerencias.append(
@@ -186,7 +186,7 @@ def generar_conclusion_detallada(
         f"El resultado no es una opinión: suma tres pilares con pesos fijos — "
         f"demografía {_negrita(score_dem, html=html)} (40%), "
         f"competencia {_negrita(score_comp, html=html)} (30%) con {competencia} rivales medidos, "
-        f"y tráfico/atractores {_negrita(score_traf, html=html)} (30%). "
+        f"y tráfico peatonal {_negrita(score_traf, html=html)} (30%). "
         f"El mercado residente se perfila como {_negrita(nse_etiq, html=html)}. "
         f"{dem.get('lectura_llana', '')} {comp.get('lectura_llana', '')} {traf.get('lectura_llana', '')} "
         f"{_negrita('Para mejorar o defender el score:', html=html)} {mejora_txt}"
@@ -200,7 +200,7 @@ def bloques_metodologia_resumen(
     radio_metros: int,
 ) -> list[tuple[str, str]]:
     """Encabezado + párrafo para la sección 6 (resumen de metodología y glosarios)."""
-    from app.sva_calculo import DENSIDAD_MINIMA_HAB_KM2, DENSIDAD_OPTIMA_HAB_KM2, GLOSARIO_SVA_PDF, desglose_sva_completo
+    from app.sva_calculo import DENSIDAD_MINIMA_HAB_KM2, DENSIDAD_OPTIMA_HAB_KM2, desglose_sva_completo
 
     desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
     bloques: list[tuple[str, str]] = []
@@ -208,9 +208,8 @@ def bloques_metodologia_resumen(
     bloques.append(
         (
             "Score SVA (resumen)",
-            "Métrica compuesta 0–100: demografía 40%, competencia 30%, tráfico/atractores 30%. "
-            f"Fórmula aplicada en este reporte: {desglose['formula_final']}. "
-            f"SVA mostrado: {desglose['sva_reportado']}/100.",
+            "Métrica compuesta 0–100: demografía 40%, competencia 30%, tráfico peatonal 30%. "
+            "El desglose por pilar y el glosario están en el apartado anterior de esta sección.",
         )
     )
     bloques.append(
@@ -228,13 +227,11 @@ def bloques_metodologia_resumen(
             "del Censo 2020. Solo se pondera la fracción de cada AGEB dentro del radio.",
         )
     )
-    for termino, definicion in GLOSARIO_SVA_PDF:
-        bloques.append((termino, definicion))
     bloques.append(
         (
-            "Competencia y tráfico",
+            "Competencia y tráfico peatonal",
             f"{desglose['competencia'].get('nota', '')} "
-            f"Fuente tráfico: {desglose['trafico'].get('fuente', 'N/D')}.",
+            f"Fuente del pilar tráfico peatonal: {desglose['trafico'].get('fuente', 'N/D')}.",
         )
     )
     nse = analisis.get("nse") or {}

@@ -62,6 +62,35 @@ def _bullets_reales(items: list, *, max_items: int = 3) -> str | None:
     return "<br/>".join(f"• {x}" for x in lista) if lista else None
 
 
+def _enlaces_consultoria_html() -> str:
+    """Enlaces del deslinde: PhiQus + Estudios de Mercado (clicables en PDF)."""
+    return (
+        "<font color='#2563eb'><u><a href=\"https://phiqus.com/\">PhiQus</a></u></font> "
+        "y "
+        "<font color='#2563eb'><u><a href=\"https://estudiosdemercado.phiqus.com/\">"
+        "Estudios de Mercado</a></u></font>"
+    )
+
+
+def _agregar_invitacion_profesional(story, prefijo: str, s_invitacion) -> None:
+    """Una línea orientativa con ambos enlaces de consultoría."""
+    story.append(Spacer(1, 6))
+    story.append(
+        Paragraph(
+            f"<i>{prefijo} {_enlaces_consultoria_html()}.</i>",
+            s_invitacion,
+        )
+    )
+
+
+def _saturacion_comercial_alta(analisis: dict) -> bool:
+    comp_list = analisis.get("competidores_listado") or []
+    inmediatos = sum(1 for c in comp_list if float(c.get("distancia_metros", 9999)) < 250)
+    comp_n = int(analisis.get("competidores_conteo", 0))
+    score_comp = float(analisis.get("score_competencia", 50))
+    return comp_n >= 8 or inmediatos >= 2 or score_comp < 60
+
+
 def _tipo_comercial_legible(tipo: str | None, rubro: str) -> str:
     from app.aliados_deterministico import nombre_categoria_places
 
@@ -100,6 +129,114 @@ def _texto_entrada_competencia(comp: dict) -> str:
     return f"{n} competidores → ISC {isc_txt}"
 
 
+def _linea_resultado_sva(
+    story,
+    analisis: dict,
+    *,
+    tier: str,
+    radio_metros: int,
+    s_body,
+) -> None:
+    from app.sva_calculo import desglose_sva_completo
+
+    desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
+    story.append(Spacer(1, 12))
+    story.append(
+        Paragraph(
+            f"<b>Resultado:</b> {desglose['formula_final']}. "
+            f"El reporte muestra <b>{desglose['sva_reportado']}/100</b>.",
+            s_body,
+        )
+    )
+
+
+def _construir_tabla_pilares_sva(orden, analisis: dict, s_table_header, s_table_cell) -> Table:
+    from app.sva_calculo import ETIQUETA_PILAR_TRAFICO
+
+    pob_tot_val = analisis.get("poblacion_ponderada", 0)
+    score_dem = analisis.get("score_demog", 50.0)
+    dens_dem = analisis.get("densidad_hab_km2", 0)
+    comp_cont = analisis.get("competidores_conteo", 0)
+
+    if score_dem >= 80:
+        dem_est = f"Excelente densidad ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
+    elif score_dem >= 50:
+        dem_est = f"Densidad aceptable ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
+    else:
+        dem_est = f"Baja concentración ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
+
+    if comp_cont == 0:
+        comp_est = "Sin competidores directos detectados"
+    elif comp_cont <= 3:
+        comp_est = f"Baja competencia ({comp_cont} competidores)"
+    elif comp_cont <= 8:
+        comp_est = f"Competencia intermedia ({comp_cont} competidores)"
+    else:
+        comp_est = f"Alta saturación ({comp_cont} competidores)"
+
+    score_comp = analisis.get("score_competencia", 50.0)
+    score_traf = analisis.get("score_trafico", 50.0)
+    afl = analisis.get("afluencia_peatonal") or {}
+
+    if orden.tier_adquirido == "premium" and afl.get("status") == "success":
+        sat = afl.get("saturación_promedio", score_traf)
+        inf_est = f"Tráfico peatonal medido (promedio {float(sat):.1f}%)"
+    elif orden.tier_adquirido == "premium":
+        inf_est = f"Sin medición de tráfico peatonal en zona (valor base {score_traf:.0f}/100)"
+    else:
+        inf_est = f"Tráfico peatonal estimado (valor base {score_traf:.0f}/100 en este plan)"
+
+    pilares_data = [
+        [
+            Paragraph("Pilar Analítico", s_table_header),
+            Paragraph("Peso", s_table_header),
+            Paragraph("Score", s_table_header),
+            Paragraph("Estatus en la Zona", s_table_header),
+        ],
+        [
+            Paragraph("Pilar Demográfico", s_table_cell),
+            Paragraph("40%", s_table_cell),
+            Paragraph(f"{score_dem:.1f}/100", s_table_cell),
+            Paragraph(dem_est, s_table_cell),
+        ],
+        [
+            Paragraph("Pilar Competencia", s_table_cell),
+            Paragraph("30%", s_table_cell),
+            Paragraph(f"{score_comp:.1f}/100", s_table_cell),
+            Paragraph(comp_est, s_table_cell),
+        ],
+        [
+            Paragraph(f"Pilar {ETIQUETA_PILAR_TRAFICO}", s_table_cell),
+            Paragraph("30%", s_table_cell),
+            Paragraph(f"{score_traf:.1f}/100", s_table_cell),
+            Paragraph(inf_est, s_table_cell),
+        ],
+    ]
+    pilares_table = Table(pilares_data, colWidths=[130, 55, 65, 254])
+    pilares_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ("PADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    return pilares_table
+
+
+def _agregar_glosario_rapido_sva(story, s_body) -> None:
+    from app.sva_calculo import GLOSARIO_SVA_PDF
+
+    story.append(Paragraph("<b>Glosario rápido:</b>", s_body))
+    story.append(Spacer(1, 4))
+    for termino, definicion in GLOSARIO_SVA_PDF:
+        story.append(Paragraph(f"<b>{termino}:</b> {definicion}", s_body))
+        story.append(Spacer(1, 2))
+
+
 def _agregar_seccion_transparencia_sva(
     story,
     analisis: dict,
@@ -110,6 +247,8 @@ def _agregar_seccion_transparencia_sva(
     s_body,
     s_table_header,
     s_table_cell,
+    incluir_glosario: bool = True,
+    incluir_resultado: bool = True,
 ) -> None:
     """Tablas paso a paso + mini simulador para la sección ¿Por qué este Score de Viabilidad?"""
     from app.sva_calculo import GLOSARIO_SVA_PDF, desglose_sva_completo, escenarios_simulacion_sva
@@ -155,7 +294,7 @@ def _agregar_seccion_transparencia_sva(
             Paragraph(f"{comp['aporte_ponderado']:.1f}", s_table_cell),
         ],
         [
-            Paragraph("Tráfico", s_table_cell),
+            Paragraph("Tráfico peatonal", s_table_cell),
             Paragraph(traf["detalle"], s_table_cell),
             Paragraph(traf["regla"], s_table_cell),
             Paragraph(f"{traf['score']:.1f}", s_table_cell),
@@ -184,7 +323,7 @@ def _agregar_seccion_transparencia_sva(
     for etiqueta, pilar in (
         ("Demografia", dem),
         ("Competencia", comp),
-        ("Trafico", traf),
+        ("Tráfico peatonal", traf),
     ):
         story.append(
             Paragraph(
@@ -194,25 +333,27 @@ def _agregar_seccion_transparencia_sva(
         )
         story.append(Spacer(1, 3))
     story.append(Spacer(1, 4))
-    story.append(Paragraph("<b>Glosario rapido:</b>", s_body))
-    story.append(Spacer(1, 4))
-    for termino, definicion in GLOSARIO_SVA_PDF:
-        story.append(Paragraph(f"<b>{termino}:</b> {definicion}", s_body))
-        story.append(Spacer(1, 2))
+    if incluir_glosario:
+        story.append(Paragraph("<b>Glosario rapido:</b>", s_body))
+        story.append(Spacer(1, 4))
+        for termino, definicion in GLOSARIO_SVA_PDF:
+            story.append(Paragraph(f"<b>{termino}:</b> {definicion}", s_body))
+            story.append(Spacer(1, 2))
     story.append(Spacer(1, 4))
     story.append(Paragraph(f"<i>{comp['nota']}</i>", s_body))
     story.append(Spacer(1, 4))
-    story.append(
-        Paragraph(
-            f"<b>Resultado:</b> {desglose['formula_final']}. "
-            f"El reporte muestra <b>{desglose['sva_reportado']}/100</b>.",
-            s_body,
+    if incluir_resultado:
+        story.append(
+            Paragraph(
+                f"<b>Resultado:</b> {desglose['formula_final']}. "
+                f"El reporte muestra <b>{desglose['sva_reportado']}/100</b>.",
+                s_body,
+            )
         )
-    )
-    story.append(Spacer(1, 4))
+        story.append(Spacer(1, 4))
     story.append(
         Paragraph(
-            f"<b>Fuente del pilar tráfico:</b> {traf['fuente']}.",
+            f"<b>Fuente del pilar tráfico peatonal:</b> {traf['fuente']}.",
             s_body,
         )
     )
@@ -224,7 +365,7 @@ def _agregar_seccion_transparencia_sva(
         story.append(
             Paragraph(
                 "Escenarios hipotéticos recalculados con las mismas fórmulas. "
-                "Se conservan demografía y tráfico actuales; solo varía el ISC según cuántos "
+                "Se conservan demografía y tráfico peatonal actuales; solo varía el ISC según cuántos "
                 "competidores (y a qué distancia) permanecen en el radio. "
                 "<b>No son metas comerciales ni recomendaciones de ubicación.</b>",
                 s_body,
@@ -450,12 +591,17 @@ class NumberedCanvas(canvas.Canvas):
             self.setFillColor(colors.HexColor("#64748b"))
             self.drawString(
                 54,
-                32,
-                "Este informe es orientativo y basado en datos públicos y estimaciones.",
+                30,
+                "Combina censo de población (INEGI), negocios cercanos en mapas y medición de paso peatonal",
             )
             self.drawString(
                 54,
-                24,
+                22,
+                "con modelos de análisis PhiQus; informe orientativo basado en datos públicos y estimaciones.",
+            )
+            self.drawString(
+                54,
+                14,
                 "No garantiza rentabilidad ni sustituye visita al sitio, asesoría legal o financiera.",
             )
 
@@ -611,6 +757,16 @@ class ReportLabGenerator:
             textColor=c_text,
             leftIndent=15,
             spaceAfter=6,
+        )
+        s_invitacion = ParagraphStyle(
+            "InvitacionProfesional",
+            parent=s_body,
+            fontName="Helvetica-Oblique",
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#64748b"),
+            spaceAfter=8,
+            alignment=TA_JUSTIFY,
         )
 
         s_card_val = ParagraphStyle(
@@ -782,6 +938,12 @@ class ReportLabGenerator:
         story.append(Spacer(1, 10))
         story.append(Paragraph("<b>Conclusión general — por qué obtuviste este score:</b>", s_h2))
         story.append(Paragraph(conclusion_ejecutiva, s_body))
+        if sva_val < 80:
+            _agregar_invitacion_profesional(
+                story,
+                "Si este resultado te deja dudas antes de invertir, un estudio más profundo con",
+                s_invitacion,
+            )
 
         story.append(Spacer(1, 15))
         story.append(Paragraph(f"<b>Ubicación física resuelta:</b><br/>{analisis['direccion']}", s_body))
@@ -835,119 +997,12 @@ class ReportLabGenerator:
             )
             story.append(mr_table)
 
-        # Composición del SVA integrada al resumen (antes era sección independiente)
-        story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>Composición del Score de Viabilidad (SVA):</b>", s_h2))
-        from app.sva_calculo import DENSIDAD_MINIMA_HAB_KM2, DENSIDAD_OPTIMA_HAB_KM2
-
-        story.append(
-            Paragraph(
-                "Métrica compuesta de 0 a 100 que pondera demografía (40%), competencia (30%) y atractores de tráfico (30%).",
-                s_body,
-            )
-        )
-        story.append(Spacer(1, 6))
-        story.append(
-            Paragraph(
-                "<b>Nota metodológica — Pilar demográfico:</b> el score no compara la población absoluta del municipio "
-                "contra ciudades grandes, sino la <b>densidad de habitantes dentro del radio contratado</b> (hab/km²). "
-                f"Referencias calibradas para México: ≤{DENSIDAD_MINIMA_HAB_KM2:,.0f} hab/km² indica mercado disperso; "
-                f"≥{DENSIDAD_OPTIMA_HAB_KM2:,.0f} hab/km² indica demanda local sólida. Entre ambos umbrales se aplica "
-                "una escala logarítmica para que un pueblo compacto no quede penalizado frente a una metrópoli.",
-                s_body,
-            )
-        )
-        story.append(Spacer(1, 8))
-
-        pob_tot_val = analisis.get("poblacion_ponderada", 0)
-        score_dem = analisis.get("score_demog", 50.0)
-        dens_dem = analisis.get("densidad_hab_km2", 0)
-        comp_cont = analisis.get("competidores_conteo", 0)
-
-        if score_dem >= 80:
-            dem_est = f"Excelente densidad ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
-        elif score_dem >= 50:
-            dem_est = f"Densidad aceptable ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
-        else:
-            dem_est = f"Baja concentración ({dens_dem:,.1f} hab/km² · {pob_tot_val:,} hab.)"
-
-        if comp_cont == 0:
-            comp_est = "Sin competidores directos detectados"
-        elif comp_cont <= 3:
-            comp_est = f"Baja competencia ({comp_cont} competidores)"
-        elif comp_cont <= 8:
-            comp_est = f"Competencia intermedia ({comp_cont} competidores)"
-        else:
-            comp_est = f"Alta saturación ({comp_cont} competidores)"
-
-        if orden.tier_adquirido == "premium":
-            conteos_aliados = {
-                k: v for k, v in (analisis.get("aliados_conteos") or {}).items() if k != "ia_auto"
-            }
-            total_atractores = sum(conteos_aliados.values())
-            if total_atractores > 0:
-                inf_est = f"Detectados {total_atractores} atractores/aliados en {len(conteos_aliados)} categorías"
-            else:
-                inf_est = (
-                    f"Detectados {analisis.get('bancos_conteo', 0)} bancos, "
-                    f"{analisis.get('escuelas_conteo', 0)} esc. y {analisis.get('transporte_conteo', 0)} transp."
-                )
-        else:
-            inf_est = "Zonificación comercial estimada"
-
-        score_comp = analisis.get("score_competencia", 50.0)
-        score_traf = analisis.get("score_trafico", 50.0)
-
-        pilares_data = [
-            [
-                Paragraph("Pilar Analítico", s_table_header),
-                Paragraph("Peso", s_table_header),
-                Paragraph("Score", s_table_header),
-                Paragraph("Estatus en la Zona", s_table_header),
-            ],
-            [
-                Paragraph("Pilar Demográfico", s_table_cell),
-                Paragraph("40%", s_table_cell),
-                Paragraph(f"{score_dem:.1f}/100", s_table_cell),
-                Paragraph(dem_est, s_table_cell),
-            ],
-            [
-                Paragraph("Pilar Competencia", s_table_cell),
-                Paragraph("30%", s_table_cell),
-                Paragraph(f"{score_comp:.1f}/100", s_table_cell),
-                Paragraph(comp_est, s_table_cell),
-            ],
-            [
-                Paragraph("Pilar Atractores e Inferencia", s_table_cell),
-                Paragraph("30%", s_table_cell),
-                Paragraph(f"{score_traf:.1f}/100", s_table_cell),
-                Paragraph(inf_est, s_table_cell),
-            ],
-        ]
-        pilares_table = Table(pilares_data, colWidths=[130, 55, 65, 254])
-        pilares_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                    ("PADDING", (0, 0), (-1, -1), 8),
-                ]
-            )
-        )
-        story.append(pilares_table)
-        story.append(Spacer(1, 8))
-        story.append(Paragraph("<b>¿Por qué este Score de Viabilidad?</b>", s_h2))
-        _agregar_seccion_transparencia_sva(
+        _linea_resultado_sva(
             story,
             analisis,
             tier=orden.tier_adquirido,
             radio_metros=int(orden.radio_metros),
-            s_h2=s_h2,
             s_body=s_body,
-            s_table_header=s_table_header,
-            s_table_cell=s_table_cell,
         )
 
         story.append(PageBreak())
@@ -1273,6 +1328,11 @@ class ReportLabGenerator:
             bloque_foda.append(Spacer(1, 8))
             bloque_foda.append(Paragraph("<b>Dictamen Final del Consultor:</b>", s_h2_foda))
             bloque_foda.append(Paragraph(dictamen_txt, s_body_foda))
+            _agregar_invitacion_profesional(
+                bloque_foda,
+                "Para aterrizar este dictamen en permisos, renta, proyección financiera o una segunda ubicación, consulta a",
+                s_invitacion,
+            )
 
         if bloque_foda:
             bloque_diagnostico.append(Paragraph("5. LECTURA ESTRATÉGICA DEL PUNTO", s_h1))
@@ -1302,13 +1362,40 @@ class ReportLabGenerator:
                 "<b>Fuentes de Información Oficiales:</b><br/>"
                 "Todos los datos demográficos provienen del Instituto Nacional de Estadística y Geografía "
                 "<b>(INEGI)</b>, recopilados en el Censo de Población y Vivienda 2020. Las zonas comerciales son mapeadas en tiempo "
-                "real y los flujos horarios se obtienen de servicios de analítica de tráfico.",
+                "real y los patrones de tráfico peatonal por hora se obtienen de medición en la zona.",
                 s_body,
             )
         )
 
         bloque_metodologia.append(Spacer(1, 10))
-        bloque_metodologia.append(Paragraph("<b>Resumen metodológico y glosario:</b>", s_h2))
+        bloque_metodologia.append(Paragraph("<b>Composición del Score de Viabilidad (SVA):</b>", s_h2))
+        bloque_metodologia.append(
+            Paragraph(
+                "Métrica de 0 a 100 que pondera demografía (40%), competencia (30%) y tráfico peatonal (30%).",
+                s_body,
+            )
+        )
+        bloque_metodologia.append(Spacer(1, 6))
+        bloque_metodologia.append(_construir_tabla_pilares_sva(orden, analisis, s_table_header, s_table_cell))
+        bloque_metodologia.append(Spacer(1, 8))
+        _agregar_glosario_rapido_sva(bloque_metodologia, s_body)
+        bloque_metodologia.append(Spacer(1, 8))
+        bloque_metodologia.append(Paragraph("<b>¿Cómo se calculó este score?</b>", s_h2))
+        _agregar_seccion_transparencia_sva(
+            bloque_metodologia,
+            analisis,
+            tier=orden.tier_adquirido,
+            radio_metros=int(orden.radio_metros),
+            s_h2=s_h2,
+            s_body=s_body,
+            s_table_header=s_table_header,
+            s_table_cell=s_table_cell,
+            incluir_glosario=False,
+            incluir_resultado=False,
+        )
+
+        bloque_metodologia.append(Spacer(1, 10))
+        bloque_metodologia.append(Paragraph("<b>Resumen metodológico:</b>", s_h2))
         from app.lectura_estrategica import bloques_metodologia_resumen
 
         for titulo, cuerpo in bloques_metodologia_resumen(
@@ -1349,8 +1436,7 @@ class ReportLabGenerator:
                 "garantía de rentabilidad, éxito comercial o validación de uso de suelo. "
                 "Parte de los análisis puede ser generada mediante modelos de Inteligencia Artificial (IA). En caso de requerir un análisis más profundo, "
                 "recomendamos contactar directamente los servicios de consultoría de "
-                "<font color='#2563eb'><u><a href=\"https://phiqus.com/\">PhiQus</a></u></font>, "
-                "<font color='#2563eb'><u><a href=\"https://estudiosdemercado.phiqus.com/\">Estudios de Mercado</a></u></font>.",
+                f"{_enlaces_consultoria_html()}.",
                 s_body,
             )
         )
@@ -1810,6 +1896,13 @@ class ReportLabGenerator:
             )
         )
         story.append(saturacion_table)
+        if _saturacion_comercial_alta(analisis):
+            _agregar_invitacion_profesional(
+                story,
+                "Con esta presión competitiva, conviene contrastar este punto con alternativas cercanas; "
+                "para modelar escenarios de ubicación consulta a",
+                s_invitacion,
+            )
 
         # Calidad percibida de la competencia — calculada con ratings y reseñas reales de Places
         if comp_list:
@@ -2032,9 +2125,8 @@ class ReportLabGenerator:
             logger.info("ReportLab: Compilación Pro exitosa.")
             return _cerrar_reporte()
 
-        # Premium: afluencia peatonal + extras de diagnóstico (fricciones del sector)
-        # PÁGINA (CONDICIONAL): AFLUENCIA PEATONAL DINÁMICA (BestTime API) (Premium)
-        # Se incluye SOLO si la API de BestTime retornó datos reales de telemetría.
+        # Premium: tráfico peatonal dinámico (Premium)
+        # Se incluye SOLO si hubo medición real de tráfico peatonal en la zona.
         # Si la API falló o no tiene cobertura en la zona, esta sección se omite completamente.
         afl_data = analisis.get("afluencia_peatonal", {})
         besttime_tiene_datos = (
@@ -2045,11 +2137,11 @@ class ReportLabGenerator:
 
         if besttime_tiene_datos:
             story.append(Spacer(1, 12))
-            story.append(Paragraph("<b>Afluencia Peatonal Dinámica:</b>", s_h2))
+            story.append(Paragraph("<b>Tráfico peatonal por hora:</b>", s_h2))
             story.append(
                 Paragraph(
-                    "Mapeo de la afluencia peatonal por hora, construido a partir de registros históricos de "
-                    "tráfico de visitantes en establecimientos representativos de la zona. "
+                    "Mapeo del tráfico peatonal por hora, construido a partir de registros históricos de "
+                    "paso de personas en establecimientos representativos de la zona. "
                     "Este análisis permite programar de forma eficiente turnos del personal y picos de producción.",
                     s_body,
                 )
@@ -2150,8 +2242,21 @@ class ReportLabGenerator:
                 story.append(horas_table)
         else:
             logger.info(
-                "[PDF] BestTime no tiene datos reales de telemetría para esta coordenada. "
-                "Se omite la sección de Afluencia Peatonal del reporte."
+                "[PDF] Sin medición de tráfico peatonal para esta coordenada. "
+                "Se muestra aviso con invitación a consultoría."
+            )
+            story.append(Spacer(1, 12))
+            story.append(Paragraph("<b>Tráfico peatonal por hora:</b>", s_h2))
+            story.append(
+                Paragraph(
+                    "No hubo medición de tráfico peatonal en esta coordenada con los datos disponibles.",
+                    s_body,
+                )
+            )
+            _agregar_invitacion_profesional(
+                story,
+                "Para horarios reales de paso y conteos en sitio, consulta a",
+                s_invitacion,
             )
 
         logger.info("ReportLab: Compilación Premium exitosa.")

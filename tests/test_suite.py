@@ -345,6 +345,19 @@ def test_sva_calculo_transparente_y_simulador():
     assert "distancia" in desglose["competencia"]["lectura_llana"].lower()
     assert desglose["demografico"]["score"] == 72.2
     assert desglose["sva_entero"] == desglose["sva_reportado"]
+    assert "BestTime" not in desglose["trafico"]["fuente"]
+    assert "tráfico peatonal" in desglose["trafico"]["lectura_llana"].lower()
+
+    desglose_prem = desglose_sva_completo(
+        {
+            **analisis,
+            "afluencia_peatonal": {"status": "success", "saturación_promedio": 62.5},
+        },
+        tier="premium",
+        radio_metros=1000,
+    )
+    assert desglose_prem["trafico"]["medicion_peatonal_real"] is True
+    assert "tráfico peatonal" in desglose_prem["trafico"]["lectura_llana"].lower()
 
     escenarios = escenarios_simulacion_sva(analisis, tier="pro", radio_metros=1000)
     assert escenarios[0]["escenario"].startswith("Situación actual")
@@ -429,8 +442,29 @@ def test_lectura_estrategica_enriquecimiento_y_conclusion():
     assert "<b>" in conclusion_html
 
     bloques = bloques_metodologia_resumen(analisis, tier="pro", radio_metros=1000)
-    assert any("ISC" in t for t, _ in bloques)
+    assert any("Competencia" in t for t, _ in bloques)
     assert any("Nivel socioeconómico" in t for t, _ in bloques)
+
+
+def test_invitacion_profesional_y_saturacion_alta():
+    from app.reports import _enlaces_consultoria_html, _saturacion_comercial_alta
+
+    html = _enlaces_consultoria_html()
+    assert "phiqus.com" in html
+    assert "estudiosdemercado.phiqus.com" in html
+    assert "Estudios de Mercado" in html
+
+    assert _saturacion_comercial_alta({"competidores_conteo": 10, "score_competencia": 70})
+    assert _saturacion_comercial_alta(
+        {
+            "competidores_conteo": 3,
+            "score_competencia": 80,
+            "competidores_listado": [{"distancia_metros": 100}, {"distancia_metros": 180}],
+        }
+    )
+    assert not _saturacion_comercial_alta(
+        {"competidores_conteo": 2, "score_competencia": 75, "competidores_listado": [{"distancia_metros": 600}]}
+    )
 
 
 def test_interpretacion_demografia_por_rubro():

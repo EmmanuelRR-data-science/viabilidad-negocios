@@ -1809,12 +1809,12 @@ function _svaCompSignal(competidores) {
 function _svaTraficoSignal(score, metricas, tier) {
     const afl = metricas?.afluencia_peatonal;
     if (tier === "premium" && afl?.status === "success") {
-        return "Afluencia peatonal real (BestTime)";
+        return "Tráfico peatonal medido en la zona";
     }
     if (tier === "premium") {
-        return "Atractores locales; sin telemetría horaria en la zona";
+        return "Sin medición de tráfico peatonal en la zona (valor base)";
     }
-    return "Estimación base (Premium usa afluencia real cuando hay cobertura)";
+    return "Tráfico peatonal estimado (Premium usa medición real cuando hay cobertura)";
 }
 
 function renderSvaComposition(metricas, tier = "gratuito") {
@@ -1852,7 +1852,7 @@ function renderSvaComposition(metricas, tier = "gratuito") {
             signal: _svaCompSignal(metricas.competidores_conteo),
         },
         {
-            name: "Pilar atractores e inferencia",
+            name: "Pilar tráfico peatonal",
             weight: "30%",
             score: traf,
             contrib: cTraf,

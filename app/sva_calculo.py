@@ -20,6 +20,9 @@ ISC_LOG_MIN = -6.0
 ISC_LOG_MAX = -2.0
 SCORE_TRAFICO_SIN_BESTTIME = 55.0
 
+# Etiqueta unificada del tercer pilar SVA (visible en PDF, dashboard y lecturas).
+ETIQUETA_PILAR_TRAFICO = "Tráfico peatonal"
+
 GLOSARIO_SVA_PDF = [
     (
         "ISC (Indice de Saturacion Comercial)",
@@ -28,7 +31,7 @@ GLOSARIO_SVA_PDF = [
     ),
     (
         "Pesos 40% / 30% / 30%",
-        "Demografia aporta hasta 40 puntos, competencia hasta 30 y trafico hasta 30. "
+        "Demografia aporta hasta 40 puntos, competencia hasta 30 y tráfico peatonal hasta 30. "
         "El SVA es la suma de esos aportes (maximo teorico 100).",
     ),
     (
@@ -81,14 +84,14 @@ def _lectura_llana_competencia(comp: dict[str, Any]) -> str:
 
 def _lectura_llana_trafico(traf: dict[str, Any], tier: str) -> str:
     score = float(traf["score"])
-    if tier == "premium" and "BestTime" in traf.get("fuente", ""):
+    if traf.get("medicion_peatonal_real"):
         return (
-            f"La afluencia peatonal medida en la zona equivale a {score:.1f}%; "
-            f"ese porcentaje es tu score de trafico."
+            f"El tráfico peatonal medido en la zona equivale a {score:.1f}%; "
+            f"ese porcentaje es el score del pilar de tráfico peatonal."
         )
     return (
-        f"En plan {tier.capitalize()} no hubo medicion peatonal BestTime para esta coordenada; "
-        f"se usa un valor base de {score:.0f} para no sobre-penalizar ni sobre-favorecer el punto."
+        f"No hubo medición de tráfico peatonal en esta coordenada para el plan {tier.capitalize()}; "
+        f"se usa un valor base de {score:.0f} en el pilar."
     )
 
 
@@ -230,14 +233,15 @@ def detalle_pilar_competencia(isc: float, competidores_conteo: int) -> dict[str,
 
 def detalle_pilar_trafico(tier: str, afluencia: dict | None, score_traf: float) -> dict[str, Any]:
     afl = afluencia or {}
-    if tier == "premium" and afl.get("status") == "success":
+    medicion_real = tier == "premium" and afl.get("status") == "success"
+    if medicion_real:
         saturacion = afl.get("saturación_promedio")
-        fuente = "BestTime — promedio de saturación peatonal diaria (%)"
-        regla = "Score = saturación promedio medida en la zona (0–100)"
-        detalle = f"Saturación promedio BestTime: {saturacion}%"
+        fuente = "Medición de tráfico peatonal en la zona (promedio diario, %)"
+        regla = "Score = promedio de tráfico peatonal medido en la zona (0–100)"
+        detalle = f"Promedio de tráfico peatonal: {saturacion}%"
     else:
-        fuente = f"Estimación por plan {tier.capitalize()} (sin telemetría BestTime en este análisis)"
-        regla = f"Score fijo {SCORE_TRAFICO_SIN_BESTTIME} cuando no hay afluencia BestTime calibrada"
+        fuente = f"Valor estimado por plan {tier.capitalize()} (sin medición de tráfico peatonal en esta zona)"
+        regla = f"Score fijo {SCORE_TRAFICO_SIN_BESTTIME} cuando no hay medición de tráfico peatonal"
         detalle = f"Valor aplicado: {SCORE_TRAFICO_SIN_BESTTIME}"
 
     resultado = {
@@ -246,6 +250,7 @@ def detalle_pilar_trafico(tier: str, afluencia: dict | None, score_traf: float) 
         "detalle": detalle,
         "score": score_traf,
         "aporte_ponderado": round(score_traf * PESO_TRAFICO, 1),
+        "medicion_peatonal_real": medicion_real,
     }
     resultado["lectura_llana"] = _lectura_llana_trafico(resultado, tier)
     return resultado
