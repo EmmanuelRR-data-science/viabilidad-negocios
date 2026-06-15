@@ -293,6 +293,13 @@
                 <button type="button" id="analyze-btn" class="btn-primary" disabled>
                     <span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN
                 </button>
+                <div id="analyze-progress-container" class="compilation-progress inline-progress hidden" aria-live="polite">
+                    <p data-progress-status>Analizando ubicación...</p>
+                    <div class="progress-bar-wrapper">
+                        <div data-progress-fill class="progress-bar-fill"></div>
+                    </div>
+                    <p class="progress-hint">Esto puede tardar entre 10 y 30 segundos.</p>
+                </div>
             </form>
         </section>
         
@@ -359,9 +366,10 @@
                 <p id="dashboard-subtitle">Diagnóstico espacial y geomarketing del punto comercial.</p>
             </div>
             <div class="action-block" id="dashboard-actions">
-                <button id="buy-basico-btn" class="btn-secondary">🔒 COMPRAR BÁSICO ($299)</button>
-                <button id="buy-pro-btn" class="btn-secondary font-glow">🔒 COMPRAR PRO ($649)</button>
-                <button id="buy-premium-btn" class="btn-primary font-glow">🔒 COMPRAR PREMIUM ($799)</button>
+                <button id="buy-basico-btn" class="btn-secondary" data-tier="basico">🔒 COMPRAR BÁSICO</button>
+                <button id="buy-pro-btn" class="btn-secondary font-glow" data-tier="pro">🔒 COMPRAR PRO</button>
+                <button id="buy-premium-btn" class="btn-primary font-glow" data-tier="premium">🔒 COMPRAR PREMIUM</button>
+                <p class="pricing-currency-note">Precios en pesos mexicanos (MXN).</p>
             </div>
         </div>
         
@@ -601,6 +609,12 @@
             <button id="download-pdf-btn" class="btn-primary font-glow">
                 ⬇️ DESCARGAR REPORTE EN PDF
             </button>
+            <div id="download-progress-container" class="compilation-progress inline-progress hidden" aria-live="polite">
+                <p data-progress-status>Preparando descarga...</p>
+                <div class="progress-bar-wrapper">
+                    <div data-progress-fill class="progress-bar-fill"></div>
+                </div>
+            </div>
         </div>
     </section>
 

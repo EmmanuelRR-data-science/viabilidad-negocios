@@ -41,6 +41,34 @@ const state = {
     aliadosGuiadoSugerencias: [],
 };
 
+// Precios alineados con app/payments.py (PRECIOS_TIER, MXN)
+const TIER_PRICING = {
+    basico: {
+        amount: 299,
+        label: "BÁSICO",
+        title: "Reporte Comercial BÁSICO (6 Páginas)",
+    },
+    pro: {
+        amount: 649,
+        label: "PRO",
+        title: "Reporte Comercial PRO (10 Páginas + Mapas + Atracción)",
+    },
+    premium: {
+        amount: 799,
+        label: "PREMIUM",
+        title: "Reporte PREMIUM (14 Páginas + ROI + Afluencia)",
+    },
+};
+
+const priceFormatter = new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    minimumFractionDigits: 2,
+});
+
+const progressTimers = {};
+const KPI_VALUE_IDS = ["kpi-sva", "kpi-poblacion", "kpi-competidores"];
+
 // --- INICIALIZACIÓN AL CARGAR LA PÁGINA ---
 document.addEventListener("DOMContentLoaded", () => {
     logger("Iniciando SPA de GeoViabilidad Hook...");
@@ -50,8 +78,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // 2. Vincular Eventos de la UI
     bindUIEvents();
+
+    // 3. Etiquetas de precios con moneda MXN
+    initTierPricingLabels();
     
-    // 3. Comprobar y crear carpetas locales estáticas en desarrollo
+    // 4. Comprobar y crear carpetas locales estáticas en desarrollo
     logger("Inicialización completa. Esperando clic en el mapa...");
 });
 
@@ -63,6 +94,130 @@ function logger(message, data = null) {
     } else {
         console.log(`[${timestamp}] 📍 ${message}`);
     }
+}
+
+function formatTierPrice(tier) {
+    const amount = TIER_PRICING[tier]?.amount ?? 0;
+    return `${priceFormatter.format(amount)} MXN`;
+}
+
+function initTierPricingLabels() {
+    Object.entries(TIER_PRICING).forEach(([tier, config]) => {
+        const btn = document.getElementById(`buy-${tier}-btn`);
+        if (btn) {
+            btn.textContent = `🔒 COMPRAR ${config.label} (${formatTierPrice(tier)})`;
+        }
+    });
+}
+
+function startInlineProgress(containerId, {
+    messages = ["Procesando..."],
+    stepMs = 150,
+    stepPercent = 4,
+    maxWhileWaiting = 88,
+} = {}) {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    const statusEl = container.querySelector("[data-progress-status]");
+    const fillEl = container.querySelector("[data-progress-fill]");
+    if (!statusEl || !fillEl) return null;
+
+    if (progressTimers[containerId]) {
+        clearInterval(progressTimers[containerId]);
+    }
+
+    container.classList.remove("hidden");
+    let progress = 0;
+    let messageIndex = 0;
+    statusEl.textContent = messages[0];
+    fillEl.style.width = "0%";
+
+    progressTimers[containerId] = setInterval(() => {
+        if (progress < maxWhileWaiting) {
+            progress = Math.min(progress + stepPercent, maxWhileWaiting);
+            fillEl.style.width = `${progress}%`;
+        }
+
+        const nextMsgIdx = Math.min(
+            messages.length - 1,
+            Math.floor((progress / maxWhileWaiting) * messages.length)
+        );
+        if (nextMsgIdx !== messageIndex && messages[nextMsgIdx]) {
+            messageIndex = nextMsgIdx;
+            statusEl.textContent = messages[messageIndex];
+        }
+    }, stepMs);
+
+    return { container, statusEl, fillEl };
+}
+
+function finishInlineProgress(containerId, message = "Listo") {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const statusEl = container.querySelector("[data-progress-status]");
+    const fillEl = container.querySelector("[data-progress-fill]");
+
+    if (progressTimers[containerId]) {
+        clearInterval(progressTimers[containerId]);
+        delete progressTimers[containerId];
+    }
+
+    if (statusEl) statusEl.textContent = message;
+    if (fillEl) fillEl.style.width = "100%";
+}
+
+function resetInlineProgress(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (progressTimers[containerId]) {
+        clearInterval(progressTimers[containerId]);
+        delete progressTimers[containerId];
+    }
+
+    container.classList.add("hidden");
+    const fillEl = container.querySelector("[data-progress-fill]");
+    if (fillEl) fillEl.style.width = "0%";
+}
+
+function setButtonLoading(btn, isLoading, loadingLabel = "Procesando...") {
+    if (!btn) return;
+
+    if (isLoading) {
+        if (!btn.dataset.originalHtml) {
+            btn.dataset.originalHtml = btn.innerHTML;
+        }
+        btn.classList.add("is-loading");
+        btn.setAttribute("disabled", "true");
+        btn.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span> ${loadingLabel}`;
+        return;
+    }
+
+    btn.classList.remove("is-loading");
+    btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+    delete btn.dataset.originalHtml;
+}
+
+function restoreAnalyzeButton(btn) {
+    setButtonLoading(btn, false);
+    checkFormValidity();
+}
+
+function setKpisLoading(loading) {
+    KPI_VALUE_IDS.forEach((id) => {
+        const el = document.getElementById(id);
+        const card = el?.closest(".kpi-card");
+        if (!el || !card) return;
+
+        if (loading) {
+            card.classList.add("kpi-loading");
+            el.textContent = "\u00a0";
+        } else {
+            card.classList.remove("kpi-loading");
+        }
+    });
 }
 
 // --- CONFIGURACIÓN E INICIALIZACIÓN DEL MAPA ---
@@ -888,44 +1043,44 @@ function applyBlurRules(tier) {
 // --- EJECUTAR VISTA PREVIA GRATUITA (RF-05.4 & RF-01.4) ---
 async function runPreviewAnalysis() {
     logger("Detonando Vista Previa (Modo de Compra Directo)...");
-    
-    // Cambiar estado visual del botón
+
     const btn = document.getElementById("analyze-btn");
-    btn.innerHTML = `<span class="btn-icon">⏳</span> CALCULANDO DATOS...`;
-    btn.setAttribute("disabled", "true");
-    
+    const progressId = "analyze-progress-container";
+    setButtonLoading(btn, true, "ANALIZANDO ZONA...");
+    startInlineProgress(progressId, {
+        messages: [
+            "Consultando datos demográficos (INEGI)...",
+            "Mapeando competencia en la zona...",
+            "Calculando score de viabilidad...",
+        ],
+    });
+
     try {
-        // 1. Mostrar el Dashboard de Resultados
         document.getElementById("results-dashboard").classList.remove("hidden");
-        
-        // 2. Rellenar placeholders visuales iniciales
+        setKpisLoading(true);
+
         document.getElementById("tier-badge").textContent = "VISTA PREVIA GRATUITA";
         document.getElementById("tier-badge").className = "badge";
         document.getElementById("dashboard-subtitle").textContent = "Estás viendo información real del INEGI y conteos de competencia en la zona de estudio.";
-        
-        // Estilo neutro de la tarjeta del Score SVA
+
         const kpiCard = document.getElementById("kpi-sva-card");
         if (kpiCard) kpiCard.style.borderLeft = "4px solid var(--text-secondary)";
-        
-        // 3. Bloquear / Vaciar Paneles de Gráficos y FODA
+
         lockAdvancedFeatures();
-        
-        // 4. Limpiar marcadores antiguos de competidores/POIs del mapa
         clearMapPins();
-        
-        // 5. Consumir endpoint real de Vista Previa en caliente
+
         const headers = getAuthHeaders();
         headers["Content-Type"] = "application/json";
         const queryParams = `lat=${state.selectedLat}&lng=${state.selectedLng}&radio_metros=${state.selectedRadio}&rubro=${encodeURIComponent(state.selectedGiro)}`;
-        
-        // Recopilar selecciones de competidores/aliados del formulario (incluido ia_auto)
+
         const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
         const competidoresSel = Array.from(compCheckboxes).map(cb => cb.value);
         const aliadosPayload = collectAliadosPayload();
         if (aliadosPayload.invalid) {
             setGuiadoError("Completa el cuestionario guiado: perfil, horarios y al menos 2 tipos de lugares.");
-            btn.innerHTML = `<span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN`;
-            btn.removeAttribute("disabled");
+            setKpisLoading(false);
+            resetInlineProgress(progressId);
+            restoreAnalyzeButton(btn);
             return;
         }
 
@@ -948,17 +1103,16 @@ async function runPreviewAnalysis() {
             headers: headers,
             body: JSON.stringify(previewBody)
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             logger("Datos de vista previa recibidos del backend:", data);
-            
-            // Rellenar los KPIs con los valores reales calculados
+
             document.getElementById("kpi-sva").textContent = `${data.score_viabilidad_sva}/100`;
             document.getElementById("kpi-poblacion").textContent = data.poblacion_estimada.toLocaleString();
             document.getElementById("kpi-competidores").textContent = data.competidores_conteo;
+            setKpisLoading(false);
 
-            // Actualizar descripciones de KPIs con explicaciones comerciales
             const sva = data.score_viabilidad_sva || 0;
             let svaDesc = "";
             if (sva >= 80) {
@@ -988,7 +1142,6 @@ async function runPreviewAnalysis() {
                 "gratuito"
             );
 
-            // Estilo dinámico de la tarjeta del Score SVA según el puntaje obtenido
             if (kpiCard) {
                 if (sva >= 80) {
                     kpiCard.style.borderLeft = "4px solid var(--success-color)";
@@ -999,29 +1152,31 @@ async function runPreviewAnalysis() {
                 }
             }
 
-            // Generar Gráficos Avanzados
             renderCompetitorsChart(data.competidores_listado);
             renderTopCompetitorsTable(data);
             renderCompetitorReviews(data);
             renderPOITable(data);
             syncHeatmapSection("gratuito", data.afluencia_peatonal);
-
-            // Aplicar las reglas de blur para la vista previa
             applyBlurRules("gratuito");
-            
-            // Hacer scroll suave hacia el Dashboard
-            document.getElementById("results-dashboard").scrollIntoView({ behavior: 'smooth' });
+
+            finishInlineProgress(progressId, "Vista previa lista.");
+            setTimeout(() => resetInlineProgress(progressId), 1200);
+
+            document.getElementById("results-dashboard").scrollIntoView({ behavior: "smooth" });
         } else {
+            setKpisLoading(false);
+            resetInlineProgress(progressId);
             logger("Error al calcular la vista previa gratuita en el servidor.");
+            alert("No se pudo completar la vista previa. Intenta de nuevo en unos segundos.");
         }
-        
+
     } catch (err) {
+        setKpisLoading(false);
+        resetInlineProgress(progressId);
         logger("Error en la vista previa:", err);
+        alert("Error de red al analizar la ubicación. Verifica tu conexión e intenta de nuevo.");
     } finally {
-        setTimeout(() => {
-            btn.innerHTML = `<span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN`;
-            btn.removeAttribute("disabled");
-        }, 300);
+        restoreAnalyzeButton(btn);
     }
 }
 
@@ -1100,17 +1255,11 @@ async function openPaymentModal(tier) {
     
     const billingTitle = document.getElementById("billing-title");
     const billingPrice = document.getElementById("billing-price");
-    
-    // Asignar conceptos en base al Tier
-    if (tier === "basico") {
-        billingTitle.textContent = "Reporte Comercial BÁSICO (6 Páginas)";
-        billingPrice.textContent = "$299.00 MXN";
-    } else if (tier === "pro") {
-        billingTitle.textContent = "Reporte Comercial PRO (10 Páginas + Mapas + Atracción)";
-        billingPrice.textContent = "$649.00 MXN";
-    } else {
-        billingTitle.textContent = "Reporte PREMIUM (14 Páginas + ROI + Afluencia)";
-        billingPrice.textContent = "$799.00 MXN";
+    const tierConfig = TIER_PRICING[tier];
+
+    if (tierConfig) {
+        billingTitle.textContent = tierConfig.title;
+        billingPrice.textContent = formatTierPrice(tier);
     }
     
     // Ocultar barra de carga anterior
@@ -1944,27 +2093,44 @@ function renderPOITable(metricas) {
 // --- DESCARGA DE REPORTE PDF (GET /api/analizar/pdf/{orden_id}) ---
 async function triggerPDFDownload() {
     logger(`Solicitando descarga de PDF para Orden ID: ${state.activeOrderId}...`);
-    
+
+    const btn = document.getElementById("download-pdf-btn");
+    const progressId = "download-progress-container";
+    setButtonLoading(btn, true, "PREPARANDO DESCARGA...");
+    startInlineProgress(progressId, {
+        messages: [
+            "Verificando acceso al reporte...",
+            "Generando enlace seguro de descarga...",
+            "Preparando archivo PDF...",
+        ],
+        maxWhileWaiting: 92,
+    });
+
     const headers = getAuthHeaders();
     try {
         const response = await fetch(`/api/analizar/pdf/${state.activeOrderId}`, {
             method: "GET",
             headers: headers
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             const downloadUrl = data.url_descarga;
             logger(`URL firmada privada resuelta. Descargando desde: ${downloadUrl}`);
-            
-            // Abrir descarga en pestaña del navegador
+
+            finishInlineProgress(progressId, "Descarga lista. Abriendo archivo...");
             window.open(downloadUrl, "_blank");
+            setTimeout(() => resetInlineProgress(progressId), 1500);
         } else {
+            resetInlineProgress(progressId);
             alert("No se pudo resolver la URL privada de descarga.");
         }
     } catch (err) {
+        resetInlineProgress(progressId);
         logger("Falla al descargar PDF:", err);
         alert("Error de red al conectar con el servidor de análisis.");
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 

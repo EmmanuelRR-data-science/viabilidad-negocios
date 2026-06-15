@@ -140,13 +140,157 @@ def _linea_resultado_sva(
     from app.sva_calculo import desglose_sva_completo
 
     desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
     story.append(
         Paragraph(
             f"<b>Resultado:</b> {desglose['formula_final']}. "
             f"El reporte muestra <b>{desglose['sva_reportado']}/100</b>.",
             s_body,
         )
+    )
+
+
+def _agregar_en_otras_palabras_sva(
+    story,
+    analisis: dict,
+    *,
+    tier: str,
+    radio_metros: int,
+    s_body,
+) -> None:
+    from app.sva_calculo import desglose_sva_completo
+
+    desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
+    dem = desglose["demografico"]
+    comp = desglose["competencia"]
+    traf = desglose["trafico"]
+
+    story.append(Paragraph("<b>En otras palabras:</b>", s_body))
+    story.append(Spacer(1, 4))
+    for etiqueta, pilar in (
+        ("Demografía", dem),
+        ("Competencia", comp),
+        ("Tráfico peatonal", traf),
+    ):
+        story.append(
+            Paragraph(
+                f"<b>{etiqueta}:</b> {pilar.get('lectura_llana', '')}",
+                s_body,
+            )
+        )
+        story.append(Spacer(1, 3))
+    story.append(Paragraph(f"<i>{comp['nota']}</i>", s_body))
+
+
+def _agregar_mini_simulador_sva(
+    story,
+    analisis: dict,
+    *,
+    tier: str,
+    radio_metros: int,
+    s_h2,
+    s_body,
+    s_table_header,
+    s_table_cell,
+) -> None:
+    from app.sva_calculo import escenarios_simulacion_sva
+
+    escenarios = escenarios_simulacion_sva(analisis, tier=tier, radio_metros=radio_metros)
+    if len(escenarios) <= 1:
+        return
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("<b>Mini simulador — ¿qué pasaría si cambia la competencia?</b>", s_h2))
+    story.append(
+        Paragraph(
+            "Escenarios hipotéticos recalculados con las mismas fórmulas. "
+            "Se conservan demografía y tráfico peatonal actuales; solo varía el ISC según cuántos "
+            "competidores (y a qué distancia) permanecen en el radio. "
+            "<b>No son metas comerciales ni recomendaciones de ubicación.</b>",
+            s_body,
+        )
+    )
+    story.append(Spacer(1, 6))
+
+    sim_data = [
+        [
+            Paragraph("Escenario", s_table_header),
+            Paragraph("Competidores", s_table_header),
+            Paragraph("ISC", s_table_header),
+            Paragraph("Score competencia", s_table_header),
+            Paragraph("SVA estimado", s_table_header),
+            Paragraph("Δ vs actual", s_table_header),
+        ]
+    ]
+    for esc in escenarios:
+        delta = esc["delta_vs_actual"]
+        delta_txt = "—" if esc["escenario"].startswith("Situación actual") else f"{delta:+d}"
+        sim_data.append(
+            [
+                Paragraph(esc["escenario"], s_table_cell),
+                Paragraph(str(esc["competidores"]), s_table_cell),
+                Paragraph(f"{float(esc['isc']):.6f}", s_table_cell),
+                Paragraph(f"{esc['score_competencia']:.1f}", s_table_cell),
+                Paragraph(f"{esc['sva']}/100", s_table_cell),
+                Paragraph(delta_txt, s_table_cell),
+            ]
+        )
+
+    sim_table = Table(sim_data, colWidths=[150, 58, 72, 78, 68, 58])
+    sim_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                ("PADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
+    story.append(sim_table)
+    story.append(Spacer(1, 6))
+    story.append(
+        Paragraph(
+            "<i>Un SVA alto con competencia real es posible cuando los rivales están lejos: "
+            "el conteo por sí solo no define el score. La fila «sin rivales» solo muestra un "
+            "contrafactual matemático, no una estrategia de negocio.</i>",
+            s_body,
+        )
+    )
+
+
+def _agregar_bloque_composicion_sva_resumen(
+    story,
+    orden,
+    analisis: dict,
+    *,
+    s_h2,
+    s_body,
+    s_table_header,
+    s_table_cell,
+) -> None:
+    """Sección 1: tabla de pilares, lectura llana y línea de resultado."""
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("<b>Composición del Score de Viabilidad (SVA):</b>", s_h2))
+    story.append(Spacer(1, 6))
+    story.append(_construir_tabla_pilares_sva(orden, analisis, s_table_header, s_table_cell))
+    story.append(Spacer(1, 8))
+    _agregar_en_otras_palabras_sva(
+        story,
+        analisis,
+        tier=orden.tier_adquirido,
+        radio_metros=int(orden.radio_metros),
+        s_body=s_body,
+    )
+    _linea_resultado_sva(
+        story,
+        analisis,
+        tier=orden.tier_adquirido,
+        radio_metros=int(orden.radio_metros),
+        s_body=s_body,
     )
 
 
@@ -249,9 +393,11 @@ def _agregar_seccion_transparencia_sva(
     s_table_cell,
     incluir_glosario: bool = True,
     incluir_resultado: bool = True,
+    incluir_otras_palabras: bool = True,
+    incluir_simulador: bool = True,
 ) -> None:
-    """Tablas paso a paso + mini simulador para la sección ¿Por qué este Score de Viabilidad?"""
-    from app.sva_calculo import GLOSARIO_SVA_PDF, desglose_sva_completo, escenarios_simulacion_sva
+    """Tabla paso a paso del cálculo SVA (metodología). Opcional: glosario, lectura llana y simulador."""
+    from app.sva_calculo import GLOSARIO_SVA_PDF, desglose_sva_completo
 
     desglose = desglose_sva_completo(analisis, tier=tier, radio_metros=radio_metros)
     dem = desglose["demografico"]
@@ -318,30 +464,19 @@ def _agregar_seccion_transparencia_sva(
     )
     story.append(tabla_pasos)
     story.append(Spacer(1, 8))
-    story.append(Paragraph("<b>En palabras simples:</b>", s_body))
-    story.append(Spacer(1, 4))
-    for etiqueta, pilar in (
-        ("Demografia", dem),
-        ("Competencia", comp),
-        ("Tráfico peatonal", traf),
-    ):
-        story.append(
-            Paragraph(
-                f"<b>{etiqueta}:</b> {pilar.get('lectura_llana', '')}",
-                s_body,
-            )
-        )
-        story.append(Spacer(1, 3))
-    story.append(Spacer(1, 4))
+    if incluir_otras_palabras:
+        _agregar_en_otras_palabras_sva(story, analisis, tier=tier, radio_metros=radio_metros, s_body=s_body)
+        story.append(Spacer(1, 4))
+    else:
+        story.append(Paragraph(f"<i>{comp['nota']}</i>", s_body))
+        story.append(Spacer(1, 4))
     if incluir_glosario:
         story.append(Paragraph("<b>Glosario rapido:</b>", s_body))
         story.append(Spacer(1, 4))
         for termino, definicion in GLOSARIO_SVA_PDF:
             story.append(Paragraph(f"<b>{termino}:</b> {definicion}", s_body))
             story.append(Spacer(1, 2))
-    story.append(Spacer(1, 4))
-    story.append(Paragraph(f"<i>{comp['nota']}</i>", s_body))
-    story.append(Spacer(1, 4))
+        story.append(Spacer(1, 4))
     if incluir_resultado:
         story.append(
             Paragraph(
@@ -358,68 +493,16 @@ def _agregar_seccion_transparencia_sva(
         )
     )
 
-    escenarios = escenarios_simulacion_sva(analisis, tier=tier, radio_metros=radio_metros)
-    if len(escenarios) > 1:
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("<b>Mini simulador — ¿qué pasaría si cambia la competencia?</b>", s_h2))
-        story.append(
-            Paragraph(
-                "Escenarios hipotéticos recalculados con las mismas fórmulas. "
-                "Se conservan demografía y tráfico peatonal actuales; solo varía el ISC según cuántos "
-                "competidores (y a qué distancia) permanecen en el radio. "
-                "<b>No son metas comerciales ni recomendaciones de ubicación.</b>",
-                s_body,
-            )
-        )
-        story.append(Spacer(1, 6))
-
-        sim_data = [
-            [
-                Paragraph("Escenario", s_table_header),
-                Paragraph("Competidores", s_table_header),
-                Paragraph("ISC", s_table_header),
-                Paragraph("Score competencia", s_table_header),
-                Paragraph("SVA estimado", s_table_header),
-                Paragraph("Δ vs actual", s_table_header),
-            ]
-        ]
-        for esc in escenarios:
-            delta = esc["delta_vs_actual"]
-            delta_txt = "—" if esc["escenario"].startswith("Situación actual") else f"{delta:+d}"
-            sim_data.append(
-                [
-                    Paragraph(esc["escenario"], s_table_cell),
-                    Paragraph(str(esc["competidores"]), s_table_cell),
-                    Paragraph(f"{float(esc['isc']):.6f}", s_table_cell),
-                    Paragraph(f"{esc['score_competencia']:.1f}", s_table_cell),
-                    Paragraph(f"{esc['sva']}/100", s_table_cell),
-                    Paragraph(delta_txt, s_table_cell),
-                ]
-            )
-
-        sim_table = Table(sim_data, colWidths=[150, 58, 72, 78, 68, 58])
-        sim_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("PADDING", (0, 0), (-1, -1), 4),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 7),
-                ]
-            )
-        )
-        story.append(sim_table)
-        story.append(Spacer(1, 6))
-        story.append(
-            Paragraph(
-                "<i>Un SVA alto con competencia real es posible cuando los rivales están lejos: "
-                "el conteo por sí solo no define el score. La fila «sin rivales» solo muestra un "
-                "contrafactual matemático, no una estrategia de negocio.</i>",
-                s_body,
-            )
+    if incluir_simulador:
+        _agregar_mini_simulador_sva(
+            story,
+            analisis,
+            tier=tier,
+            radio_metros=radio_metros,
+            s_h2=s_h2,
+            s_body=s_body,
+            s_table_header=s_table_header,
+            s_table_cell=s_table_cell,
         )
 
 
@@ -592,12 +675,12 @@ class NumberedCanvas(canvas.Canvas):
             self.drawString(
                 54,
                 30,
-                "Combina censo de población (INEGI), negocios cercanos en mapas y medición de paso peatonal",
+                "Este informe muestra datos sobre negocios cercanos en mapas, medición de paso peatonal en la",
             )
             self.drawString(
                 54,
                 22,
-                "con modelos de análisis PhiQus; informe orientativo basado en datos públicos y estimaciones.",
+                "zona analizada y lo contrasta con información de fuentes públicas para obtener estimaciones.",
             )
             self.drawString(
                 54,
@@ -997,12 +1080,14 @@ class ReportLabGenerator:
             )
             story.append(mr_table)
 
-        _linea_resultado_sva(
+        _agregar_bloque_composicion_sva_resumen(
             story,
+            orden,
             analisis,
-            tier=orden.tier_adquirido,
-            radio_metros=int(orden.radio_metros),
+            s_h2=s_h2,
             s_body=s_body,
+            s_table_header=s_table_header,
+            s_table_cell=s_table_cell,
         )
 
         story.append(PageBreak())
@@ -1323,6 +1408,16 @@ class ReportLabGenerator:
             lectura_table.setStyle(TableStyle(estilos_tabla))
             bloque_foda.append(lectura_table)
             bloque_foda.append(Spacer(1, 8))
+            _agregar_mini_simulador_sva(
+                bloque_foda,
+                analisis,
+                tier=orden.tier_adquirido,
+                radio_metros=int(orden.radio_metros),
+                s_h2=s_h2_foda,
+                s_body=s_body_foda,
+                s_table_header=s_table_header,
+                s_table_cell=s_table_cell,
+            )
 
         if dictamen_txt:
             bloque_foda.append(Spacer(1, 8))
@@ -1368,16 +1463,6 @@ class ReportLabGenerator:
         )
 
         bloque_metodologia.append(Spacer(1, 10))
-        bloque_metodologia.append(Paragraph("<b>Composición del Score de Viabilidad (SVA):</b>", s_h2))
-        bloque_metodologia.append(
-            Paragraph(
-                "Métrica de 0 a 100 que pondera demografía (40%), competencia (30%) y tráfico peatonal (30%).",
-                s_body,
-            )
-        )
-        bloque_metodologia.append(Spacer(1, 6))
-        bloque_metodologia.append(_construir_tabla_pilares_sva(orden, analisis, s_table_header, s_table_cell))
-        bloque_metodologia.append(Spacer(1, 8))
         _agregar_glosario_rapido_sva(bloque_metodologia, s_body)
         bloque_metodologia.append(Spacer(1, 8))
         bloque_metodologia.append(Paragraph("<b>¿Cómo se calculó este score?</b>", s_h2))
@@ -1392,6 +1477,8 @@ class ReportLabGenerator:
             s_table_cell=s_table_cell,
             incluir_glosario=False,
             incluir_resultado=False,
+            incluir_otras_palabras=False,
+            incluir_simulador=False,
         )
 
         bloque_metodologia.append(Spacer(1, 10))
