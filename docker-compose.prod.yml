@@ -7,11 +7,32 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - DB_USER=${DB_USER:-admin}
-      - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
-      - DB_HOST=${DB_HOST:-127.0.0.1}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME:-geoanalisis}
+      - DB_NAME=${DB_NAME}
     volumes:
       - ./fuentes:/app/fuentes
+    restart: always
+
+  web-api:
+    image: 188860181822.dkr.ecr.us-east-1.amazonaws.com/geoviabilidad-backend:latest
+    container_name: viabilidad-hook-api
+    entrypoint: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME}
+      - DEV_MODE=False
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_REPORTS_BUCKET=${S3_REPORTS_BUCKET:-viabilidad-hook-informes}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-meta.llama3-70b-instruct-v1:0}
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+      - BESTTIME_API_KEY=${BESTTIME_API_KEY}
     restart: always

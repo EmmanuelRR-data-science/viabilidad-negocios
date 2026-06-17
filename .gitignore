@@ -166,3 +166,11 @@ fuentes/
 *.dbf
 *.prj
 *.cpg
+
+# Scratch: experiments, debug scripts, local reports and email mocks
+# (a few legacy scripts remain tracked; everything new is ignored)
+scratch/
+
+# Database dumps and backups
+*.dump
+*.sql.gz

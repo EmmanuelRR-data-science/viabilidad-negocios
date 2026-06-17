@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoViabilidad Hook — Localización Inteligente y Geomarketing en México</title>
+    
+    <!-- Metadatos de SEO -->
+    <meta name="description" content="Plataforma premium de geointeligencia y geomarketing para México. Analiza la viabilidad demográfica (INEGI Censo 2020), competencia de la zona y afluencia de personas de forma costo-eficiente.">
+    <meta name="keywords" content="geomarketing, geointeligencia, inegi, mexico, viabilidad comercial, atraccion comercial, score sva">
+    <meta name="author" content="GeoViabilidad Hook Team">
+    
+    <!-- Google Fonts - Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CSS (Mapas Interactivos) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- Estilos de la Aplicación -->
+    <link rel="stylesheet" href="index.css?v=1.0.2">
+</head>
+<body class="light-theme" id="body-app">
+
+    <!-- Cabecera de la Aplicación -->
+    <header class="app-header glass-card">
+        <div class="header-logo">
+            <span class="logo-icon">📍</span>
+            <div class="logo-text">
+                <h1>GeoViabilidad <span>Hook</span></h1>
+                <p>Location Intelligence & Geomarketing</p>
+            </div>
+        </div>
+        
+        <div class="header-controls">
+            <!-- Selector de Perfil Cognito Simulado -->
+            <div class="profile-selector glass-card" id="profile-container">
+                <span class="profile-icon">👤</span>
+                <select id="user-role-select" class="clean-select">
+                    <option value="guest" selected>Invitado (Desconectado)</option>
+                    <option value="user">Cliente (usr_mock_123)</option>
+                    <option value="admin">Administrador (admin_root)</option>
+                </select>
+            </div>
+            
+            <!-- Alternador de Tema Dinámico (Sun/Moon Switcher) -->
+            <button id="theme-toggle-btn" class="theme-btn glass-card" title="Alternar Modo Claro / Oscuro">
+                <span id="theme-icon">🌙</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal Layout Flex/Grid -->
+    <main class="main-container">
+        
+        <!-- Panel Izquierdo: Configuración e Inputs -->
+        <section class="control-panel glass-card" id="config-panel">
+            <!-- Guía de contexto: mostrar / ocultar bajo demanda -->
+            <button
+                type="button"
+                class="intro-toggle-btn"
+                id="toggle-intro-btn"
+                aria-controls="app-intro-card"
+                aria-expanded="true"
+                title="Mostrar u ocultar la guía de uso de la aplicación"
+            >
+                <span class="intro-toggle-icon" aria-hidden="true">?</span>
+                <span class="intro-toggle-text" data-state-visible="Ocultar guía de la app" data-state-hidden="Mostrar guía de la app">Ocultar guía de la app</span>
+            </button>
+
+            <!-- Tarjeta de Contexto y Descripción de la Aplicación -->
+            <div class="intro-card glass-card" id="app-intro-card">
+                <h3>📍 ¿Qué es GeoViabilidad Hook?</h3>
+                <p>Es una plataforma avanzada de geointeligencia y geomarketing en México. Permite evaluar la viabilidad de tu negocio analizando la demografía del INEGI, la competencia en el área y los flujos de tránsito peatonal.</p>
+                <div class="intro-steps">
+                    <div class="intro-step">
+                        <span>1️⃣</span>
+                        <span><strong>Ubica tu punto:</strong> Usa el buscador destacado sobre el mapa (Paso 1) o haz clic directo en el territorio de México.</span>
+                    </div>
+                    <div class="intro-step">
+                        <span>2️⃣</span>
+                        <span id="intro-step-config"><strong>Configura variables:</strong> Elige tu giro y ajusta el radio de influencia de análisis.</span>
+                    </div>
+                    <div class="intro-step">
+                        <span>3️⃣</span>
+                        <span><strong>Analiza la viabilidad:</strong> Ejecuta el análisis preliminar y adquiere reportes ejecutivos en PDF de alta definición.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-header">
+                <h2>1. Configuración del Negocio</h2>
+                <p id="panel-config-desc">Ingresa las variables operativas de tu negocio.</p>
+            </div>
+            
+            <form id="analytics-form" class="panel-form" onsubmit="event.preventDefault();">
+                <!-- Selector de Categoría (Giro Comercial) -->
+                <div class="form-group">
+                    <label for="giro-select">
+                        Giro / Rubro del Negocio
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Determina el tipo de competidores comerciales y clientes objetivos que analizaremos en la zona.</span>
+                        </span>
+                    </label>
+                    <div class="select-wrapper">
+                        <select id="giro-select" required>
+                            <option value="" disabled selected>Selecciona un rubro...</option>
+                            <option value="cafeteria">Cafetería o Fuente de Sodas</option>
+                            <option value="restaurante_carta">Restaurante a la Carta</option>
+                            <option value="comida_rapida">Comida Rápida (Pizza/Burgers)</option>
+                            <option value="gimnasio">Gimnasio o Fitness Center</option>
+                            <option value="abarrotes">Tienda de Abarrotes y Miscelánea</option>
+                            <option value="farmacia">Farmacia con Medicamentos</option>
+                            <option value="estetica">Estética o Salón de Belleza</option>
+                            <option value="lavanderia">Lavandería o Tintorería</option>
+                            <option value="consultorio_medico">Consultorio Médico</option>
+                            <option value="escuela">Escuela Privada (Preescolar/Primaria)</option>
+                            <option value="otro">Otro giro (Especificar)...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Campo de texto dinámico para especificar un giro personalizado -->
+                    <div id="custom-giro-container" class="hidden" style="margin-top: 10px;">
+                        <label for="custom-giro-input" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+                            Especifica tu giro / rubro comercial
+                        </label>
+                        <input type="text" id="custom-giro-input" placeholder="Ej: Tienda de ropa para bebés, Juguetería..." style="width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); color: var(--text-primary); font-size: 14px; outline: none;">
+                    </div>
+                </div>
+                
+                <!-- Slider de Radio de Búfer -->
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="radio-slider">
+                            Radio de Influencia
+                            <span class="info-tooltip-wrapper">
+                                <span class="info-icon">?</span>
+                                <span class="tooltip-text">Define el alcance en metros del círculo de estudio para consultar la demografía y los comercios locales.</span>
+                            </span>
+                        </label>
+                        <span id="radio-val" class="badge">1,000 m</span>
+                    </div>
+                    <input type="range" id="radio-slider" min="500" max="5000" step="500" value="1000" class="slider">
+                    <div class="slider-labels">
+                        <span>500m</span>
+                        <span>2.5km</span>
+                        <span>5.0km</span>
+                    </div>
+                </div>
+                
+                <!-- Textarea de Intenciones en Lenguaje Natural (oculto temporalmente vía UI_FEATURES.intencionesNegocio) -->
+                <div id="intenciones-section" class="form-group hidden">
+                    <label for="intenciones-textarea">
+                        Intenciones Específicas del Negocio
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Describe tus metas y el perfil de tu local para que nuestra Inteligencia Artificial personalice el diagnóstico estratégico.</span>
+                        </span>
+                    </label>
+                    <textarea id="intenciones-textarea" rows="4" placeholder="Ej: Quiero abrir una cafetería gourmet con zona infantil, enfocada a familias de clase media-alta, que ofrezca servicio rápido y café veracruzano de especialidad..."></textarea>
+                    <span class="helper-text">La Inteligencia Artificial cruzará tus intenciones con los datos demográficos y la competencia para darte una recomendación detallada.</span>
+                </div>
+
+                <!-- Personalización de Competidores (Pro / Premium) -->
+                <div class="form-group">
+                    <label>
+                        Competidores Personalizados (Pro/Premium)
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Elige marcas o giros que compiten por los mismos clientes. El reporte los evaluará en detalle.</span>
+                        </span>
+                    </label>
+                    <div class="checkbox-group glass-card" id="competidores-checkboxes">
+                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="competidores-ia-auto" value="ia_auto"> Detectar competidores con base en el giro/rubro del negocio</label>
+                        <label class="checkbox-item"><input type="checkbox" value="cafe"> Cafetería</label>
+                        <label class="checkbox-item"><input type="checkbox" value="restaurant"> Restaurante</label>
+                        <label class="checkbox-item"><input type="checkbox" value="fast_food"> Comida Rápida</label>
+                        <label class="checkbox-item"><input type="checkbox" value="gym"> Gimnasio</label>
+                        <label class="checkbox-item"><input type="checkbox" value="convenience_store"> Abarrotes</label>
+                        <label class="checkbox-item"><input type="checkbox" value="pharmacy"> Farmacia</label>
+                        <label class="checkbox-item"><input type="checkbox" value="beauty_salon"> Estética</label>
+                        <label class="checkbox-item"><input type="checkbox" value="laundry"> Lavandería</label>
+                        <label class="checkbox-item"><input type="checkbox" value="doctor"> Consultorio Médico</label>
+                        <label class="checkbox-item"><input type="checkbox" value="school"> Escuela Privada</label>
+                        <label class="checkbox-item"><input type="checkbox" value="bakery"> Panadería</label>
+                    </div>
+                    <span class="helper-text">Selecciona hasta 5 competidores. (El reporte Básico evaluará el primero, Pro hasta 3 y Premium hasta 5).</span>
+                </div>
+
+                <!-- Competidores Adicionales (Texto Libre) -->
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="competidores-adicionales-input" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Competidores o marcas específicas a considerar</label>
+                    <input type="text" id="competidores-adicionales-input" placeholder="Ej: Starbucks, Cielito Querido, cafeterías locales..." style="width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); color: var(--text-primary); font-size: 14px; outline: none;">
+                </div>
+
+                <!-- Personalización de Aliados (Premium) -->
+                <div class="form-group">
+                    <label>
+                        Aliados Estratégicos (Sólo Premium)
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Elige giros complementarios que atraen público a la zona, generando sinergia para tu local.</span>
+                        </span>
+                    </label>
+                    <div class="checkbox-group glass-card" id="aliados-checkboxes">
+                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="aliados-ia-auto" value="ia_auto"> Detectar aliados de manera automática</label>
+                        <label class="checkbox-item"><input type="checkbox" value="bank"> Bancos</label>
+                        <label class="checkbox-item"><input type="checkbox" value="school"> Escuelas</label>
+                        <label class="checkbox-item"><input type="checkbox" value="transit_station"> Transporte Público</label>
+                        <label class="checkbox-item"><input type="checkbox" value="supermarket"> Supermercado</label>
+                        <label class="checkbox-item"><input type="checkbox" value="shopping_mall"> Centro Comercial</label>
+                        <label class="checkbox-item"><input type="checkbox" value="convenience_store"> Abarrotes/Conveniencia</label>
+                        <label class="checkbox-item"><input type="checkbox" value="park"> Parque</label>
+                        <label class="checkbox-item"><input type="checkbox" value="cafe"> Cafetería</label>
+                        <label class="checkbox-item"><input type="checkbox" value="restaurant"> Restaurante</label>
+                        <label class="checkbox-item"><input type="checkbox" value="fast_food"> Comida Rápida</label>
+                        <label class="checkbox-item"><input type="checkbox" value="gym"> Gimnasio</label>
+                        <label class="checkbox-item"><input type="checkbox" value="pharmacy"> Farmacia</label>
+                        <label class="checkbox-item"><input type="checkbox" value="beauty_salon"> Estética</label>
+                        <label class="checkbox-item"><input type="checkbox" value="laundry"> Lavandería</label>
+                        <label class="checkbox-item"><input type="checkbox" value="doctor"> Consultorio Médico</label>
+                    </div>
+                    <span class="helper-text">Selecciona hasta 5 aliados estratégicos. (El reporte Básico y Pro los omiten, Premium evaluará los 5).</span>
+                </div>
+
+                <!-- Aliados Adicionales (Texto Libre) -->
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="aliados-adicionales-input" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Aliados o franquicias específicas a considerar</label>
+                    <input type="text" id="aliados-adicionales-input" placeholder="Ej: OXXO, farmacias, gimnasio específico..." style="width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); color: var(--text-primary); font-size: 14px; outline: none;">
+                </div>
+
+                <!-- Modo guiado de aliados (Premium) -->
+                <div class="form-group aliados-guiado-panel" id="aliados-guiado-panel">
+                    <button type="button" class="aliados-guiado-toggle" id="aliados-guiado-toggle" aria-expanded="false">
+                        <span>🧭 Descubrir mis aliados paso a paso</span>
+                        <span class="aliados-guiado-chevron">▼</span>
+                    </button>
+                    <div class="aliados-guiado-body hidden" id="aliados-guiado-body">
+                        <p class="helper-text" style="margin-bottom: 12px;">
+                            Los aliados no compiten contigo: son lugares que concentran gente cerca de tu local. Responde en lenguaje sencillo y nosotros buscaremos esos tipos en tu radio.
+                        </p>
+
+                        <div class="aliados-guiado-step">
+                            <label class="aliados-guiado-step-title">1. ¿A quién le venderás principalmente? <small>(1–3)</small></label>
+                            <div class="checkbox-group glass-card" id="guiado-perfil-checkboxes">
+                                <label class="checkbox-item"><input type="checkbox" value="publico_general"> Público en general</label>
+                                <label class="checkbox-item"><input type="checkbox" value="familias"> Familias con niños</label>
+                                <label class="checkbox-item"><input type="checkbox" value="estudiantes"> Estudiantes y jóvenes</label>
+                                <label class="checkbox-item"><input type="checkbox" value="oficinistas"> Oficinistas</label>
+                                <label class="checkbox-item"><input type="checkbox" value="transporte_publico"> Transporte público</label>
+                                <label class="checkbox-item"><input type="checkbox" value="compradores_paso"> Compradores de paso</label>
+                                <label class="checkbox-item"><input type="checkbox" value="salud_bienestar"> Salud y bienestar</label>
+                                <label class="checkbox-item"><input type="checkbox" value="adultos_mayores"> Adultos mayores</label>
+                            </div>
+                        </div>
+
+                        <div class="aliados-guiado-step">
+                            <label class="aliados-guiado-step-title">2. ¿Cuándo esperas más clientes? <small>(1–2)</small></label>
+                            <div class="checkbox-group glass-card" id="guiado-horario-checkboxes">
+                                <label class="checkbox-item"><input type="checkbox" value="manana"> Mañana (6:00–12:00)</label>
+                                <label class="checkbox-item"><input type="checkbox" value="mediodia"> Mediodía / comida</label>
+                                <label class="checkbox-item"><input type="checkbox" value="tarde"> Tarde / salida de trabajo</label>
+                                <label class="checkbox-item"><input type="checkbox" value="noche_finde"> Noche y fin de semana</label>
+                            </div>
+                        </div>
+
+                        <div class="aliados-guiado-step">
+                            <label class="aliados-guiado-step-title">3. ¿Qué lugares traen gente cerca de ti? <small>(2–5)</small></label>
+                            <p class="helper-text" id="guiado-atractores-hint">Completa los pasos 1 y 2 para ver sugerencias personalizadas.</p>
+                            <div class="checkbox-group glass-card" id="guiado-atractores-checkboxes"></div>
+                        </div>
+
+                        <div class="aliados-guiado-resumen glass-card hidden" id="guiados-aliados-resumen">
+                            <p class="coords-title">Tu configuración de aliados</p>
+                            <p id="guiado-resumen-text" class="helper-text"></p>
+                        </div>
+                        <p class="helper-text aliados-guiado-aviso hidden" id="guiado-aviso-error"></p>
+                    </div>
+                </div>
+                
+                <!-- Coordenadas Capturadas (Feedback Cartográfico) -->
+                <div class="coords-box glass-card" id="coords-display">
+                    <span class="coords-icon">🎯</span>
+                    <div class="coords-text">
+                        <p class="coords-title">Coordenadas Seleccionadas</p>
+                        <p id="lat-lng-text" class="coords-values">Haz clic en el mapa para marcar tu punto...</p>
+                    </div>
+                </div>
+                
+                <!-- Botón de Ejecutar Análisis -->
+                <button type="button" id="analyze-btn" class="btn-primary" disabled>
+                    <span class="btn-icon">⚡</span> ANALIZAR UBICACIÓN
+                </button>
+                <div id="analyze-progress-container" class="compilation-progress inline-progress hidden" aria-live="polite">
+                    <p data-progress-status>Analizando ubicación...</p>
+                    <div class="progress-bar-wrapper">
+                        <div data-progress-fill class="progress-bar-fill"></div>
+                    </div>
+                    <p class="progress-hint">Esto puede tardar entre 10 y 30 segundos.</p>
+                </div>
+            </form>
+        </section>
+        
+        <!-- Panel Derecho: Visor Cartográfico e Banner -->
+        <section class="map-panel glass-card" id="map-container">
+            
+            <!-- Banner de Dirección Física Resuelta (Geocodificación Inversa) -->
+            <div id="address-banner" class="address-banner glass-card hidden">
+                <span class="address-pin">📍</span>
+                <div class="address-content">
+                    <p class="address-label">Dirección Postal Detectada (México)</p>
+                    <p id="address-text" class="address-val">Cargando ubicación...</p>
+                </div>
+            </div>
+
+            <!-- Buscador de Dirección Flotante -->
+            <div class="map-search-box glass-card" id="search-box-container">
+                <div class="map-search-header">
+                    <div class="map-search-heading">
+                        <span class="map-search-step">Paso 1</span>
+                        <span class="map-search-title">Busca la dirección de tu local</span>
+                        <span class="info-tooltip-wrapper tooltip-bottom">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Escribe calle, colonia o punto de referencia en México. También puedes hacer clic en el mapa para marcar tu ubicación.</span>
+                        </span>
+                    </div>
+                    <p class="map-search-hint">Ej: Av. Insurgentes 123, Col. Roma, Ciudad de México</p>
+                </div>
+                <div class="map-search-row">
+                    <span class="map-search-pin" aria-hidden="true">📍</span>
+                    <input
+                        type="text"
+                        id="map-search-input"
+                        placeholder="Escribe aquí la dirección en México..."
+                        aria-label="Buscar dirección de tu negocio en México"
+                        autocomplete="street-address"
+                    >
+                    <button type="button" id="map-search-btn" title="Buscar dirección">
+                        <span class="map-search-btn-icon" aria-hidden="true">🔍</span>
+                        <span class="map-search-btn-label">Buscar</span>
+                    </button>
+                </div>
+                <div id="map-search-results" class="search-results-dropdown hidden"></div>
+            </div>
+            
+            <!-- Div del Mapa de Leaflet -->
+            <div id="map" class="map-canvas"></div>
+            
+            <!-- Instrucción flotante -->
+            <div class="map-instruction glass-card">
+                <span>🖱️ O haz clic en el mapa para situar tu pin y trazar el radio de análisis.</span>
+            </div>
+        </section>
+    </main>
+
+    <!-- Sección del Dashboard de Resultados (Oculto hasta que se corra la Previa) -->
+    <section id="results-dashboard" class="results-dashboard container hidden">
+        
+        <!-- Cabecera de Reporte -->
+        <div class="dashboard-header glass-card">
+            <div class="title-block">
+                <span class="badge" id="tier-badge">VISTA PREVIA GRATUITA</span>
+                <h2>Dashboard de Viabilidad de Localización</h2>
+                <p id="dashboard-subtitle">Diagnóstico espacial y geomarketing del punto comercial.</p>
+            </div>
+            <div class="action-block" id="dashboard-actions">
+                <button id="buy-basico-btn" class="btn-secondary" data-tier="basico">🔒 COMPRAR BÁSICO</button>
+                <button id="buy-pro-btn" class="btn-secondary font-glow" data-tier="pro">🔒 COMPRAR PRO</button>
+                <button id="buy-premium-btn" class="btn-primary font-glow" data-tier="premium">🔒 COMPRAR PREMIUM</button>
+                <p class="pricing-currency-note">Precios en pesos mexicanos (MXN).</p>
+            </div>
+        </div>
+        
+        <!-- Fila 1: KPIs Sintéticos -->
+        <div class="kpis-grid">
+            <!-- Card 1: Score SVA -->
+            <div class="kpi-card glass-card" id="kpi-sva-card">
+                <div class="kpi-icon">📊</div>
+                <div class="kpi-info">
+                    <h3>
+                        Score Viabilidad SVA
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Evaluación matemática de idoneidad del punto (0 a 100). Integra concentración de personas, competencia y confluencia.</span>
+                        </span>
+                    </h3>
+                    <p class="kpi-value" id="kpi-sva">--</p>
+                    <p class="kpi-desc" id="kpi-sva-desc">Evaluación del 0 al 100 sobre qué tan viable es abrir tu negocio en este punto, considerando clientes, competencia y paso de peatones.</p>
+                </div>
+            </div>
+            
+            <!-- Card 2: Demografía Ponderada -->
+            <div class="kpi-card glass-card" id="kpi-demog-card">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-info">
+                    <h3>
+                        Demanda Residente
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Cantidad estimada de habitantes residentes dentro de la zona de estudio (Censo de Población oficial).</span>
+                        </span>
+                    </h3>
+                    <p class="kpi-value" id="kpi-poblacion">--</p>
+                    <p class="kpi-desc" id="kpi-pob-desc">Cantidad de personas que viven cerca y representan tus clientes potenciales del día a día, quienes te visitarán de forma regular.</p>
+                </div>
+            </div>
+            
+            <!-- Card 3: Competencia Directa -->
+            <div class="kpi-card glass-card" id="kpi-comp-card">
+                <div class="kpi-icon">🏬</div>
+                <div class="kpi-info">
+                    <h3>
+                        Competidores Locales
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Número total de establecimientos del mismo giro detectados dentro de tu radio de influencia.</span>
+                        </span>
+                    </h3>
+                    <p class="kpi-value" id="kpi-competidores">--</p>
+                    <p class="kpi-desc" id="kpi-comp-desc">Negocios similares en la zona con los que compartirás el mercado. Menos competencia significa mayor facilidad para captar clientes.</p>
+                </div>
+            </div>
+
+            <!-- Card 4: Nivel Socioeconómico (NSE) -->
+            <div class="kpi-card glass-card kpi-locked" id="kpi-nse-card">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-info">
+                    <h3>
+                        Nivel Socioeconómico
+                        <span class="info-tooltip-wrapper">
+                            <span class="info-icon">?</span>
+                            <span class="tooltip-text">Estimación del poder adquisitivo y equipamiento del hogar en tu radio, basada en variables del Censo INEGI 2020.</span>
+                        </span>
+                    </h3>
+                    <p class="kpi-value" id="kpi-nse">🔒 Bloqueado</p>
+                    <p class="kpi-desc" id="kpi-nse-desc">Indicador del poder adquisitivo promedio en la zona. Desbloquéalo al adquirir cualquier plan de reporte.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desglose de pilares del Score SVA (misma lógica que el PDF) -->
+        <div class="sva-composition-card glass-card hidden" id="sva-composition-card">
+            <div class="sva-composition-header">
+                <h3>
+                    Composición del Score SVA
+                    <span class="info-tooltip-wrapper">
+                        <span class="info-icon">?</span>
+                        <span class="tooltip-text">El SVA combina tres pilares con pesos fijos: demografía 40% (por densidad hab/km² en tu radio), competencia 30% y tráfico peatonal 30%. Cada aporte = score del pilar × su peso.</span>
+                    </span>
+                </h3>
+                <p class="sva-composition-hint">Misma ponderación que el PDF. El pilar demográfico usa densidad (hab/km²) en tu radio, no población absoluta del municipio.</p>
+            </div>
+            <div class="sva-pillar-table-wrap">
+                <table class="sva-pillar-table" aria-label="Desglose de pilares del Score SVA">
+                    <thead>
+                        <tr>
+                            <th>Pilar analítico</th>
+                            <th>Peso</th>
+                            <th>Score</th>
+                            <th>Aporte</th>
+                            <th>Señal en la zona</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sva-pillar-body"></tbody>
+                </table>
+            </div>
+            <p class="sva-formula-line" id="sva-formula-line"></p>
+        </div>
+        
+        <!-- Fila 2: Análisis de competencia (gráfica + valoraciones en fila, comentarios debajo) -->
+        <div class="charts-grid" id="advanced-charts-section">
+            <div class="chart-card glass-card" id="competitor-chart-card">
+                <h3>
+                    Análisis de Competencia
+                    <span class="info-tooltip-wrapper tooltip-right">
+                        <span class="info-icon">?</span>
+                        <span class="tooltip-text">Distribución por calificación, competidores mejor valorados con distancia y reseñas públicas de Google en la zona.</span>
+                    </span>
+                </h3>
+                <p class="chart-helper-text" id="comp-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver las calificaciones de competidores locales.</p>
+                <div class="competitor-analysis-row">
+                    <div class="competitor-chart-col">
+                        <h4 class="competitor-subtitle">Distribución por rating (todos los detectados)</h4>
+                        <div class="canvas-wrapper">
+                            <canvas id="competitors-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="competitor-top-table-wrap hidden" id="competitor-top-table-wrap">
+                        <h4>Competidores mejor valorados y distancia</h4>
+                        <p class="competitor-top-hint">Solo competidores con al menos 5 reseñas en Google. La columna «Vigencia» indica si Google y las reseñas recientes sugieren que el local sigue operando.</p>
+                        <p class="competitor-vigencia-disclaimer" id="competitor-vigencia-disclaimer"></p>
+                        <div class="table-wrapper">
+                            <table class="clean-table competitor-top-table" id="competitor-top-table">
+                                <thead>
+                                    <tr>
+                                        <th>Establecimiento</th>
+                                        <th>Calificación</th>
+                                        <th>Reseñas</th>
+                                        <th>Vigencia</th>
+                                        <th>Distancia</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="competitor-top-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="competitor-reviews-block hidden" id="competitor-reviews-block">
+                    <h4>Comentarios de Google sobre competidores</h4>
+                    <p class="competitor-reviews-hint">Extractos de reseñas públicas ordenadas por fecha (más recientes primero). Un buen rating histórico no garantiza que el local siga abierto.</p>
+                    <div id="competitor-reviews-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aliados detalle (Premium) -->
+        <div class="chart-card glass-card hidden" id="aliados-detalle-card">
+            <h3>Aliados y atractores — detalle</h3>
+            <p class="chart-helper-text aliados-vigencia-disclaimer" id="aliados-vigencia-disclaimer"></p>
+            <div class="table-wrapper">
+                <table class="clean-table" id="aliados-detalle-table">
+                    <thead>
+                        <tr>
+                            <th>Establecimiento</th>
+                            <th>Tipo</th>
+                            <th>Calificación</th>
+                            <th>Vigencia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="aliados-detalle-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Fila 3: Atractores (ancho completo) + mapa de calor debajo -->
+        <div class="traffic-stack" id="traffic-stack-section">
+            <div class="chart-card glass-card" id="poi-chart-card">
+                <h3>
+                    Atractores de Tráfico y Aliados
+                    <span class="info-tooltip-wrapper tooltip-right">
+                        <span class="info-icon">?</span>
+                        <span class="tooltip-text">Lista de magnetos comerciales principales (transporte, bancos, escuelas) y su grado de atracción de flujo peatonal.</span>
+                    </span>
+                </h3>
+                <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver los atractores de tráfico locales.</p>
+                <div class="table-wrapper" id="poi-table-container">
+                    <table class="clean-table" id="poi-table">
+                        <thead>
+                            <tr>
+                                <th>Atractor / Tipo de Aliado</th>
+                                <th>Establecimientos en la Zona</th>
+                                <th>Impacto en Tráfico</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poi-table-body">
+                            <tr>
+                                <td>Transporte Público</td>
+                                <td id="poi-count-transit">--</td>
+                                <td><span class="badge info">Cargando...</span></td>
+                            </tr>
+                            <tr>
+                                <td>Centros Educativos</td>
+                                <td id="poi-count-school">--</td>
+                                <td><span class="badge info">Cargando...</span></td>
+                            </tr>
+                            <tr>
+                                <td>Bancos y Finanzas</td>
+                                <td id="poi-count-bank">--</td>
+                                <td><span class="badge info">Cargando...</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="chart-card glass-card hidden" id="heatmap-container">
+                <h3>
+                    📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
+                    <span class="info-tooltip-wrapper tooltip-right">
+                        <span class="info-icon">?</span>
+                        <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
+                    </span>
+                </h3>
+                <div class="heatmap-wrapper" id="heatmap-grid-container">
+                    <!-- Se generará dinámicamente con JS -->
+                </div>
+                <div class="heatmap-legend" id="heatmap-legend-container" style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 15px; font-size: 11px; color: var(--text-secondary);">
+                    <span>Tránsito de personas:</span>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(38, 95%, 55%, 0.30); border-radius: 2px; border: 1px solid var(--glass-border);"></span><span>Bajo</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(25, 95%, 55%, 0.55); border-radius: 2px;"></span><span>Medio</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(11, 95%, 55%, 0.80); border-radius: 2px;"></span><span>Alto</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: hsla(0, 95%, 55%, 1); border-radius: 2px; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);"></span><span>Pico</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fila 4: Lectura estratégica del punto (reporte pagado) -->
+        <div class="foda-section glass-card hidden" id="lectura-estrategica-section">
+            <div class="section-title-foda">
+                <h3>Lectura estratégica del punto</h3>
+                <p>Orientación basada en métricas de INEGI, Google Places y afluencia. No sustituye un estudio de mercado ni una proyección financiera.</p>
+            </div>
+            <div class="foda-grid" id="lectura-estrategica-grid">
+                <div class="foda-card fortalezas">
+                    <h4>Fortalezas del punto</h4>
+                    <ul class="lectura-list" id="lectura-fortalezas"></ul>
+                </div>
+                <div class="foda-card oportunidades">
+                    <h4>Oportunidades</h4>
+                    <ul class="lectura-list" id="lectura-oportunidades"></ul>
+                </div>
+                <div class="foda-card consideraciones">
+                    <h4>Consideraciones para la apertura</h4>
+                    <ul class="lectura-list" id="lectura-consideraciones"></ul>
+                </div>
+            </div>
+            <p class="lectura-conclusion hidden" id="lectura-conclusion"></p>
+        </div>
+
+        <!-- Descarga de Informe ReportLab -->
+        <div class="report-download-section glass-card hidden" id="download-section">
+            <div class="download-info">
+                <h4>📄 Tu reporte ejecutivo está listo para descarga</h4>
+                <p id="download-p-desc">El reporte privado y encriptado se ha guardado de forma segura en nuestro servidor. Puedes descargar la versión de alta definición en PDF ahora.</p>
+            </div>
+            <button id="download-pdf-btn" class="btn-primary font-glow">
+                ⬇️ DESCARGAR REPORTE EN PDF
+            </button>
+            <div id="download-progress-container" class="compilation-progress inline-progress hidden" aria-live="polite">
+                <p data-progress-status>Preparando descarga...</p>
+                <div class="progress-bar-wrapper">
+                    <div data-progress-fill class="progress-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modal de Pasarela de Pago Simulado (Mercado Pago Mock) -->
+    <div id="payment-modal" class="payment-modal-overlay hidden">
+        <div class="payment-modal-content glass-card">
+            <div class="modal-header">
+                <h3>💳 Pasarela de Pago Seguro (Mercado Pago Checkout Pro)</h3>
+                <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="billing-summary">
+                    <p class="billing-desc">Estás por adquirir un análisis de geomarketing premium de GeoViabilidad Hook:</p>
+                    <div class="billing-item glass-card">
+                        <span id="billing-title">Reporte BÁSICO</span>
+                        <strong id="billing-price">$299.00 MXN</strong>
+                    </div>
+                </div>
+                
+                <!-- Resumen de personalización recortada según el Tier adquirido -->
+                <div id="modal-selections-summary" class="coords-box glass-card hidden" style="margin-top: 15px; flex-direction: column; align-items: flex-start; gap: 5px; background: rgba(37, 99, 235, 0.04); border: 1px solid var(--glass-border);">
+                    <p class="coords-title" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 2px;">
+                        Configuración Incluida en el Reporte
+                    </p>
+                    <p id="modal-summary-comps" class="helper-text" style="margin: 0; font-size: 12.5px; color: var(--text-primary); font-weight: 500;"></p>
+                    <p id="modal-summary-allies" class="helper-text" style="margin: 0; font-size: 12.5px; color: var(--text-primary); font-weight: 500;"></p>
+                </div>
+                
+                <div class="payment-options">
+                    <p class="section-title">Elige tu forma de pago simulada:</p>
+                    <button class="pay-option-btn glass-card active" data-status="approved">
+                        🟢 Aprobado al instante (Tarjeta de Crédito Simulada)
+                    </button>
+                    <button class="pay-option-btn glass-card" data-status="pending">
+                        🟡 Pendiente de Acreditación (OXXO Simulado)
+                    </button>
+                    <button class="pay-option-btn glass-card" data-status="rejected">
+                        🔴 Rechazado / Fondos Insuficientes
+                    </button>
+                </div>
+                
+                <!-- Barra de Progreso de Compilación PDF asíncrono -->
+                <div id="compilation-progress-container" class="compilation-progress hidden">
+                    <p id="compilation-status-text">Procesando pago seguro...</p>
+                    <div class="progress-bar-wrapper">
+                        <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                    <p class="helper-text">Generando reporte ejecutivo en PDF de alta definición...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-payment-btn" class="btn-secondary">Cancelar</button>
+                <button id="confirm-payment-btn" class="btn-primary">CONFIRMAR PAGO SIMULADO</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Registro/Login con Google (Cognito Mock) -->
+    <div id="google-login-modal" class="payment-modal-overlay hidden">
+        <div class="payment-modal-content glass-card" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>🌐 Registrarse / Iniciar Sesión</h3>
+                <button id="close-login-modal-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; gap: 15px; padding: 30px 25px; display: flex; flex-direction: column;">
+                <span style="font-size: 48px; margin-bottom: 5px; display: block;">🔒</span>
+                <h4 style="font-size: 16px; font-weight: 700; color: var(--text-primary);">Guarda tu Reporte Comercial</h4>
+                <p class="billing-desc" style="font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); margin: 0;">
+                    Para poder personalizar tu análisis y descargar el reporte ejecutivo de forma segura, inicia sesión.
+                </p>
+                
+                <button id="google-signin-btn" class="btn-secondary font-glow" style="background: var(--text-primary); color: var(--bg-main); border: 1px solid var(--glass-border); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                    <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24">
+                        <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.47 15.01 1 12 1 7.28 1 3.25 3.72 1.25 7.75l3.89 3.01C6.07 7.75 8.78 5.04 12 5.04z"/>
+                        <path fill="#4285F4" d="M23.49 12.27c0-.82-.07-1.61-.21-2.38H12v4.51h6.44c-.28 1.47-1.11 2.71-2.36 3.55l3.66 2.84c2.14-1.97 3.39-4.88 3.39-8.52z"/>
+                        <path fill="#FBBC05" d="M5.14 10.76A7.08 7.08 0 0 1 5 12c0 .43.05.85.14 1.24L1.25 16.25A11.96 11.96 0 0 1 0 12c0-1.52.29-2.98.81-4.32l4.33 3.08z"/>
+                        <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.66-2.84c-1.1.74-2.5 1.18-4.3 1.18-3.22 0-5.93-2.71-6.9-5.72l-3.89 3.01C3.25 20.28 7.28 23 12 23z"/>
+                    </svg>
+                    Continuar con Google
+                </button>
+                
+                <!-- Animación simulada de redirección/Cognito -->
+                <div id="login-progress-container" class="compilation-progress hidden" style="margin-top: 10px; border-top: none; padding-top: 0; display: flex; flex-direction: column; gap: 8px;">
+                    <p id="login-status-text" style="font-size: 12px; font-weight: 600; text-align: center;"></p>
+                    <div class="progress-bar-wrapper">
+                        <div id="login-progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer de la Aplicación -->
+    <footer class="app-footer glass-card">
+        <p>&copy; 2026 GeoViabilidad Hook &mdash; Location Intelligence en México. Todos los derechos reservados.</p>
+        <p class="footer-meta">Servidor corporativo optimizado y seguro. Información protegida mediante encriptación avanzada.</p>
+    </footer>
+
+    <!-- Leaflet.js JS (Mapas) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js (Gráficos) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lógica de la Aplicación -->
+    <script src="app.js?v=1.0.4"></script>
+</body>
+</html>
