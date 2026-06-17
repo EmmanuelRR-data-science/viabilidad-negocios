@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: viabilidad-hook-admin
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     environment:
       - DB_USER=${DB_USER:-admin}
       - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}

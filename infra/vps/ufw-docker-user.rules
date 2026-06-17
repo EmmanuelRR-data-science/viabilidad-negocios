@@ -1,0 +1,13 @@
+# Reglas DOCKER-USER: Docker inserta iptables antes de UFW; estas reglas
+# bloquean puertos internos aunque Docker publique 0.0.0.0.
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER -i lo -j RETURN
+-A DOCKER-USER -s 10.0.0.0/8 -j RETURN
+-A DOCKER-USER -s 172.16.0.0/12 -j RETURN
+-A DOCKER-USER -s 192.168.0.0/16 -j RETURN
+# Bloquear desde internet: admin, pgAdmin/dashboard interno, API directa, PostgreSQL
+-A DOCKER-USER -p tcp -m multiport --dports 8501,5050,8080,5432 -j DROP
+-A DOCKER-USER -j RETURN
+COMMIT
