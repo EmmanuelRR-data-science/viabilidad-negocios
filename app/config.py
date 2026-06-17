@@ -13,6 +13,9 @@ load_dotenv()
 # --- CONTROL DE DESARROLLO / PRODUCCIÓN ---
 DEV_MODE = os.environ.get("DEV_MODE", "True").lower() in ("true", "1", "t", "yes")
 
+# Pagos simulados (Mercado Pago mock). Por defecto sigue a DEV_MODE; forzar con PAYMENTS_MOCK=true.
+PAYMENTS_MOCK = DEV_MODE or os.environ.get("PAYMENTS_MOCK", "").lower() in ("true", "1", "t", "yes")
+
 # --- CONEXIÓN A BASE DE DATOS (PostgreSQL + PostGIS) ---
 DB_USER = os.environ.get("DB_USER", "admin")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "admin_password_safe")
@@ -50,6 +53,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 logger.info(
-    "Configuración cargada en Modo: %s",
+    "Configuración cargada en Modo: %s | Pagos: %s",
     "PRUEBAS (Groq + datos reales; AWS omitido)" if DEV_MODE else "PRODUCCIÓN (AWS Activo)",
+    "MOCK (sin Mercado Pago real)" if PAYMENTS_MOCK else "LIVE (Mercado Pago)",
 )

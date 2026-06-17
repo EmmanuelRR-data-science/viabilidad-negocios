@@ -41,6 +41,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-geoanalisis}
       - DEV_MODE=${DEV_MODE:-True}
+      - PAYMENTS_MOCK=${PAYMENTS_MOCK:-}
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - S3_REPORTS_BUCKET=${S3_REPORTS_BUCKET:-viabilidad-hook-informes}
       - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-meta.llama3-70b-instruct-v1:0}

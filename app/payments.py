@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy.orm import Session
 
 from app.auth import UserContext, get_current_user
-from app.config import DEV_MODE, MERCADOPAGO_ACCESS_TOKEN
+from app.config import DEV_MODE, MERCADOPAGO_ACCESS_TOKEN, PAYMENTS_MOCK
 from app.database import get_db
 from app.models import OrdenPago
 from app.schemas import PreferenciaCreate, PreferenciaResponse, WebhookMockTrigger
@@ -40,10 +40,10 @@ def crear_preferencia_cobro(
 
     # 3. Crear el enlace de checkout
     init_point = ""
-    if DEV_MODE:
-        # Modo Desarrollo: Retornar URL simulada
+    if PAYMENTS_MOCK:
+        # Modo pruebas: retornar URL simulada (sin llamar a Mercado Pago real)
         init_point = f"https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=mock_{checkout_id}"
-        logger.info(f"Modo Desarrollo: Enlace simulado creado para checkout: {init_point}")
+        logger.info("Pagos MOCK: enlace simulado creado para checkout %s", checkout_id)
     else:
         # Modo Producción: Invocar SDK oficial de Mercado Pago para enlace real
         try:
@@ -176,10 +176,10 @@ def disparar_webhook_simulado(
     Ruta exclusiva de Desarrollo para forzar la acreditación de una orden y
     detonar la compilación del reporte en segundo plano (S3 + Bedrock) sin pasar por Mercado Pago.
     """
-    if not DEV_MODE:
+    if not PAYMENTS_MOCK:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Este endpoint de pruebas solo está disponible en modo de desarrollo (DEV_MODE=True).",
+            detail="Este endpoint de pruebas solo está disponible con pagos simulados (PAYMENTS_MOCK).",
         )
 
     # Buscar la orden

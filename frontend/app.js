@@ -1287,44 +1287,82 @@ function lockAdvancedFeatures() {
     }
 }
 
+function collectAliadosPayloadForTier(tier) {
+    if (tier !== "premium" && isAliadosGuiadoActivo()) {
+        const aliadosCheckboxes = document.querySelectorAll("#aliados-checkboxes input[type='checkbox']:checked");
+        const aliadosSel = Array.from(aliadosCheckboxes).map(cb => cb.value);
+        return {
+            modo_analisis_aliados: "automatico",
+            config_aliados_guiados: null,
+            aliados_seleccionados: aliadosSel.length > 0 ? aliadosSel : null,
+        };
+    }
+    return collectAliadosPayload();
+}
+
+async function parseApiErrorMessage(response) {
+    try {
+        const data = await response.json();
+        if (Array.isArray(data?.detail)) {
+            return data.detail
+                .map((item) => item?.msg || JSON.stringify(item))
+                .join(" ");
+        }
+        if (typeof data?.detail === "string") {
+            return data.detail;
+        }
+        if (data?.friendly_message) {
+            return data.friendly_message;
+        }
+    } catch (_err) {
+        // Sin cuerpo JSON legible
+    }
+    return `Error del servidor (${response.status}).`;
+}
+
 // --- ABRIR MODAL DE PASARELA DE PAGOS ---
 async function openPaymentModal(tier) {
     state.activeTier = tier;
-    
-    logger(`Solicitando preferencia de Mercado Pago para Tier: ${tier.toUpperCase()}`);
-    
+
+    const rubro = getRubroActual();
+    if (!rubro) {
+        alert("Selecciona el giro o rubro de tu negocio antes de comprar un reporte.");
+        return;
+    }
+    if (state.selectedLat === null || state.selectedLng === null) {
+        alert("Ubica un punto en el mapa antes de comprar un reporte.");
+        return;
+    }
+
+    logger(`Solicitando orden de cobro (modo simulado) para Tier: ${tier.toUpperCase()}`);
+
     const billingTitle = document.getElementById("billing-title");
     const billingPrice = document.getElementById("billing-price");
     const tierConfig = TIER_PRICING[tier];
 
-    if (tierConfig) {
+    if (tierConfig && billingTitle && billingPrice) {
         billingTitle.textContent = tierConfig.title;
         billingPrice.textContent = formatTierPrice(tier);
     }
-    
-    // Ocultar barra de carga anterior
-    document.getElementById("compilation-progress-container").classList.add("hidden");
-    document.getElementById("confirm-payment-btn").removeAttribute("disabled");
-    
-    // 1. Invocar API de preferencia para registrar en BD
+
+    document.getElementById("compilation-progress-container")?.classList.add("hidden");
+    document.getElementById("confirm-payment-btn")?.removeAttribute("disabled");
+
     try {
         const headers = getAuthHeaders();
-        
-        // Obtener competidores seleccionados
+
         const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
         let competidores_seleccionados = Array.from(compCheckboxes).map(cb => cb.value);
 
-        // Obtener aliados (modo automático o guiado)
-        const aliadosPayload = collectAliadosPayload();
+        const aliadosPayload = collectAliadosPayloadForTier(tier);
         if (aliadosPayload.invalid) {
             alert("Completa el cuestionario guiado de aliados: perfil, horarios y al menos 2 tipos de lugares.");
             return;
         }
         let aliados_seleccionados = aliadosPayload.aliados_seleccionados;
 
-        // Obtener entradas de texto libre
-        const compAdicionales = document.getElementById("competidores-adicionales-input").value.trim();
-        const aliadosAdicionales = document.getElementById("aliados-adicionales-input").value.trim();
+        const compAdicionales = document.getElementById("competidores-adicionales-input")?.value?.trim() || "";
+        const aliadosAdicionales = document.getElementById("aliados-adicionales-input")?.value?.trim() || "";
 
         const categoryMap = {
             "ia_auto": "Detectar competidores con base en el giro/rubro del negocio",
@@ -1417,8 +1455,8 @@ async function openPaymentModal(tier) {
             latitud: state.selectedLat,
             longitud: state.selectedLng,
             radio_metros: state.selectedRadio,
-            rubro: state.selectedGiro,
-            intenciones: document.getElementById("intenciones-textarea").value.trim() || null,
+            rubro,
+            intenciones: document.getElementById("intenciones-textarea")?.value?.trim() || null,
             competidores_seleccionados: competidores_seleccionados,
             aliados_seleccionados: aliadosPayload.modo_analisis_aliados === "guiado" ? null : aliados_seleccionados,
             competidores_adicionales: compAdicionales || null,
@@ -1426,27 +1464,28 @@ async function openPaymentModal(tier) {
             modo_analisis_aliados: aliadosPayload.modo_analisis_aliados,
             config_aliados_guiados: aliadosPayload.config_aliados_guiados,
         };
-        
+
         const response = await fetch("/api/pagos/preferencia", {
             method: "POST",
             headers: headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             state.activeOrderId = data.orden_id;
             state.activeCheckoutId = data.checkout_id;
-            logger(`Preferencia generada correctamente. Orden ID: ${data.orden_id} | Checkout: ${data.checkout_id}`);
-            
-            // Mostrar modal en la interfaz
-            document.getElementById("payment-modal").classList.remove("hidden");
+            logger(`Orden mock registrada. Orden ID: ${data.orden_id} | Checkout: ${data.checkout_id}`);
+
+            document.getElementById("payment-modal")?.classList.remove("hidden");
         } else {
-            alert("No se pudo generar la orden de cobro temporal.");
+            const detail = await parseApiErrorMessage(response);
+            logger("Falla al crear preferencia:", detail);
+            alert(`No se pudo registrar la orden de cobro: ${detail}`);
         }
     } catch (err) {
-        logger("Falla de red al crear preferencia:", err);
-        alert("Error al conectar con la pasarela de Mercado Pago.");
+        logger("Falla al abrir modal de pago:", err);
+        alert(`No se pudo iniciar el flujo de pago simulado. ${err?.message || "Revisa tu conexión e intenta de nuevo."}`);
     }
 }
 
@@ -1469,7 +1508,7 @@ async function processSimulatedPayment() {
     const statusText = document.getElementById("compilation-status-text");
     
     progressContainer.classList.remove("hidden");
-    statusText.textContent = "Acreditando pago seguro en Mercado Pago...";
+    statusText.textContent = "Acreditando pago simulado...";
     progressFill.style.width = "0%";
     
     // 2. Invocar Webhook de simulación (/api/pagos/webhook-mock)

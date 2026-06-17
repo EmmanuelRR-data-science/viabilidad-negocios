@@ -20,7 +20,6 @@ _RATE_LIMIT_MAX_REQUESTS = 10  # Máx requests LLM por IP por ventana
 # Rutas a las que se aplica el rate limit del LLM (incluye el endpoint públ. de análisis)
 _RATE_LIMITED_PATHS = {
     "/api/analisis",
-    "/api/pagos/preferencia",
 }
 
 

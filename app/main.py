@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 
-from app.config import DEV_MODE
+from app.config import DEV_MODE, PAYMENTS_MOCK
 from app.middleware import LLMRateLimitMiddleware, UserFriendlyExceptionMiddleware
 from app.payments import router as payments_router
 from app.routes_analytics import router as analytics_router
@@ -54,7 +54,13 @@ def health_check():
     """
     Ruta de estado básica para verificar que el servicio FastAPI está encendido.
     """
-    return {"status": "online", "service": "GeoViabilidad Hook Backend", "timestamp": "2026-05-29T14:30:00"}
+    return {
+        "status": "online",
+        "service": "GeoViabilidad Hook Backend",
+        "timestamp": "2026-05-29T14:30:00",
+        "dev_mode": DEV_MODE,
+        "payments_mock": PAYMENTS_MOCK,
+    }
 
 
 @api_router.get("/error-test", tags=["Salud"])
