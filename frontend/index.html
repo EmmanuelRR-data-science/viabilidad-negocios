@@ -489,7 +489,8 @@
                     </div>
                     <div class="competitor-top-table-wrap hidden" id="competitor-top-table-wrap">
                         <h4>Competidores mejor valorados y distancia</h4>
-                        <p class="competitor-top-hint">Solo competidores con al menos 5 reseñas en Google (misma lista que los comentarios de abajo). Distancia lineal desde tu punto.</p>
+                        <p class="competitor-top-hint">Solo competidores con al menos 5 reseñas en Google. La columna «Vigencia» indica si Google y las reseñas recientes sugieren que el local sigue operando.</p>
+                        <p class="competitor-vigencia-disclaimer" id="competitor-vigencia-disclaimer"></p>
                         <div class="table-wrapper">
                             <table class="clean-table competitor-top-table" id="competitor-top-table">
                                 <thead>
@@ -497,6 +498,7 @@
                                         <th>Establecimiento</th>
                                         <th>Calificación</th>
                                         <th>Reseñas</th>
+                                        <th>Vigencia</th>
                                         <th>Distancia</th>
                                     </tr>
                                 </thead>
@@ -507,9 +509,28 @@
                 </div>
                 <div class="competitor-reviews-block hidden" id="competitor-reviews-block">
                     <h4>Comentarios de Google sobre competidores</h4>
-                    <p class="competitor-reviews-hint">Solo aparecen competidores de la tabla con reseñas públicas disponibles en Google Maps.</p>
+                    <p class="competitor-reviews-hint">Extractos de reseñas públicas ordenadas por fecha (más recientes primero). Un buen rating histórico no garantiza que el local siga abierto.</p>
                     <div id="competitor-reviews-list"></div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Aliados detalle (Premium) -->
+        <div class="chart-card glass-card hidden" id="aliados-detalle-card">
+            <h3>Aliados y atractores — detalle</h3>
+            <p class="chart-helper-text aliados-vigencia-disclaimer" id="aliados-vigencia-disclaimer"></p>
+            <div class="table-wrapper">
+                <table class="clean-table" id="aliados-detalle-table">
+                    <thead>
+                        <tr>
+                            <th>Establecimiento</th>
+                            <th>Tipo</th>
+                            <th>Calificación</th>
+                            <th>Vigencia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="aliados-detalle-body"></tbody>
+                </table>
             </div>
         </div>
 
@@ -720,6 +741,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Lógica de la Aplicación -->
-    <script src="app.js?v=1.0.3"></script>
+    <script src="app.js?v=1.0.4"></script>
 </body>
 </html>

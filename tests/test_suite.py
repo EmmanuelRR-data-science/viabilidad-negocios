@@ -553,6 +553,50 @@ def test_filtro_giro_competidores_por_reseñas():
     assert [c["nombre"] for c in destacados] == ["Spa Animals"]
 
 
+def test_vigencia_comercio_cerrado_y_reciente():
+    from app.vigencia_comercio import detectar_cierre_en_resenas, evaluar_vigencia_comercio
+    import time
+
+    cerrado = evaluar_vigencia_comercio(business_status="CLOSED_PERMANENTLY")
+    assert cerrado["nivel"] == "inactivo"
+    assert cerrado["activo_para_analisis"] is False
+
+    ahora = int(time.time())
+    reciente = evaluar_vigencia_comercio(
+        business_status="OPERATIONAL",
+        reseñas_google=[{"texto": "Excelente café", "time": ahora - 30 * 86400}],
+    )
+    assert reciente["nivel"] == "alta"
+    assert reciente["activo_para_analisis"] is True
+
+    obsoleto = evaluar_vigencia_comercio(
+        business_status="OPERATIONAL",
+        reseñas_google=[{"texto": "Muy bueno", "time": ahora - 40 * 30 * 86400}],
+    )
+    assert obsoleto["nivel"] == "baja"
+    assert "valida en sitio" in obsoleto["lectura"].lower()
+
+    assert detectar_cierre_en_resenas([{"texto": "Ya cerró hace meses"}]) is True
+
+
+def test_calcular_isc_excluye_cerrados():
+    from app.analytics import _calcular_isc_competidores
+
+    competidores = [
+        {
+            "distancia_metros": 50,
+            "vigencia": {"activo_para_analisis": False},
+        },
+        {
+            "distancia_metros": 100,
+            "vigencia": {"activo_para_analisis": True},
+        },
+    ]
+    isc, dist_min = _calcular_isc_competidores(competidores)
+    assert dist_min == 100.0
+    assert abs(isc - (1.0 / (100.0**2))) < 1e-9
+
+
 def test_resolver_google_type():
     """
     Test that the SCiAN category to Google Places type mapper functions correctly.

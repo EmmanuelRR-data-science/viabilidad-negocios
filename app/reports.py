@@ -1603,9 +1603,29 @@ class ReportLabGenerator:
             asegurar_distancias_competidores,
             competidores_mas_cercanos,
             formatear_distancia_metros,
+            formatear_vigencia_corta,
             lectura_competidor_cercano,
             resolver_competidores_destacados_para_reporte,
         )
+        from app.google_places import enriquecer_lugares_con_vigencia
+        from app.vigencia_comercio import disclaimer_vigencia
+
+        def _asegurar_vigencia_pdf(lugares: list) -> None:
+            from app.analytics import _asegurar_vigencia_en_lugares
+
+            try:
+                enriquecer_lugares_con_vigencia(lugares, limite=15, max_reseñas=2)
+            except Exception:
+                pass
+            _asegurar_vigencia_en_lugares(lugares)
+
+        def _celda_vigencia(item: dict) -> str:
+            vig = item.get("vigencia") or {}
+            etiqueta = formatear_vigencia_corta(vig)
+            lectura = vig.get("lectura", "")
+            if lectura:
+                return f"<b>{etiqueta}</b><br/><font size='6' color='#64748b'>{lectura}</font>"
+            return etiqueta
 
         comp_list = list(analisis.get("competidores_listado", []))
         asegurar_distancias_competidores(
@@ -1613,14 +1633,19 @@ class ReportLabGenerator:
             float(orden.latitud),
             float(orden.longitud),
         )
+        _asegurar_vigencia_pdf(comp_list)
         total_comp_detectados = int(analisis.get("competidores_conteo") or len(comp_list))
+        activos_conteo = int(analisis.get("competidores_activos_conteo") or total_comp_detectados)
         story.append(
             Paragraph(
                 f"Listado completo de los <b>{total_comp_detectados}</b> establecimientos competidores detectados "
-                f"en el radio (misma lista que el dashboard). Los datos provienen de Google Places según el giro "
-                f"y las categorías analizadas.",
+                f"en el radio (<b>{activos_conteo}</b> considerados activos según Google). Los datos provienen de "
+                f"Google Places según el giro y las categorías analizadas.",
                 s_body,
             )
+        )
+        story.append(
+            Paragraph(f"<font size='7' color='#64748b'><i>{disclaimer_vigencia()}</i></font>", s_body)
         )
         enriquecer_reseñas = orden.tier_adquirido in ["pro", "premium"]
         mejor_valorados = resolver_competidores_destacados_para_reporte(
@@ -1643,6 +1668,7 @@ class ReportLabGenerator:
                 Paragraph("Nombre del Establecimiento", s_table_header),
                 Paragraph("Giro / Tipo Comercial", s_table_header),
                 Paragraph("Calificación Google", s_table_header),
+                Paragraph("Vigencia", s_table_header),
                 Paragraph("Distancia al punto", s_table_header),
             ],
         ]
@@ -1657,6 +1683,7 @@ class ReportLabGenerator:
                     Paragraph("—", s_table_cell),
                     Paragraph("—", s_table_cell),
                     Paragraph("—", s_table_cell),
+                    Paragraph("—", s_table_cell),
                 ]
             )
         else:
@@ -1666,11 +1693,12 @@ class ReportLabGenerator:
                         Paragraph(item.get("nombre", "—"), s_table_cell),
                         Paragraph(_tipo_comercial_legible(item.get("tipo"), orden.rubro), s_table_cell),
                         Paragraph(_etiqueta_rating_competidor(item), s_table_cell),
+                        Paragraph(_celda_vigencia(item), s_table_cell),
                         Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                     ]
                 )
 
-        comp_table = Table(comp_table_data, colWidths=[130, 110, 130, 134])
+        comp_table = Table(comp_table_data, colWidths=[115, 95, 95, 115, 74])
         comp_table.setStyle(
             TableStyle(
                 [
@@ -1688,15 +1716,24 @@ class ReportLabGenerator:
 
         aliados_reales = analisis.get("aliados_listado", [])
         if orden.tier_adquirido == "premium" and aliados_reales:
+            _asegurar_vigencia_pdf(aliados_reales)
             story.append(Spacer(1, 10))
             story.append(
                 Paragraph("<b>Establecimientos Complementarios (Atractores de Tráfico):</b>", s_h2)
+            )
+            story.append(
+                Paragraph(
+                    "<font size='7' color='#64748b'><i>La vigencia de aliados usa las mismas señales de Google "
+                    f"(estado operativo y reseñas recientes). {disclaimer_vigencia()}</i></font>",
+                    s_body,
+                )
             )
             aliados_table_data = [
                 [
                     Paragraph("Nombre", s_table_header),
                     Paragraph("Categoría", s_table_header),
                     Paragraph("Calificación Google", s_table_header),
+                    Paragraph("Vigencia", s_table_header),
                 ]
             ]
             for aliado in aliados_reales:
@@ -1709,9 +1746,10 @@ class ReportLabGenerator:
                         Paragraph(aliado["nombre"], s_table_cell),
                         Paragraph(_tipo_comercial_legible(aliado.get("tipo"), orden.rubro), s_table_cell),
                         Paragraph(f"{rating_str} {reviews_str}".strip(), s_table_cell),
+                        Paragraph(_celda_vigencia(aliado), s_table_cell),
                     ]
                 )
-            aliados_table = Table(aliados_table_data, colWidths=[200, 170, 134])
+            aliados_table = Table(aliados_table_data, colWidths=[165, 130, 120, 89])
             aliados_table.setStyle(
                 TableStyle(
                     [
@@ -1751,6 +1789,7 @@ class ReportLabGenerator:
                     Paragraph("Establecimiento", s_table_header),
                     Paragraph("Calificación", s_table_header),
                     Paragraph("Reseñas", s_table_header),
+                    Paragraph("Vigencia", s_table_header),
                     Paragraph("Distancia al punto", s_table_header),
                 ]
             ]
@@ -1760,10 +1799,11 @@ class ReportLabGenerator:
                         Paragraph(item.get("nombre", "Comercio Local"), s_table_cell),
                         Paragraph(f"⭐ {item.get('rating', 0.0)} / 5.0", s_table_cell),
                         Paragraph(f"{int(item.get('user_ratings_total') or 0):,}", s_table_cell),
+                        Paragraph(_celda_vigencia(item), s_table_cell),
                         Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                     ]
                 )
-            top_table = Table(top_data, colWidths=[180, 90, 80, 154])
+            top_table = Table(top_data, colWidths=[130, 72, 58, 120, 104])
             top_table.setStyle(
                 TableStyle(
                     [
@@ -1802,6 +1842,7 @@ class ReportLabGenerator:
                     Paragraph("Distancia", s_table_header),
                     Paragraph("Calificacion", s_table_header),
                     Paragraph("Resenas", s_table_header),
+                    Paragraph("Vigencia", s_table_header),
                     Paragraph("Lectura", s_table_header),
                 ]
             ]
@@ -1815,10 +1856,11 @@ class ReportLabGenerator:
                         Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                         Paragraph(rating_txt, s_table_cell),
                         Paragraph(str(resenas) if resenas > 0 else "—", s_table_cell),
+                        Paragraph(formatear_vigencia_corta(item.get("vigencia")), s_table_cell),
                         Paragraph(lectura_competidor_cercano(item), s_table_cell),
                     ]
                 )
-            cercanos_table = Table(cercanos_data, colWidths=[115, 62, 68, 48, 211])
+            cercanos_table = Table(cercanos_data, colWidths=[95, 52, 58, 42, 88, 163])
             cercanos_table.setStyle(
                 TableStyle(
                     [

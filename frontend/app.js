@@ -1195,6 +1195,7 @@ async function runPreviewAnalysis() {
             renderCompetitorsChart(data.competidores_listado);
             renderTopCompetitorsTable(data);
             renderCompetitorReviews(data);
+            renderAliadosDetalleTable(data, "gratuito");
             renderPOITable(data);
             syncHeatmapSection("gratuito", data.afluencia_peatonal);
             applyBlurRules("gratuito");
@@ -1691,6 +1692,7 @@ async function unlockPaidReport() {
             renderCompetitorsChart(metricas.competidores_listado);
             renderTopCompetitorsTable(metricas);
             renderCompetitorReviews(metricas);
+            renderAliadosDetalleTable(metricas, state.activeTier);
             renderPOITable(metricas);
             syncHeatmapSection(state.activeTier, metricas.afluencia_peatonal);
 
@@ -1860,6 +1862,44 @@ function _formatDistanceMeters(metros) {
 
 const MIN_RESENAS_DESTACADO = 5;
 
+const VIGENCIA_DISCLAIMER =
+    "La vigencia operativa se infiere de Google Maps (estado del negocio y fecha de reseñas recientes). " +
+    "Un alto rating histórico no garantiza que el local siga abierto; valida en sitio antes de invertir.";
+
+function _vigenciaBadgeClass(nivel) {
+    const map = {
+        alta: "vigencia-alta",
+        media: "vigencia-media",
+        baja: "vigencia-baja",
+        inactivo: "vigencia-inactivo",
+        sin_verificar: "vigencia-sin_verificar",
+    };
+    return map[nivel] || "vigencia-sin_verificar";
+}
+
+function _renderVigenciaCell(item) {
+    const vig = item?.vigencia || {};
+    const etiqueta = vig.etiqueta || "Sin verificar";
+    const lectura = vig.lectura || "";
+    const badge = `<span class="badge ${_vigenciaBadgeClass(vig.nivel)}">${_escapeHtml(etiqueta)}</span>`;
+    const nota = lectura ? `<span class="vigencia-lectura">${_escapeHtml(lectura)}</span>` : "";
+    return `${badge}${nota}`;
+}
+
+function _setVigenciaDisclaimers(metricas) {
+    const compDisc = document.getElementById("competitor-vigencia-disclaimer");
+    if (compDisc) {
+        const total = metricas.competidores_conteo ?? (metricas.competidores_listado || []).length;
+        const activos = metricas.competidores_activos_conteo ?? total;
+        compDisc.textContent =
+            `${VIGENCIA_DISCLAIMER} Detectados: ${total}; activos según Google: ${activos}.`;
+    }
+    const allyDisc = document.getElementById("aliados-vigencia-disclaimer");
+    if (allyDisc) {
+        allyDisc.textContent = VIGENCIA_DISCLAIMER;
+    }
+}
+
 function _filtrarDestacadosConfiables(lista) {
     return (lista || [])
         .filter(c => Number(c.rating) > 0 && Number(c.user_ratings_total || 0) >= MIN_RESENAS_DESTACADO)
@@ -1901,9 +1941,11 @@ function renderTopCompetitorsTable(metricas) {
             <td>${_escapeHtml(comp.nombre || "Comercio local")}</td>
             <td>⭐ ${Number(comp.rating || 0).toFixed(1)}</td>
             <td>${Number(comp.user_ratings_total || 0).toLocaleString()}</td>
+            <td>${_renderVigenciaCell(comp)}</td>
             <td>${_escapeHtml(_formatDistanceMeters(comp.distancia_metros) || "—")}</td>
         </tr>
     `).join("");
+    _setVigenciaDisclaimers(metricas);
     wrap.classList.remove("hidden");
 }
 
@@ -1941,6 +1983,36 @@ function renderCompetitorReviews(metricas) {
 
     list.innerHTML = cards.join("");
     block.classList.remove("hidden");
+}
+
+function renderAliadosDetalleTable(metricas, tier = "gratuito") {
+    const card = document.getElementById("aliados-detalle-card");
+    const tbody = document.getElementById("aliados-detalle-body");
+    if (!card || !tbody) return;
+
+    if (tier !== "premium") {
+        card.classList.add("hidden");
+        tbody.innerHTML = "";
+        return;
+    }
+
+    const aliados = metricas.aliados_listado || [];
+    if (aliados.length === 0) {
+        card.classList.add("hidden");
+        tbody.innerHTML = "";
+        return;
+    }
+
+    tbody.innerHTML = aliados.map(aliado => `
+        <tr>
+            <td>${_escapeHtml(aliado.nombre || "Establecimiento")}</td>
+            <td>${_escapeHtml(aliado.tipo || "—")}</td>
+            <td>${aliado.rating > 0 ? `⭐ ${Number(aliado.rating).toFixed(1)} (${Number(aliado.user_ratings_total || 0).toLocaleString()})` : "Sin calificación"}</td>
+            <td>${_renderVigenciaCell(aliado)}</td>
+        </tr>
+    `).join("");
+    _setVigenciaDisclaimers(metricas);
+    card.classList.remove("hidden");
 }
 
 // --- GRÁFICO 1: COMPETIDORES (Chart.js Bar) ---

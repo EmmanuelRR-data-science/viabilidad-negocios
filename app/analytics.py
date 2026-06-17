@@ -17,12 +17,48 @@ from app.nse import calcular_nse
 from app.google_places import (
     buscar_competidores,
     enriquecer_competidores_con_reseñas,
+    enriquecer_lugares_con_vigencia,
     filtrar_competidores_por_giro,
 )
+from app.vigencia_comercio import vigencia_sin_verificar
 
 logger = logging.getLogger("analytics")
 
 MIN_RESENAS_DESTACADO = 5
+LIMITE_VIGENCIA_COMPETIDORES = 15
+LIMITE_VIGENCIA_ALIADOS = 10
+
+
+def _activo_para_analisis(lugar: dict) -> bool:
+    return bool(lugar.get("vigencia", {}).get("activo_para_analisis", True))
+
+
+def _asegurar_vigencia_en_lugares(lugares: list[dict]) -> None:
+    for lugar in lugares:
+        if not lugar.get("vigencia"):
+            lugar["vigencia"] = vigencia_sin_verificar()
+
+
+def _calcular_isc_competidores(competidores: list[dict]) -> tuple[float, float]:
+    """ISC y distancia mínima usando solo establecimientos activos según Google."""
+    isc = 0.0
+    distancia_mas_cercana = float("inf")
+    for comp in competidores:
+        if not _activo_para_analisis(comp):
+            continue
+        dist = comp.get("distancia_metros")
+        if dist is None:
+            continue
+        distancia_mas_cercana = min(distancia_mas_cercana, float(dist))
+        dist_cap = max(float(dist), 10.0)
+        isc += 1.0 / (dist_cap**2)
+    return isc, distancia_mas_cercana
+
+
+def formatear_vigencia_corta(vigencia: dict | None) -> str:
+    if not vigencia:
+        return "Sin verificar"
+    return str(vigencia.get("etiqueta") or "Sin verificar")
 
 
 def calcular_distancia_haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -160,6 +196,7 @@ def resolver_competidores_destacados_para_reporte(
 
 def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
     return {
+        "place_id": item.get("place_id"),
         "nombre": item.get("nombre", "Establecimiento sin nombre"),
         "tipo": tipo_semantico,
         "rating": item.get("rating", 0.0),
@@ -353,6 +390,7 @@ def procesar_calculo_analitico(
     # 3. Buscar competidores (Google Places)
     competidores = []
     competidores_destacados: list[dict] = []
+    competidores_activos = 0
     isc = 0.0
     distancia_mas_cercana = float("inf")
 
@@ -483,20 +521,25 @@ def procesar_calculo_analitico(
                 antes,
                 len(competidores),
             )
-            isc = 0.0
-            distancia_mas_cercana = float("inf")
 
         for comp in competidores:
             dist = calcular_distancia_haversine(lat, lng, comp["latitud"], comp["longitud"])
             comp["distancia_metros"] = round(dist, 1)
-            distancia_mas_cercana = min(distancia_mas_cercana, dist)
 
-            # Capping a 10 metros para evitar infinitos en la fórmula de gravedad
-            dist_cap = max(dist, 10.0)
-            isc += 1.0 / (dist_cap**2)
-
-        # Ordenar competidores por distancia (de más cercano a más lejano)
         competidores.sort(key=lambda x: x.get("distancia_metros", 999999.0))
+
+        try:
+            enriquecer_lugares_con_vigencia(
+                competidores,
+                limite=LIMITE_VIGENCIA_COMPETIDORES,
+                max_reseñas=2,
+            )
+        except Exception as vig_err:
+            logger.error("No se pudo enriquecer vigencia de competidores: %s", vig_err)
+        _asegurar_vigencia_en_lugares(competidores)
+
+        isc, distancia_mas_cercana = _calcular_isc_competidores(competidores)
+        competidores_activos = sum(1 for c in competidores if _activo_para_analisis(c))
 
         enriquecer_reseñas = tier in ["pro", "premium"]
         try:
@@ -583,6 +626,17 @@ def procesar_calculo_analitico(
                 escuelas_conteo = aliados_conteos["school"]
                 transporte_conteo = aliados_conteos["transit_station"]
 
+            if aliados_listado:
+                try:
+                    enriquecer_lugares_con_vigencia(
+                        aliados_listado,
+                        limite=LIMITE_VIGENCIA_ALIADOS,
+                        max_reseñas=1,
+                    )
+                except Exception as ally_vig_err:
+                    logger.error("No se pudo enriquecer vigencia de aliados: %s", ally_vig_err)
+                _asegurar_vigencia_en_lugares(aliados_listado)
+
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
     if True:
@@ -616,6 +670,7 @@ def procesar_calculo_analitico(
         "categoria": categoria,
         "rubro": rubro,
         "competidores_conteo": len(competidores),
+        "competidores_activos_conteo": competidores_activos if competidores else 0,
         "competidores_listado": competidores,
         "competidores_destacados": competidores_destacados,
         "distancia_competidor_cercano": distancia_cercana_res,

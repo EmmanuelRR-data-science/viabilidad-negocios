@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 import unicodedata
 
 import requests
@@ -295,29 +296,35 @@ def _truncar_texto(texto: str, *, max_len: int = 220) -> str:
     return limpio[: max_len - 1].rstrip() + "…"
 
 
-def obtener_reseñas_lugar(place_id: str, *, max_reseñas: int = 3) -> list[dict]:
+def obtener_detalle_lugar(place_id: str, *, max_reseñas: int = 3) -> dict:
     """
-    Obtiene reseñas públicas de Google Maps para un place_id.
-    Retorna lista de dicts: texto, rating, autor, fecha_relativa.
+    Place Details: estado operativo y reseñas más recientes (reviews_sort=newest).
     """
+    vacio = {"business_status": "UNKNOWN", "reseñas_google": []}
     if not place_id:
-        return []
+        return vacio
 
     if not _google_api_disponible():
-        return [
-            {
-                "texto": _MOCK_RESEÑAS[i % len(_MOCK_RESEÑAS)],
-                "rating": 4 - (i % 2),
-                "autor": f"Cliente Google {i + 1}",
-                "fecha_relativa": f"hace {i + 1} meses",
-            }
-            for i in range(min(max_reseñas, 2))
-        ]
+        ahora = int(time.time())
+        return {
+            "business_status": "OPERATIONAL",
+            "reseñas_google": [
+                {
+                    "texto": _MOCK_RESEÑAS[i % len(_MOCK_RESEÑAS)],
+                    "rating": 4 - (i % 2),
+                    "autor": f"Cliente Google {i + 1}",
+                    "fecha_relativa": f"hace {i + 1} meses",
+                    "time": ahora - (30 * (i + 1) * 86400),
+                }
+                for i in range(min(max_reseñas, 2))
+            ],
+        }
 
     url = "https://maps.googleapis.com/maps/api/place/details/json"
     params = {
         "place_id": place_id,
-        "fields": "reviews",
+        "fields": "business_status,reviews",
+        "reviews_sort": "newest",
         "language": "es",
         "key": GOOGLE_MAPS_API_KEY,
     }
@@ -327,26 +334,80 @@ def obtener_reseñas_lugar(place_id: str, *, max_reseñas: int = 3) -> list[dict
         response.raise_for_status()
         data = response.json()
         if data.get("status") != "OK":
-            logger.warning("Place Details sin reseñas para %s: %s", place_id, data.get("status"))
-            return []
+            logger.warning("Place Details sin datos para %s: %s", place_id, data.get("status"))
+            return vacio
 
+        result = data.get("result", {})
         reseñas: list[dict] = []
-        for item in data.get("result", {}).get("reviews", [])[:max_reseñas]:
+        for item in result.get("reviews", [])[:max_reseñas]:
             texto = _truncar_texto(item.get("text", ""))
-            if not texto:
-                continue
+            ts = item.get("time")
             reseñas.append(
                 {
                     "texto": texto,
                     "rating": int(item.get("rating") or 0),
                     "autor": str(item.get("author_name") or "Usuario de Google"),
                     "fecha_relativa": str(item.get("relative_time_description") or ""),
+                    "time": int(ts) if ts else None,
                 }
             )
-        return reseñas
+        return {
+            "business_status": str(result.get("business_status") or "UNKNOWN"),
+            "reseñas_google": reseñas,
+        }
     except Exception as err:
-        logger.error("Error al obtener reseñas de Google para %s: %s", place_id, err)
-        return []
+        logger.error("Error al obtener detalle de Google para %s: %s", place_id, err)
+        return vacio
+
+
+def obtener_reseñas_lugar(place_id: str, *, max_reseñas: int = 3) -> list[dict]:
+    """
+    Obtiene reseñas públicas de Google Maps para un place_id.
+    Retorna lista de dicts: texto, rating, autor, fecha_relativa, time.
+    """
+    return obtener_detalle_lugar(place_id, max_reseñas=max_reseñas).get("reseñas_google", [])
+
+
+def enriquecer_lugar_con_vigencia(lugar: dict, *, max_reseñas: int = 3) -> None:
+    """Consulta Place Details y adjunta reseñas + objeto vigencia (in-place)."""
+    from app.vigencia_comercio import evaluar_vigencia_comercio, vigencia_sin_verificar
+
+    if lugar.get("vigencia"):
+        return
+
+    place_id = lugar.get("place_id")
+    if not place_id:
+        lugar["vigencia"] = vigencia_sin_verificar()
+        return
+
+    detalle = obtener_detalle_lugar(place_id, max_reseñas=max_reseñas)
+    lugar["business_status"] = detalle.get("business_status")
+    if detalle.get("reseñas_google"):
+        lugar["reseñas_google"] = detalle["reseñas_google"]
+    elif "reseñas_google" not in lugar:
+        lugar["reseñas_google"] = []
+
+    lugar["vigencia"] = evaluar_vigencia_comercio(
+        business_status=detalle.get("business_status"),
+        reseñas_google=lugar.get("reseñas_google"),
+    )
+
+
+def enriquecer_lugares_con_vigencia(
+    lugares: list[dict],
+    *,
+    limite: int = 15,
+    max_reseñas: int = 2,
+) -> None:
+    """Enriquece hasta `limite` lugares con place_id (orden de la lista)."""
+    consultados = 0
+    for lugar in lugares:
+        if consultados >= limite:
+            break
+        if not lugar.get("place_id"):
+            continue
+        enriquecer_lugar_con_vigencia(lugar, max_reseñas=max_reseñas)
+        consultados += 1
 
 
 def enriquecer_competidores_con_reseñas(
@@ -355,17 +416,15 @@ def enriquecer_competidores_con_reseñas(
     min_resenas: int = 5,
     max_reseñas_por_competidor: int = 2,
 ) -> None:
-    """Agrega reseñas_google a los competidores destacados (mutación in-place)."""
+    """Agrega reseñas y vigencia a competidores destacados (mutación in-place)."""
     for comp in competidores:
+        if comp.get("vigencia"):
+            continue
         if int(comp.get("user_ratings_total") or 0) < min_resenas:
-            comp["reseñas_google"] = []
+            comp["reseñas_google"] = comp.get("reseñas_google") or []
+            enriquecer_lugar_con_vigencia(comp, max_reseñas=max_reseñas_por_competidor)
             continue
-        if comp.get("reseñas_google"):
-            continue
-        comp["reseñas_google"] = obtener_reseñas_lugar(
-            comp.get("place_id"),
-            max_reseñas=max_reseñas_por_competidor,
-        )
+        enriquecer_lugar_con_vigencia(comp, max_reseñas=max_reseñas_por_competidor)
 
 
 def obtener_direccion(lat: float, lng: float) -> dict:
