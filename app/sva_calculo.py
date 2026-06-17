@@ -82,12 +82,19 @@ def _lectura_llana_competencia(comp: dict[str, Any]) -> str:
     )
 
 
+NOTA_BESTTIME_TRAFICO = (
+    "Este dato se extrae directamente de la plataforma BestTime con base en el "
+    "promedio semanal de personas que circulan por esa zona."
+)
+
+
 def _lectura_llana_trafico(traf: dict[str, Any], tier: str) -> str:
     score = float(traf["score"])
     if traf.get("medicion_peatonal_real"):
         return (
             f"El tráfico peatonal medido en la zona equivale a {score:.1f}%; "
-            f"ese porcentaje es el score del pilar de tráfico peatonal."
+            f"ese porcentaje es el score del pilar de tráfico peatonal. "
+            f"{NOTA_BESTTIME_TRAFICO}"
         )
     return (
         f"No hubo medición de tráfico peatonal en esta coordenada para el plan {tier.capitalize()}; "

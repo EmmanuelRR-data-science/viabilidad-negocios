@@ -358,6 +358,7 @@ def test_sva_calculo_transparente_y_simulador():
     )
     assert desglose_prem["trafico"]["medicion_peatonal_real"] is True
     assert "tráfico peatonal" in desglose_prem["trafico"]["lectura_llana"].lower()
+    assert "besttime" in desglose_prem["trafico"]["lectura_llana"].lower()
 
     escenarios = escenarios_simulacion_sva(analisis, tier="pro", radio_metros=1000)
     assert escenarios[0]["escenario"].startswith("Situación actual")
