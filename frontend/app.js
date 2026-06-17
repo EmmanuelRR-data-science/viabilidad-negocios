@@ -69,6 +69,22 @@ const priceFormatter = new Intl.NumberFormat("es-MX", {
 const progressTimers = {};
 const KPI_VALUE_IDS = ["kpi-sva", "kpi-poblacion", "kpi-competidores"];
 
+// Flags de UI — cambiar a true para reactivar secciones ocultas temporalmente
+const UI_FEATURES = {
+    intencionesNegocio: false,
+};
+
+const INTRO_COPY = {
+    conIntenciones: {
+        step: "Elige tu giro, ajusta el radio de influencia y detalla tus intenciones comerciales en lenguaje natural.",
+        panel: "Ingresa las variables operativas y tus intenciones comerciales.",
+    },
+    sinIntenciones: {
+        step: "Elige tu giro y ajusta el radio de influencia de análisis.",
+        panel: "Ingresa las variables operativas de tu negocio.",
+    },
+};
+
 // --- INICIALIZACIÓN AL CARGAR LA PÁGINA ---
 document.addEventListener("DOMContentLoaded", () => {
     logger("Iniciando SPA de GeoViabilidad Hook...");
@@ -81,8 +97,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Etiquetas de precios con moneda MXN
     initTierPricingLabels();
+
+    // 4. Secciones de UI controladas por feature flags
+    initUIFeatures();
     
-    // 4. Comprobar y crear carpetas locales estáticas en desarrollo
+    // 5. Comprobar y crear carpetas locales estáticas en desarrollo
     logger("Inicialización completa. Esperando clic en el mapa...");
 });
 
@@ -99,6 +118,27 @@ function logger(message, data = null) {
 function formatTierPrice(tier) {
     const amount = TIER_PRICING[tier]?.amount ?? 0;
     return `${priceFormatter.format(amount)} MXN`;
+}
+
+function initUIFeatures() {
+    const intencionesSection = document.getElementById("intenciones-section");
+    if (intencionesSection) {
+        intencionesSection.classList.toggle("hidden", !UI_FEATURES.intencionesNegocio);
+    }
+
+    const copy = UI_FEATURES.intencionesNegocio
+        ? INTRO_COPY.conIntenciones
+        : INTRO_COPY.sinIntenciones;
+
+    const introStep = document.getElementById("intro-step-config");
+    if (introStep) {
+        introStep.innerHTML = `<strong>Configura variables:</strong> ${copy.step}`;
+    }
+
+    const panelDesc = document.getElementById("panel-config-desc");
+    if (panelDesc) {
+        panelDesc.textContent = copy.panel;
+    }
 }
 
 function initTierPricingLabels() {
@@ -1287,8 +1327,8 @@ async function openPaymentModal(tier) {
         const aliadosAdicionales = document.getElementById("aliados-adicionales-input").value.trim();
 
         const categoryMap = {
-            "ia_auto": "🤖 Determinar automáticamente por IA",
-            "ia_auto_aliado": "📊 Matriz automática por rubro (geomarketing)",
+            "ia_auto": "Detectar competidores con base en el giro/rubro del negocio",
+            "ia_auto_aliado": "Detectar aliados de manera automática",
             "cafe": "Cafetería",
             "restaurant": "Restaurante",
             "fast_food": "Comida Rápida",

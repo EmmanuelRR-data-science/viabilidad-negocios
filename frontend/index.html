@@ -80,7 +80,7 @@
                     </div>
                     <div class="intro-step">
                         <span>2️⃣</span>
-                        <span><strong>Configura variables:</strong> Elige tu giro, ajusta el radio de influencia y detalla tus intenciones comerciales en lenguaje natural.</span>
+                        <span id="intro-step-config"><strong>Configura variables:</strong> Elige tu giro y ajusta el radio de influencia de análisis.</span>
                     </div>
                     <div class="intro-step">
                         <span>3️⃣</span>
@@ -91,7 +91,7 @@
 
             <div class="panel-header">
                 <h2>1. Configuración del Negocio</h2>
-                <p>Ingresa las variables operativas y tus intenciones comerciales.</p>
+                <p id="panel-config-desc">Ingresa las variables operativas de tu negocio.</p>
             </div>
             
             <form id="analytics-form" class="panel-form" onsubmit="event.preventDefault();">
@@ -150,8 +150,8 @@
                     </div>
                 </div>
                 
-                <!-- Textarea de Intenciones en Lenguaje Natural -->
-                <div class="form-group">
+                <!-- Textarea de Intenciones en Lenguaje Natural (oculto temporalmente vía UI_FEATURES.intencionesNegocio) -->
+                <div id="intenciones-section" class="form-group hidden">
                     <label for="intenciones-textarea">
                         Intenciones Específicas del Negocio
                         <span class="info-tooltip-wrapper">
@@ -173,7 +173,7 @@
                         </span>
                     </label>
                     <div class="checkbox-group glass-card" id="competidores-checkboxes">
-                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="competidores-ia-auto" value="ia_auto"> 🤖 Autodetectar competidores por IA</label>
+                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="competidores-ia-auto" value="ia_auto"> Detectar competidores con base en el giro/rubro del negocio</label>
                         <label class="checkbox-item"><input type="checkbox" value="cafe"> Cafetería</label>
                         <label class="checkbox-item"><input type="checkbox" value="restaurant"> Restaurante</label>
                         <label class="checkbox-item"><input type="checkbox" value="fast_food"> Comida Rápida</label>
@@ -205,7 +205,7 @@
                         </span>
                     </label>
                     <div class="checkbox-group glass-card" id="aliados-checkboxes">
-                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="aliados-ia-auto" value="ia_auto"> 📊 Matriz automática de aliados por rubro</label>
+                        <label class="checkbox-item checkbox-ia-auto" style="grid-column: 1 / -1;"><input type="checkbox" id="aliados-ia-auto" value="ia_auto"> Detectar aliados de manera automática</label>
                         <label class="checkbox-item"><input type="checkbox" value="bank"> Bancos</label>
                         <label class="checkbox-item"><input type="checkbox" value="school"> Escuelas</label>
                         <label class="checkbox-item"><input type="checkbox" value="transit_station"> Transporte Público</label>
