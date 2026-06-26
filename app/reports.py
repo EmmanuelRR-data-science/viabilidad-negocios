@@ -9,7 +9,18 @@ from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfgen import canvas
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from collections import Counter
+
+from reportlab.platypus import (
+    KeepTogether,
+    LongTable,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 logger = logging.getLogger("reports")
 
@@ -33,6 +44,77 @@ def rubro_legible(rubro: str) -> str:
     if not rubro:
         return "Negocio"
     return RUBRO_DISPLAY.get(rubro.lower().strip(), rubro.replace("_", " ").strip().capitalize())
+
+
+def _formato_radio_kpi(radio_metros: int) -> str:
+    """Etiqueta compacta del radio contratado para la tarjeta KPI del resumen."""
+    if radio_metros >= 1000:
+        km = radio_metros / 1000.0
+        if km == int(km):
+            return f"{int(km)} km"
+        return f"{km:.1f} km"
+    return f"{radio_metros:,} m"
+
+
+def _estilo_tabla_pdf(*, header_dark: bool = True, zebra: bool = True) -> list:
+    style = [
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("PADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]
+    if header_dark:
+        style.extend(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ]
+        )
+    if zebra:
+        style.append(("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]))
+    return style
+
+
+def _tabla_larga(
+    data,
+    colWidths,
+    *,
+    repeat_rows: int = 1,
+    header_dark: bool = True,
+    zebra: bool = True,
+    extra_commands: list | None = None,
+):
+    """Tabla con encabezado repetido y saltos de página limpios (LongTable)."""
+    table = LongTable(data, colWidths=colWidths, repeatRows=repeat_rows, splitByRow=1)
+    style = TableStyle(_estilo_tabla_pdf(header_dark=header_dark, zebra=zebra))
+    if extra_commands:
+        for cmd in extra_commands:
+            style.add(*cmd)
+    table.setStyle(style)
+    return table
+
+
+def _conteos_destacados_por_tipo(aliados_destacados: list) -> dict[str, int]:
+    return dict(Counter(a.get("tipo") for a in aliados_destacados if a.get("tipo")))
+
+
+def _texto_conteo_iat_categoria(
+    conteo_total: int,
+    conteo_destacado: int,
+    *,
+    tier: str,
+) -> str:
+    """Texto honesto para conteos IAT: total en Places vs. listado curado del reporte."""
+    if conteo_total <= 0:
+        return "0 detectados"
+    if conteo_destacado > 0 and conteo_destacado < conteo_total:
+        texto = f"{conteo_total} en mapas · {conteo_destacado} en listado detallado"
+    else:
+        texto = f"{conteo_total} detectados en el radio"
+    if conteo_total >= 20:
+        texto += " (catálogo amplio; el detalle prioriza mejor calificación y cercanía)"
+    elif (tier or "").lower() == "premium":
+        texto += " (listado detallado: rating alto y ≥5 reseñas)"
+    return texto
 
 
 _TEXTOS_FODA_GENERICOS_OMITIR = frozenset(
@@ -236,19 +318,13 @@ def _agregar_mini_simulador_sva(
             ]
         )
 
-    sim_table = Table(sim_data, colWidths=[150, 58, 72, 78, 68, 58])
-    sim_table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                ("PADDING", (0, 0), (-1, -1), 4),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ]
-        )
+    sim_table = _tabla_larga(
+        sim_data,
+        [150, 58, 72, 78, 68, 58],
+        extra_commands=[
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ],
     )
     story.append(sim_table)
     story.append(Spacer(1, 6))
@@ -328,7 +404,7 @@ def _construir_tabla_pilares_sva(orden, analisis: dict, s_table_header, s_table_
     elif orden.tier_adquirido == "premium":
         inf_est = f"Sin medición de tráfico peatonal en zona (valor base {score_traf:.0f}/100)"
     else:
-        inf_est = f"Tráfico peatonal estimado (valor base {score_traf:.0f}/100 en este plan)"
+        inf_est = f"Tráfico peatonal estimado (valor base {score_traf:.0f}/100 en este reporte)"
 
     pilares_data = [
         [
@@ -570,7 +646,7 @@ def _interpretacion_distribucion_poblacional(
         )
 
     if tier == "basico":
-        plan_txt = " En Básico ves tres franjas etarias; en Pro y Premium la pirámide y segmentos afinan el nicho."
+        plan_txt = " En el reporte Básico ves tres franjas etarias; en los reportes Pro y Premium la pirámide y segmentos afinan el nicho."
     elif tier == "pro":
         plan_txt = " La pirámide detallada permite detectar si tu público objetivo es joven, familiar o mixto."
     else:
@@ -912,7 +988,7 @@ class ReportLabGenerator:
             f"<b>COORDENADAS:</b> {orden.latitud}, {orden.longitud}<br/>"
             f"<b>RADIO DE INFLUENCIA:</b> {orden.radio_metros} metros<br/>"
             f"<b>CÓDIGO DE ORDEN:</b> {orden.checkout_id}<br/>"
-            f"<b>NIVEL ADQUIRIDO:</b> <font color='#0675F1'><b>TIER {tier_label}</b></font><br/>"
+            f"<b>REPORTE ADQUIRIDO:</b> <font color='#0675F1'><b>{tier_label}</b></font><br/>"
             f"<b>FECHA DE EMISIÓN:</b> {fecha_es}<br/>"
         )
         story.append(Paragraph(meta_html, s_meta_cover))
@@ -973,16 +1049,18 @@ class ReportLabGenerator:
                 Paragraph("POBLACIÓN RESIDENTE", s_card_lbl),
                 Paragraph("COMPETIDORES", s_card_lbl),
                 Paragraph("NIVEL SOCIOECONÓMICO", s_card_lbl),
+                Paragraph("RADIO CONTRATADO", s_card_lbl),
             ],
             [
                 Paragraph(f"{analisis['sva']}/100", s_card_val),
                 Paragraph(f"{analisis['poblacion_ponderada']:,}", s_card_val),
                 Paragraph(f"{analisis['competidores_conteo']}", s_card_val),
                 Paragraph(nse_etiqueta_pdf, s_card_val),
+                Paragraph(_formato_radio_kpi(int(orden.radio_metros)), s_card_val),
             ],
         ]
 
-        kpi_table = Table(kpi_data, colWidths=[126, 126, 126, 126])
+        kpi_table = Table(kpi_data, colWidths=[100, 100, 100, 100, 104])
         kpi_table.setStyle(
             TableStyle(
                 [
@@ -995,7 +1073,7 @@ class ReportLabGenerator:
                 ]
             )
         )
-        story.append(kpi_table)
+        story.append(KeepTogether([kpi_table]))
         story.append(Spacer(1, 20))
 
         story.append(Paragraph("Resumen Diagnóstico de Apertura:", s_h2))
@@ -1199,20 +1277,14 @@ class ReportLabGenerator:
                 ]
             )
 
-            demo_table = Table(demo_table_data, colWidths=[200, 140, 164])
-            demo_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("BOTTOMPADDING", (0, 0), (-1, 0), 5),
-                        ("TOPPADDING", (0, 0), (-1, 0), 5),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("PADDING", (0, 0), (-1, -1), 5),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
+            demo_table = _tabla_larga(
+                demo_table_data,
+                [200, 140, 164],
+                extra_commands=[
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 5),
+                    ("TOPPADDING", (0, 0), (-1, 0), 5),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ],
             )
             story.append(demo_table)
 
@@ -1698,33 +1770,33 @@ class ReportLabGenerator:
                     ]
                 )
 
-        comp_table = Table(comp_table_data, colWidths=[115, 95, 95, 115, 74])
-        comp_table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("PADDING", (0, 0), (-1, -1), 5),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ]
-            )
-        )
-
+        comp_table = _tabla_larga(comp_table_data, [115, 95, 95, 115, 74])
         story.append(comp_table)
 
-        aliados_reales = analisis.get("aliados_listado", [])
+        aliados_reales = analisis.get("aliados_destacados") or analisis.get("aliados_listado", [])
+        seleccion_meta = analisis.get("atractores_seleccion") or {}
+        total_aliados = int(
+            seleccion_meta.get("cantidad_detectada") or len(analisis.get("aliados_listado") or [])
+        )
         if orden.tier_adquirido == "premium" and aliados_reales:
             _asegurar_vigencia_pdf(aliados_reales)
             story.append(Spacer(1, 10))
             story.append(
                 Paragraph("<b>Establecimientos Complementarios (Atractores de Tráfico):</b>", s_h2)
             )
+            nota_seleccion = seleccion_meta.get("regla") or (
+                f"Se muestran hasta {len(aliados_reales)} atractores priorizados por calificación Google."
+            )
+            if total_aliados > len(aliados_reales):
+                nota_seleccion += (
+                    f" En el radio se detectaron {total_aliados} en total; los conteos IAT "
+                    f"de la sección 4 reflejan el catálogo completo por categoría."
+                )
             story.append(
                 Paragraph(
-                    "<font size='7' color='#64748b'><i>La vigencia de aliados usa las mismas señales de Google "
-                    f"(estado operativo y reseñas recientes). {disclaimer_vigencia()}</i></font>",
+                    f"<font size='7' color='#64748b'><i>{nota_seleccion} "
+                    f"La vigencia usa señales de Google (estado operativo y reseñas recientes). "
+                    f"{disclaimer_vigencia()}</i></font>",
                     s_body,
                 )
             )
@@ -1733,6 +1805,7 @@ class ReportLabGenerator:
                     Paragraph("Nombre", s_table_header),
                     Paragraph("Categoría", s_table_header),
                     Paragraph("Calificación Google", s_table_header),
+                    Paragraph("Distancia", s_table_header),
                     Paragraph("Vigencia", s_table_header),
                 ]
             ]
@@ -1746,22 +1819,11 @@ class ReportLabGenerator:
                         Paragraph(aliado["nombre"], s_table_cell),
                         Paragraph(_tipo_comercial_legible(aliado.get("tipo"), orden.rubro), s_table_cell),
                         Paragraph(f"{rating_str} {reviews_str}".strip(), s_table_cell),
+                        Paragraph(formatear_distancia_metros(aliado.get("distancia_metros")), s_table_cell),
                         Paragraph(_celda_vigencia(aliado), s_table_cell),
                     ]
                 )
-            aliados_table = Table(aliados_table_data, colWidths=[165, 130, 120, 89])
-            aliados_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                        ("PADDING", (0, 0), (-1, -1), 5),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
+            aliados_table = _tabla_larga(aliados_table_data, [140, 95, 95, 62, 112])
             story.append(aliados_table)
         story.append(
             Paragraph(
@@ -1803,18 +1865,13 @@ class ReportLabGenerator:
                         Paragraph(formatear_distancia_metros(item.get("distancia_metros")), s_table_cell),
                     ]
                 )
-            top_table = Table(top_data, colWidths=[130, 72, 58, 120, 104])
-            top_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                        ("PADDING", (0, 0), (-1, -1), 5),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
+            top_table = _tabla_larga(
+                top_data,
+                [130, 72, 58, 120, 104],
+                extra_commands=[
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ],
             )
             story.append(top_table)
 
@@ -1860,19 +1917,13 @@ class ReportLabGenerator:
                         Paragraph(lectura_competidor_cercano(item), s_table_cell),
                     ]
                 )
-            cercanos_table = Table(cercanos_data, colWidths=[95, 52, 58, 42, 88, 163])
-            cercanos_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#475569")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                        ("PADDING", (0, 0), (-1, -1), 4),
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 7),
-                    ]
-                )
+            cercanos_table = _tabla_larga(
+                cercanos_data,
+                [95, 52, 58, 42, 88, 163],
+                extra_commands=[
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#475569")),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ],
             )
             story.append(cercanos_table)
             story.append(Spacer(1, 4))
@@ -1927,7 +1978,7 @@ class ReportLabGenerator:
                 )
             )
             story.append(Spacer(1, 6))
-            reseñas_table = Table(
+            reseñas_table = _tabla_larga(
                 [
                     [
                         Paragraph("Competidor", s_table_header),
@@ -1936,19 +1987,8 @@ class ReportLabGenerator:
                     ],
                     *reseñas_rows,
                 ],
-                colWidths=[120, 290, 94],
-            )
-            reseñas_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                        ("PADDING", (0, 0), (-1, -1), 5),
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ]
-                )
+                [120, 290, 94],
+                extra_commands=[("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155"))],
             )
             story.append(reseñas_table)
 
@@ -2180,6 +2220,8 @@ class ReportLabGenerator:
             story.append(Spacer(1, 8))
 
         aliados_conteos = analisis.get("aliados_conteos", {})
+        aliados_destacados_pdf = analisis.get("aliados_destacados") or []
+        conteos_destacados = _conteos_destacados_por_tipo(aliados_destacados_pdf)
 
         poi_table_data = [
             [
@@ -2191,12 +2233,32 @@ class ReportLabGenerator:
         from app.aliados_deterministico import nombre_categoria_places
 
         conteos_reales = {k: v for k, v in aliados_conteos.items() if k != "ia_auto" and int(v or 0) > 0}
+        if conteos_reales:
+            story.append(
+                Paragraph(
+                    "<font size='7' color='#64748b'><i>Los conteos reflejan todas las coincidencias "
+                    "en mapas dentro del radio. El listado detallado de atractores (sección 3) "
+                    "prioriza hasta 10 establecimientos por calificación Google y cercanía; "
+                    "no incluye todos los POI del conteo.</i></font>",
+                    s_body,
+                )
+            )
+            story.append(Spacer(1, 6))
+
         if orden.tier_adquirido == "premium" and conteos_reales:
-            for ally_type, cnt in conteos_reales.items():
+            for ally_type, cnt in sorted(conteos_reales.items(), key=lambda x: (-int(x[1]), x[0])):
+                cnt_destacado = conteos_destacados.get(ally_type, 0)
                 poi_table_data.append(
                     [
                         Paragraph(nombre_categoria_places(ally_type), s_table_cell),
-                        Paragraph(f"{cnt} detectados", s_table_cell),
+                        Paragraph(
+                            _texto_conteo_iat_categoria(
+                                int(cnt),
+                                cnt_destacado,
+                                tier=orden.tier_adquirido,
+                            ),
+                            s_table_cell,
+                        ),
                     ]
                 )
         else:
@@ -2210,23 +2272,15 @@ class ReportLabGenerator:
                     poi_table_data.append(
                         [
                             Paragraph(etiqueta, s_table_cell),
-                            Paragraph(f"{cnt} detectados", s_table_cell),
+                            Paragraph(
+                                _texto_conteo_iat_categoria(cnt, 0, tier=orden.tier_adquirido),
+                                s_table_cell,
+                            ),
                         ]
                     )
 
         if len(poi_table_data) > 1:
-            poi_table = Table(poi_table_data, colWidths=[300, 204])
-            poi_table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                        ("PADDING", (0, 0), (-1, -1), 6),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
+            poi_table = _tabla_larga(poi_table_data, [300, 204])
             story.append(poi_table)
             story.append(Spacer(1, 8))
 
@@ -2269,12 +2323,21 @@ class ReportLabGenerator:
             story.append(Paragraph("<b>Tráfico peatonal por hora:</b>", s_h2))
             story.append(
                 Paragraph(
-                    "Mapeo del tráfico peatonal por hora, construido a partir de registros históricos de "
-                    "paso de personas en establecimientos representativos de la zona. "
-                    "Este análisis permite programar de forma eficiente turnos del personal y picos de producción.",
+                    "Mapeo del tráfico peatonal por hora y día, construido a partir de registros históricos "
+                    "de un competidor identificado en la zona. "
+                    "Este análisis permite programar turnos del personal y picos de producción.",
                     s_body,
                 )
             )
+            from app.afluencia_presentacion import (
+                ACLARACION_HEATMAP_COMPETIDORES,
+                NOTA_ESTABLECIMIENTO_REFERENCIA,
+                construir_filas_tabla_afluencia,
+                texto_establecimiento_referencia,
+            )
+
+            story.append(Spacer(1, 6))
+            story.append(Paragraph(ACLARACION_HEATMAP_COMPETIDORES, s_body))
             story.append(Spacer(1, 8))
             _embed_chart_png(
                 story,
@@ -2285,33 +2348,28 @@ class ReportLabGenerator:
             story.append(Spacer(1, 8))
 
             afl_curva = afl_data.get("afluencia_horaria", [])
-            int_manana = int(round(sum(afl_curva[8:12]) / 4.0))
-            int_mediodia = int(round(sum(afl_curva[12:16]) / 4.0))
-            int_tarde = int(round(sum(afl_curva[16:20]) / 4.0))
-            int_noche = int(round(sum(afl_curva[20:24]) / 4.0))
+            story.append(
+                Paragraph(
+                    texto_establecimiento_referencia(afl_data.get("venue_name")),
+                    s_body,
+                )
+            )
+            story.append(Spacer(1, 6))
 
             afluencia_table_data = [
                 [
                     Paragraph("Rango Horario", s_table_header),
-                    Paragraph("Intensidad Peatonal (%)", s_table_header),
-                ],
-                [
-                    Paragraph("Mañana (08:00 - 12:00)", s_table_cell),
-                    Paragraph(f"{int_manana}%", s_table_cell),
-                ],
-                [
-                    Paragraph("Mediodía (12:00 - 16:00)", s_table_cell),
-                    Paragraph(f"{int_mediodia}%", s_table_cell),
-                ],
-                [
-                    Paragraph("Tarde (16:00 - 20:00)", s_table_cell),
-                    Paragraph(f"{int_tarde}%", s_table_cell),
-                ],
-                [
-                    Paragraph("Noche (20:00 - 24:00)", s_table_cell),
-                    Paragraph(f"{int_noche}%", s_table_cell),
-                ],
+                    Paragraph("Intensidad Peatonal", s_table_header),
+                ]
             ]
+            for rango, intensidad in construir_filas_tabla_afluencia(afl_curva):
+                afluencia_table_data.append(
+                    [
+                        Paragraph(rango, s_table_cell),
+                        Paragraph(intensidad, s_table_cell),
+                    ]
+                )
+
             afluencia_table = Table(afluencia_table_data, colWidths=[252, 252])
             afluencia_table.setStyle(
                 TableStyle(
@@ -2325,6 +2383,8 @@ class ReportLabGenerator:
                 )
             )
             story.append(afluencia_table)
+            story.append(Spacer(1, 6))
+            story.append(Paragraph(NOTA_ESTABLECIMIENTO_REFERENCIA, s_body))
 
             from app.besttime import construir_filas_horas_pico
 

@@ -77,29 +77,21 @@ apply_docker_user_rules() {
     return 0
   fi
   log "Integrando reglas DOCKER-USER en UFW..."
-  # Insertar antes del COMMIT final del bloque filter existente
-  local tmp
-  tmp="$(mktemp)"
-  awk -v marker="${marker}" '
-    /^COMMIT$/ && !done {
-      print marker
-      print "*filter"
-      print ":DOCKER-USER - [0:0]"
-      print "-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN"
-      print "-A DOCKER-USER -i lo -j RETURN"
-      print "-A DOCKER-USER -s 10.0.0.0/8 -j RETURN"
-      print "-A DOCKER-USER -s 172.16.0.0/12 -j RETURN"
-      print "-A DOCKER-USER -s 192.168.0.0/16 -j RETURN"
-      print "-A DOCKER-USER -p tcp -m multiport --dports 8501,5050,8080,5432 -j DROP"
-      print "-A DOCKER-USER -j RETURN"
-      print "# END VPS-HARDENING DOCKER-USER"
-      print "COMMIT"
-      done=1
-      next
-    }
-    { print }
-  ' "${rules_file}" > "${tmp}"
-  mv "${tmp}" "${rules_file}"
+  cat >> "${rules_file}" <<'EOF'
+
+# BEGIN VPS-HARDENING DOCKER-USER
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER -i lo -j RETURN
+-A DOCKER-USER -s 10.0.0.0/8 -j RETURN
+-A DOCKER-USER -s 172.16.0.0/12 -j RETURN
+-A DOCKER-USER -s 192.168.0.0/16 -j RETURN
+-A DOCKER-USER -p tcp -m multiport --dports 8501,5050,8080,5432 -j DROP
+-A DOCKER-USER -j RETURN
+COMMIT
+# END VPS-HARDENING DOCKER-USER
+EOF
   ufw reload || true
 }
 

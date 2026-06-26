@@ -10,6 +10,25 @@ _INTENCIONES_PLACEHOLDER = (
     "evaluacion comercial del giro en la zona residencial mexicana",
 )
 
+# Rubro interno → keywords canónicos para Nearby Search (nunca slugs técnicos).
+_RUBRO_KEYWORDS_CANONICOS: dict[str, list[str]] = {
+    "restaurante_carta": ["restaurante"],
+    "restaurante": ["restaurante"],
+    "comida_rapida": ["comida rapida", "restaurante"],
+    "fast_food": ["comida rapida", "restaurante"],
+    "panaderia": ["panaderia", "pasteleria"],
+    "bakery": ["panaderia", "pasteleria"],
+    "cafeteria": ["cafeteria", "cafe"],
+    "cafe": ["cafeteria", "cafe"],
+    "floreria": ["floreria", "flores"],
+    "farmacia": ["farmacia"],
+    "gimnasio": ["gimnasio", "gym"],
+}
+
+_TIPOS_CON_BUSQUEDA_PROXIMIDAD = frozenset(
+    {"restaurant", "meal_takeaway", "meal_delivery", "cafe", "bakery", "food", "bar"}
+)
+
 
 def contexto_giro_completo(rubro: str, intenciones: str | None = None) -> str:
     """Texto unificado para filtrar relevancia de giro (rubro + intenciones)."""
@@ -39,6 +58,70 @@ def _intenciones_utiles_para_keyword(intenciones: str | None) -> str | None:
     return limpio
 
 
+def _normalizar_clave_rubro(rubro: str) -> str:
+    limpio = unicodedata.normalize("NFKD", str(rubro or ""))
+    limpio = "".join(ch for ch in limpio if not unicodedata.combining(ch))
+    limpio = limpio.lower().strip().replace(" ", "_")
+    return limpio
+
+
+def _dedupe_keywords(keywords: list[str | None]) -> list[str | None]:
+    vistos: set[str | None] = set()
+    resultado: list[str | None] = []
+    for kw in keywords:
+        clave = kw.lower() if isinstance(kw, str) else None
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        resultado.append(kw)
+    return resultado
+
+
+def keywords_busqueda_places(
+    rubro: str,
+    *,
+    google_type: str = "store",
+    intenciones: str | None = None,
+    competidores_adicionales: str | None = None,
+) -> list[str | None]:
+    """
+    Lista ordenada de keywords para unir búsquedas Places.
+    Siempre incluye None (sin keyword) como primera estrategia.
+    """
+    if competidores_adicionales:
+        primera = competidores_adicionales.split(",")[0].strip()
+        if primera:
+            return _dedupe_keywords([None, primera[:80]])
+
+    clave = _normalizar_clave_rubro(rubro)
+    canon = list(_RUBRO_KEYWORDS_CANONICOS.get(clave, []))
+
+    humano = (rubro or "").replace("_", " ").strip()
+    extra = _intenciones_utiles_para_keyword(intenciones)
+
+    if not canon and google_type == "restaurant":
+        canon = ["restaurante"]
+
+    keywords: list[str | None] = [None]
+
+    if extra and humano:
+        humano_norm = humano.lower()
+        extra_norm = extra.lower()
+        if extra_norm.startswith(humano_norm):
+            extra = extra[len(humano) :].lstrip(" .,;:-")
+        if extra and extra.lower() not in humano_norm:
+            keywords.append(f"{humano} {extra}"[:100])
+    elif clave not in _RUBRO_KEYWORDS_CANONICOS and humano and _normalizar_clave_rubro(humano) == clave:
+        keywords.append(humano[:80])
+    elif not canon and humano and google_type in ("store", "establishment"):
+        keywords.append(humano[:80])
+    elif not canon and humano and len(humano) <= 40:
+        keywords.append(humano[:80])
+
+    keywords.extend(canon)
+    return _dedupe_keywords(keywords)
+
+
 def keyword_places_para_ia(
     rubro: str,
     *,
@@ -46,27 +129,79 @@ def keyword_places_para_ia(
     competidores_adicionales: str | None = None,
     google_type: str = "store",
 ) -> str | None:
-    """Palabra clave corta para Nearby Search: rubro primero, sin frases largas de intenciones."""
+    """Palabra clave principal (legible) para logs/UI; no usar como única búsqueda."""
     if competidores_adicionales:
         primera = competidores_adicionales.split(",")[0].strip()
         if primera:
             return primera[:80]
 
-    rubro_kw = (rubro or "").strip()
+    clave = _normalizar_clave_rubro(rubro)
+    humano = (rubro or "").strip()
     extra = _intenciones_utiles_para_keyword(intenciones)
-    if rubro_kw and extra:
-        rubro_norm = rubro_kw.lower()
-        extra_norm = extra.lower()
-        if extra_norm.startswith(rubro_norm):
-            extra = extra[len(rubro_kw) :].lstrip(" .,;:-")
-        if extra and extra.lower() not in rubro_norm:
-            return f"{rubro_kw} {extra}"[:100]
-    if rubro_kw:
-        return rubro_kw[:80]
 
-    if google_type in ("store", "establishment") and extra:
-        return extra[:80]
-    return None
+    if extra and humano:
+        humano_norm = humano.lower()
+        extra_norm = extra.lower()
+        if extra_norm.startswith(humano_norm):
+            resto = extra[len(humano) :].lstrip(" .,;:-")
+            return f"{humano} {resto}"[:100] if resto else humano[:80]
+        if extra_norm not in humano_norm.replace("_", " "):
+            return f"{humano} {extra}"[:100]
+
+    if clave in _RUBRO_KEYWORDS_CANONICOS:
+        if humano and "_" not in humano and _normalizar_clave_rubro(humano) == clave:
+            return humano[:80]
+        return _RUBRO_KEYWORDS_CANONICOS[clave][0]
+
+    for kw in keywords_busqueda_places(
+        rubro,
+        google_type=google_type,
+        intenciones=intenciones,
+        competidores_adicionales=competidores_adicionales,
+    ):
+        if kw:
+            return kw
+    display = humano.replace("_", " ").strip()
+    return display[:80] if display else None
+
+
+def _clave_competidor(comp: dict) -> tuple:
+    return (round(float(comp["latitud"]), 5), round(float(comp["longitud"]), 5))
+
+
+def buscar_competidores_unificado(
+    lat: float,
+    lng: float,
+    radio: float,
+    google_type: str,
+    *,
+    rubro: str,
+    intenciones: str | None = None,
+    competidores_adicionales: str | None = None,
+) -> list:
+    """
+    Une resultados de múltiples keywords y, para giros de comida, añade búsqueda por proximidad.
+    """
+    from app.google_places import buscar_competidores, buscar_competidores_por_proximidad
+
+    keywords = keywords_busqueda_places(
+        rubro,
+        google_type=google_type,
+        intenciones=intenciones,
+        competidores_adicionales=competidores_adicionales,
+    )
+
+    merged: dict[tuple, dict] = {}
+    for kw in keywords:
+        batch = buscar_competidores(lat, lng, radio, google_type, keyword=kw)
+        for comp in batch:
+            merged.setdefault(_clave_competidor(comp), comp)
+
+    if google_type in _TIPOS_CON_BUSQUEDA_PROXIMIDAD:
+        for comp in buscar_competidores_por_proximidad(lat, lng, google_type):
+            merged.setdefault(_clave_competidor(comp), comp)
+
+    return list(merged.values())
 
 
 def buscar_competidores_ia_con_reintento(
@@ -78,22 +213,16 @@ def buscar_competidores_ia_con_reintento(
     rubro: str,
     keyword: str | None,
 ) -> list:
-    """Reintenta sin keyword o solo con rubro si Places devuelve cero resultados."""
-    from app.google_places import buscar_competidores
-
-    found = buscar_competidores(lat, lng, radio, google_type, keyword=keyword)
-    if found:
-        return found
-
-    rubro_kw = (rubro or "").strip()[:80] or None
-    if keyword and rubro_kw and keyword != rubro_kw:
-        found = buscar_competidores(lat, lng, radio, google_type, keyword=rubro_kw)
-        if found:
-            return found
-
-    if keyword:
-        return buscar_competidores(lat, lng, radio, google_type, keyword=None)
-    return []
+    """Compatibilidad: delega en la búsqueda unificada."""
+    return buscar_competidores_unificado(
+        lat,
+        lng,
+        radio,
+        google_type,
+        rubro=rubro,
+        intenciones=None,
+        competidores_adicionales=keyword if keyword and keyword != rubro else None,
+    )
 
 
 def resolver_tipos_competidores_busqueda(

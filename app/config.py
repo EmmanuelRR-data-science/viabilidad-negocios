@@ -41,6 +41,10 @@ MERCADOPAGO_ACCESS_TOKEN = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "")
 # --- GOOGLE MAPS API (Places & Geocoding) ---
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY") or os.environ.get("GOOGLE_PLACES_API_KEY", "")
 
+# --- GOOGLE OAUTH (Sign-In con Google) ---
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "").strip().rstrip("/")
+
 # --- BESTTIME PEATONAL API ---
 BESTTIME_API_KEY = os.environ.get("BESTTIME_API_KEY") or os.environ.get("BEST_TIME_API_KEY", "")
 BESTTIME_CLIENT_ID = os.environ.get("BESTTIME_CLIENT_ID", "")

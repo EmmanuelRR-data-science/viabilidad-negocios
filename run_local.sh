@@ -19,13 +19,13 @@ fi
 echo "🛠️ Compilando imágenes Docker locales..."
 docker compose build
 
-echo "🚦 Levantando servicios (Streamlit en 8501, FastAPI en 8000)..."
+echo "🚦 Levantando servicios (PostGIS, Admin Flask en 8501, FastAPI en 8000)..."
 docker compose up -d
 
 echo "========================================================="
 echo "🎉 ¡SERVICIOS INICIADOS CORRECTAMENTE! 🎉"
 echo "========================================================="
-echo "👉 Panel de Administración (Streamlit): http://localhost:8501"
+echo "👉 Panel de Administración (Flask): http://localhost:8501/admin/login"
 echo "👉 API y SPA Público (FastAPI + SPA): http://localhost:8000"
 echo "👉 Documentación Interactiva OpenAPI:  http://localhost:8000/docs"
 echo "========================================================="

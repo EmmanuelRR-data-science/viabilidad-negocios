@@ -83,8 +83,8 @@ def _lectura_llana_competencia(comp: dict[str, Any]) -> str:
 
 
 NOTA_BESTTIME_TRAFICO = (
-    "Este dato se extrae directamente de la plataforma BestTime con base en el "
-    "promedio semanal de personas que circulan por esa zona."
+    "Este dato se extrae de la plataforma BestTime con base en la telemetría del "
+    "establecimiento comercial de referencia en la zona, no necesariamente del tránsito peatonal general de la calle."
 )
 
 
@@ -97,7 +97,7 @@ def _lectura_llana_trafico(traf: dict[str, Any], tier: str) -> str:
             f"{NOTA_BESTTIME_TRAFICO}"
         )
     return (
-        f"No hubo medición de tráfico peatonal en esta coordenada para el plan {tier.capitalize()}; "
+        f"No hubo medición de tráfico peatonal en esta coordenada para este reporte; "
         f"se usa un valor base de {score:.0f} en el pilar."
     )
 
@@ -247,7 +247,7 @@ def detalle_pilar_trafico(tier: str, afluencia: dict | None, score_traf: float) 
         regla = "Score = promedio de tráfico peatonal medido en la zona (0–100)"
         detalle = f"Promedio de tráfico peatonal: {saturacion}%"
     else:
-        fuente = f"Valor estimado por plan {tier.capitalize()} (sin medición de tráfico peatonal en esta zona)"
+        fuente = f"Valor estimado para reporte {tier.capitalize()} (sin medición de tráfico peatonal en esta zona)"
         regla = f"Score fijo {SCORE_TRAFICO_SIN_BESTTIME} cuando no hay medición de tráfico peatonal"
         detalle = f"Valor aplicado: {SCORE_TRAFICO_SIN_BESTTIME}"
 
@@ -364,7 +364,8 @@ def escenarios_simulacion_sva(
             )
         )
 
-    if comp_n > 10:
+    # Evita duplicar el escenario de 10 rivales cuando la mitad ya es 10 (p. ej. 20 competidores).
+    if comp_n > 10 and comp_n // 2 != 10:
         isc_diez = calcular_isc_desde_competidores(ordenados[:10])
         escenarios.append(
             _fila(

@@ -1,20 +1,44 @@
-# RFC: Personalización de Aliados y Competidores en Reportes
+# RFC: Extensiones y Evolución de GeoViabilidad Hook
 
-* **Author(s)**: Antigravity AI
-* **Status**: Propuesta (Draft)
-* **Última actualización**: 2026-06-05
+* **Author(s)**: Antigravity AI · Emmanuel Ramírez Romero
+* **Status**: Documento vivo — beta operativa (VPS Jun 2026)
+* **Última actualización**: 2026-06-18
+* **Versión de referencia**: API `1.0.0` · Frontend `app.js v1.0.4` · Rama `spotlight`
+* **RFC arquitectónico principal**: [.kiro/specs/viabilidad-comercial/rfc-viabilidad-comercial.md](.kiro/specs/viabilidad-comercial/rfc-viabilidad-comercial.md)
 * **Links**:
-  * Schemas de entrada: [schemas.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/schemas.py)
-  * ORM base de datos: [models.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/models.py)
-  * Lógica analítica: [analytics.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/analytics.py)
-  * Prompts de Bedrock: [bedrock.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/bedrock.py)
-  * Generador de PDF: [reports.py](file:///c:/Users/EmmanuelRam%C3%ADrez/OneDrive%20-%20PhiQus/Escritorio/viabilidad-hook/app/reports.py)
+  * Schemas de entrada: [schemas.py](app/schemas.py)
+  * ORM base de datos: [models.py](app/models.py)
+  * Lógica analítica: [analytics.py](app/analytics.py)
+  * Prompts LLM: [bedrock.py](app/bedrock.py)
+  * Generador de PDF: [reports.py](app/reports.py)
+
+---
+
+## Estado de secciones (sincronizado con código)
+
+| Sección | Tema | Estado |
+|---------|------|--------|
+| §1–7 | Personalización competidores/aliados por tier | ✅ Implementado |
+| §8 | Corrección desbordamiento PDF portada | ✅ Implementado |
+| §9 | Eliminación terminología técnica en UI/PDF | ✅ Implementado |
+| §10 | Caché `resultado_json` / `foda_json` | ✅ Implementado |
+| §11 | Búsqueda de direcciones | ✅ Implementado |
+| §12 | Calidad reportes (FODA, fast_food, NSE, etc.) | ✅ Implementado |
+| §13 | Tooltips y tarjeta intro | ✅ Implementado |
+| §14 | Autodetección IA competidores/aliados | ✅ Implementado |
+| §15 | Precios $299 / $649 / $799 MXN | ✅ Implementado |
+| §16 | Heatmap BestTime en dashboard (sin FODA web) | ✅ Implementado |
+| §17 | NSE y lectura estratégica | ✅ Implementado |
+| §18 | Aliados guiados (Premium) | ✅ Implementado |
+| §19 | Vigencia operativa de comercios | ✅ Implementado |
+| §20 | Pagos mock y beta VPS | ✅ Implementado |
+| §21 | Endurecimiento seguridad VPS | ✅ Implementado |
 
 ---
 
 ## 1. Goals
 * Permitir al usuario definir categorías personalizadas de competidores y aliados estratégicos durante la cotización.
-* Estructurar y limitar la funcionalidad según el nivel de suscripción adquirido (Básico, Pro, Premium) para maximizar el valor del ticket de pago.
+* Estructurar y limitar la funcionalidad según el **tipo de reporte** adquirido (Básico, Pro, Premium) para maximizar el valor del pago único por análisis.
 * Enriquecer el análisis del modelo LLM (SWOT, ROI, nichos) con estas preferencias.
 * Ajustar dinámicamente el layout del PDF compilado de acuerdo a los aliados y atractores reales configurados.
 
@@ -211,7 +235,7 @@ Esto causa los siguientes inconvenientes:
   * Al pie de la tabla de competidores directos, si `len(comp_list) > 4`, se añadirá un párrafo en letra pequeña (`fontSize=7.5`, `leading=9.5`) listando de forma explícita el nombre y tipo comercial de los primeros 15 competidores que no cupieron en la tabla, finalizando con un indicador de remanentes (ej. "y X más" si aplica).
   * Esto asegura la total transparencia del cálculo numérico del score sin impactar el límite de páginas de cada tier.
 
-### 12.5 Estimación e Integración de Nivel Socioeconómico (NSE)
+### 12.5 Estimación e Integración de Nivel Socioeconómico (NSE) — ✅ Implementado
 * **Nueva Función en `analytics.py`**:
   * Se implementará la consulta espacial a `ageb_demographics` con pesos proporcionales de población para variables de censo 2020: `graproes`, `vivpar_hab`, `vph_autom`, `vph_inter` y `vph_pc`.
   * Se calculará el `nse_score` con ponderación de educación (40%) y equipamientos (60%).
@@ -282,7 +306,7 @@ Esto causa los siguientes inconvenientes:
 
 ---
 
-## 15. Actualización de Precios de Planes de Geomarketing
+## 15. Actualización de Precios de Planes de Geomarketing — ✅ Implementado
 * **Objetivo:** Adecuar las tarifas comerciales a la nueva propuesta de valor que integra información real del INEGI desde la versión gratuita y autodetección por IA en reportes avanzados.
 * **Nuevas Tarifas:**
   - **Plan Básico:** $299.00 MXN
@@ -295,7 +319,7 @@ Esto causa los siguientes inconvenientes:
 
 ---
 
-## 16. Reemplazo de FODA y ROI por Mapa de Calor Peatonal (BestTime) en el Dashboard
+## 16. Reemplazo de FODA y ROI por Mapa de Calor Peatonal (BestTime) en el Dashboard — ✅ Implementado
 * **Objetivo:** Reemplazar el análisis estratégico cualitativo (FODA) y las tarjetas financieras (ROI) en el Dashboard Web por una visualización de ciencia de datos: un mapa de calor dinámico semanal por horas que muestre los picos de tránsito peatonal de la zona de estudio.
 * **Especificaciones del Mapa de Calor:**
   - **Formato:** Tabla de 7 días (Lunes a Domingo) y 15 columnas de horas (08:00 a 22:00) para asegurar responsividad.
@@ -305,3 +329,87 @@ Esto causa los siguientes inconvenientes:
   - **Backend (`besttime.py` y `analytics.py`):** Recuperar o calcular la matriz `afluencia_semanal` (7x24 horas) en la respuesta del análisis de afluencia peatonal, implementando un extractor seguro y fallback generativo.
   - **Frontend (`index.html`, `index.css`, `app.js`):** Remover elementos de FODA y ROI, inyectar el contenedor `#heatmap-container`, estilizar la cuadrícula del mapa de calor, renderizar los datos y aplicar las reglas de desenfoque (`applyBlurRules(tier)`) para bloquearlo en Gratuito y Básico (desbloqueado en Pro y Premium).
   - **Consistencia:** Mantener intacta la lógica de generación del PDF descargable (que conserva FODA y ROI en el reporte impreso) y las pruebas del backend para proteger la validez del producto de pago y compatibilidad.
+
+**Estado:** ✅ Implementado (`frontend/app.js` heatmap, `applyBlurRules`, `app/besttime.py`).
+
+---
+
+## 17. Nivel Socioeconómico (NSE) y Lectura Estratégica
+
+### 17.1 NSE — **Cerrado / Implementado**
+* **Módulo:** `app/nse.py` consulta columnas censales INEGI 2020 en PostGIS (`graproes`, `vivpar_hab`, `vph_autom`, `vph_inter`, `vph_pc`).
+* **Integración:** `calcular_nse()` en `procesar_calculo_analitico`; fallback determinista en DEV; `construir_nse_sin_datos()` en prod sin censo.
+* **Dashboard:** cuarta tarjeta KPI `#kpi-nse-card` (bloqueada en vista previa, desbloqueada post-pago).
+* **PDF:** tablas páginas 2–3 con etiqueta NSE, escolaridad, internet %, autos %.
+* **LLM:** prompt y respaldo cuantitativo adaptan ticket y dictamen al NSE.
+* **Contrato:** `docs/SPEC_DRIVEN_CONTRACT_NSE.md`.
+
+### 17.2 Lectura estratégica (reemplazo parcial de FODA en web) — **Cerrado**
+* **Módulo:** `app/lectura_estrategica.py` genera bloques 3+3+3: fortalezas, oportunidades, consideraciones + conclusión.
+* **Dashboard:** sección "Lectura estratégica" post-pago; FODA clásico solo en PDF.
+* **Tests:** cobertura en `tests/test_suite.py`.
+
+---
+
+## 18. Aliados Guiados (Premium) — **Cerrado / Implementado**
+
+* **Objetivo:** Permitir al usuario Premium configurar aliados mediante cuestionario guiado sin depender de listas manuales de tipos Google.
+* **API:** `POST /api/analizar/aliados/sugerir` → motor determinista `app/aliados_guiados.py` (sin LLM).
+* **Persistencia:** columnas `modo_analisis_aliados`, `config_aliados_guiados` en `ordenes_pagos`.
+* **Validación:** modo `guiado` solo en tier `premium` (`schemas.py`); no combinable con `aliados_seleccionados` manual.
+* **UI:** flujo de 3 pasos en `frontend/index.html` + lógica en `app.js`.
+* **Contrato:** `docs/SPEC_DRIVEN_CONTRACT_ALIADOS_GUIADOS.md`.
+
+---
+
+## 19. Vigencia Operativa de Comercios — **Cerrado / Implementado**
+
+### 19.1 Metas
+* Indicar si competidores y aliados detectados siguen operando con base en Google Places (`business_status`) y antigüedad de reseñas.
+* Excluir del ISC comercios cerrados permanentemente.
+* Mostrar disclaimers claros en dashboard y PDF.
+
+### 19.2 Diseño (`app/vigencia_comercio.py`)
+* **Niveles:** `alta`, `media`, `baja`, `inactivo`, `sin_verificar`.
+* **Señales:** `CLOSED_PERMANENTLY`, `CLOSED_TEMPORARILY`, fecha de reseña más reciente (`reviews_sort=newest`).
+* **Enriquecimiento:** `enriquecer_lugares_con_vigencia()` en `google_places.py` (hasta 15 competidores, 10 aliados).
+* **Analytics:** `competidores_activos_conteo`; ISC omite `activo_para_analisis = false`.
+* **UI:** badges de vigencia en tabla de competidores; `VIGENCIA_DISCLAIMER` en `app.js`.
+* **PDF:** columna Vigencia en tablas; textos aclaratorios en `reports.py`.
+* **Tests:** `test_vigencia_comercio_cerrado_y_reciente`, `test_calcular_isc_excluye_cerrados`.
+
+---
+
+## 20. Pagos Simulados y Entorno Beta VPS — **Cerrado / Implementado**
+
+* **Config:** `PAYMENTS_MOCK` en `app/config.py` (default `True` con `DEV_MODE`).
+* **Endpoints:** `POST /api/pagos/webhook-mock` solo disponible con mock activo.
+* **Frontend:** modal "CONFIRMAR PAGO SIMULADO"; manejo de errores en `openPaymentModal`.
+* **Health:** `/health` expone `payments_mock: true/false`.
+* **Despliegue beta:** VPS `135.181.30.179`, `/opt/viabilidad-negocios`, `docker-compose.yml`, red `geo-analisis_geo-network`.
+* **Pendiente H4:** Mercado Pago live + Cognito JWT real (`auth.py` retorna `501` fuera de DEV).
+
+---
+
+## 21. Endurecimiento de Seguridad VPS — **Cerrado / Implementado**
+
+* **Objetivo:** Exponer solo frontends públicos; aislar DB y paneles admin.
+* **Puertos públicos:** `8000` (GeoViabilidad), `22` (SSH limitado).
+* **Internos (127.0.0.1):** admin Streamlit `8501`, herramientas auxiliares.
+* **PostgreSQL:** sin mapeo al host; solo red Docker.
+* **Firewall:** UFW + reglas `DOCKER-USER` en `/etc/ufw/after.rules`.
+* **Scripts:** `scripts/vps-hardening.sh`, `scripts/vps-recover-ssh.sh`, `scripts/vps-ufw-cleanup.sh`, `infra/vps/`.
+* **Admin remoto:** túnel SSH `ssh -L 8501:127.0.0.1:8501 root@<vps>`.
+
+---
+
+## 22. UI temporal y flags de producto
+
+| Flag / decisión | Valor actual | Notas |
+|-----------------|--------------|-------|
+| `UI_FEATURES.intencionesNegocio` | `false` | Oculta sección intenciones; backend acepta campo |
+| Textos checkboxes detección | Actualizados Jun 2026 | "giro/rubro" y "aliados automáticos" |
+| `NOTA_BESTTIME_TRAFICO` | En PDF | Aclara origen peatonal BestTime |
+| Cognito en frontend | Mock `Bearer mock-jwt-*` | Sin integración SDK Cognito en cliente |
+
+---

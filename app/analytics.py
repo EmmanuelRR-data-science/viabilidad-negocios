@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.besttime import obtener_afluencia
 from app.competencia_busqueda import (
+    buscar_competidores_unificado,
     contexto_giro_completo,
     keyword_places_para_ia,
-    buscar_competidores_ia_con_reintento,
     resolver_tipos_aliados_busqueda,
     resolver_tipos_competidores_busqueda,
 )
@@ -20,6 +20,7 @@ from app.google_places import (
     enriquecer_lugares_con_vigencia,
     filtrar_competidores_por_giro,
 )
+from app.seleccion_atractores import seleccionar_atractores_destacados
 from app.vigencia_comercio import vigencia_sin_verificar
 
 logger = logging.getLogger("analytics")
@@ -480,20 +481,20 @@ def procesar_calculo_analitico(
             )
             seen_keys = set()
             for custom_type in tipos_competidores:
-                kw = keyword_ia if ia_autodetect_competidores and fuente_comp == "ia_rubro_intenciones" else None
-                if not kw and custom_type in ("store", "establishment") and competidores_adicionales:
-                    kw = competidores_adicionales.split(",")[0].strip()
-                if ia_autodetect_competidores and fuente_comp == "ia_rubro_intenciones":
-                    found = buscar_competidores_ia_con_reintento(
-                        lat,
-                        lng,
-                        float(radio),
-                        custom_type,
-                        rubro=rubro,
-                        keyword=kw,
-                    )
-                else:
-                    found = buscar_competidores(lat, lng, float(radio), custom_type, keyword=kw)
+                extra_kw = (
+                    competidores_adicionales.split(",")[0].strip()
+                    if custom_type in ("store", "establishment") and competidores_adicionales
+                    else None
+                )
+                found = buscar_competidores_unificado(
+                    lat,
+                    lng,
+                    float(radio),
+                    custom_type,
+                    rubro=rubro,
+                    intenciones=intenciones,
+                    competidores_adicionales=extra_kw,
+                )
                 for comp in found:
                     comp_key = (round(comp["latitud"], 5), round(comp["longitud"], 5))
                     if comp_key not in seen_keys:
@@ -501,15 +502,19 @@ def procesar_calculo_analitico(
                         comp["tipo"] = custom_type.replace("_", " ").title()
                         competidores.append(comp)
         else:
-            # Si el tipo resuelto es genérico ("store") pero el usuario dio competidores_adicionales,
-            # lo usamos como keyword de búsqueda en Google Places.
-            keyword = keyword_ia
-            if google_type == "store" and competidores_adicionales:
-                keyword = competidores_adicionales.strip()
-
-            competidores = buscar_competidores(lat, lng, float(radio), google_type, keyword=keyword)
-            for comp in competidores:
-                comp["tipo"] = keyword.title() if keyword else categoria.replace("_", " ").title()
+            competidores_raw = buscar_competidores_unificado(
+                lat,
+                lng,
+                float(radio),
+                google_type,
+                rubro=rubro,
+                intenciones=intenciones,
+                competidores_adicionales=competidores_adicionales,
+            )
+            competidores = []
+            for comp in competidores_raw:
+                comp["tipo"] = categoria.replace("_", " ").title()
+                competidores.append(comp)
         logger.info(f"Competidores detectados en el radio por Places: {len(competidores)}")
 
         if competidores:
@@ -626,16 +631,34 @@ def procesar_calculo_analitico(
                 escuelas_conteo = aliados_conteos["school"]
                 transporte_conteo = aliados_conteos["transit_station"]
 
-            if aliados_listado:
-                try:
-                    enriquecer_lugares_con_vigencia(
-                        aliados_listado,
-                        limite=LIMITE_VIGENCIA_ALIADOS,
-                        max_reseñas=1,
-                    )
-                except Exception as ally_vig_err:
-                    logger.error("No se pudo enriquecer vigencia de aliados: %s", ally_vig_err)
-                _asegurar_vigencia_en_lugares(aliados_listado)
+    aliados_destacados: list[dict] = []
+    atractores_seleccion: dict = {}
+    if aliados_listado:
+        for aliado in aliados_listado:
+            if aliado.get("latitud") is not None and aliado.get("longitud") is not None:
+                dist = calcular_distancia_haversine(lat, lng, aliado["latitud"], aliado["longitud"])
+                aliado["distancia_metros"] = round(dist, 1)
+
+        aliados_destacados, atractores_seleccion = seleccionar_atractores_destacados(
+            aliados_listado, tier=tier
+        )
+        logger.info(
+            "Atractores destacados: %s de %s detectados (%s)",
+            len(aliados_destacados),
+            len(aliados_listado),
+            atractores_seleccion.get("regla", ""),
+        )
+
+        if aliados_destacados:
+            try:
+                enriquecer_lugares_con_vigencia(
+                    aliados_destacados,
+                    limite=LIMITE_VIGENCIA_ALIADOS,
+                    max_reseñas=1,
+                )
+            except Exception as ally_vig_err:
+                logger.error("No se pudo enriquecer vigencia de aliados destacados: %s", ally_vig_err)
+            _asegurar_vigencia_en_lugares(aliados_destacados)
 
     # 4. Obtener Afluencia Peatonal (BestTime API)
     afluencia = {}
@@ -687,6 +710,8 @@ def procesar_calculo_analitico(
         "escuelas_conteo": escuelas_conteo,
         "transporte_conteo": transporte_conteo,
         "aliados_listado": aliados_listado,
+        "aliados_destacados": aliados_destacados,
+        "atractores_seleccion": atractores_seleccion,
         "aliados_conteos": aliados_conteos,
         "competidores_seleccionados": competidores_sel_orig,
         "aliados_seleccionados": aliados_sel_orig,

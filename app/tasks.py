@@ -120,7 +120,7 @@ def generar_informe_task(orden_id: int):
                 lng=float(orden.longitud),
                 radio=orden.radio_metros,
                 competidores=resultado.get("competidores_listado", []),
-                aliados=resultado.get("aliados_listado", []),
+                aliados=resultado.get("aliados_destacados") or resultado.get("aliados_listado", []),
                 incluir_aliados=es_premium,
             )
             if not map_bytes:
@@ -129,7 +129,7 @@ def generar_informe_task(orden_id: int):
                     lng=float(orden.longitud),
                     radio=orden.radio_metros,
                     competidores=resultado.get("competidores_listado", []),
-                    aliados=resultado.get("aliados_listado", []),
+                    aliados=resultado.get("aliados_destacados") or resultado.get("aliados_listado", []),
                     incluir_aliados=es_premium,
                 )
             resultado["map_bytes"] = map_bytes

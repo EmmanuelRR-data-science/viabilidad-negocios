@@ -201,8 +201,9 @@ def generar_heatmap_afluencia(afl_data: dict) -> bytes | None:
         ax.set_yticks(range(len(DIAS_SEMANA)))
         ax.set_yticklabels(DIAS_SEMANA, fontsize=8)
         ax.set_title(
-            "Mapa de Calor — Afluencia Peatonal por Día y Hora",
-            fontsize=11,
+            "Mapa de Calor — Afluencia Peatonal por Día y Hora\n"
+            "(competidor de referencia, telemetría BestTime)",
+            fontsize=10,
             fontweight="bold",
             color="#0f172a",
             pad=10,

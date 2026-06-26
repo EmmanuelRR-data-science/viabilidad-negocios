@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_macros.html" import estado_badge %}
+{% block title %}Dashboard Admin · GeoViabilidad{% endblock %}
+{% block body %}
+{% include "_nav.html" %}
+
+<main class="container-fluid px-4 py-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} py-2" role="alert">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100">
+                <div class="card-body">
+                    <p class="text-muted small mb-1">Usuarios Google</p>
+                    <p class="display-6 mb-0">{{ metrics.total_usuarios }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100">
+                <div class="card-body">
+                    <p class="text-muted small mb-1">Compradores</p>
+                    <p class="display-6 mb-0">{{ metrics.total_compradores }}</p>
+                    <p class="small text-muted mb-0">Conversión {{ metrics.tasa_conversion_pct }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100">
+                <div class="card-body">
+                    <p class="text-muted small mb-1">Órdenes aprobadas</p>
+                    <p class="display-6 mb-0">{{ metrics.ordenes_aprobadas }}</p>
+                    <p class="small text-muted mb-0">{{ metrics.ordenes_pendientes }} pendientes</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100">
+                <div class="card-body">
+                    <p class="text-muted small mb-1">Ingresos aprobados</p>
+                    <p class="display-6 mb-0">${{ "{:,.0f}".format(metrics.ingresos_aprobados_mxn) }}</p>
+                    <p class="small text-muted mb-0">MXN · {{ metrics.total_ordenes }} órdenes totales</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a href="{{ url_for('admin.usuarios') }}" class="btn btn-outline-primary btn-sm">Ver leads con filtros</a>
+        <a href="{{ url_for('admin.ordenes') }}" class="btn btn-outline-primary btn-sm">Ver órdenes</a>
+        <a href="{{ url_for('admin.export_usuarios_excel') }}" class="btn btn-success btn-sm">Excel leads</a>
+        <a href="{{ url_for('admin.export_ordenes_excel') }}" class="btn btn-success btn-sm">Excel órdenes</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card admin-card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Leads recientes</h2>
+                    <a href="{{ url_for('admin.usuarios') }}" class="small">Ver todos</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Correo</th>
+                                <th>¿Compró?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lead in leads %}
+                            <tr>
+                                <td>{{ lead.nombre or "—" }}</td>
+                                <td>{{ lead.email }}</td>
+                                <td>{{ lead.compro_reporte }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-muted text-center py-3">Sin registros</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card admin-card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Órdenes recientes</h2>
+                    <a href="{{ url_for('admin.ordenes') }}" class="small">Ver todas</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Correo</th>
+                                <th>Tier</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                            <tr>
+                                <td>#{{ order.orden_id }}</td>
+                                <td>{{ order.email }}</td>
+                                <td>{{ order.tier }}</td>
+                                <td>{{ estado_badge(order.estado_pago) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-muted text-center py-3">Sin registros</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

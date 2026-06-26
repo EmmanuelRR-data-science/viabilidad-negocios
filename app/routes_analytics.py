@@ -139,6 +139,8 @@ async def obtener_vista_previa_gratuita(
             "competidores_listado": resultado["competidores_listado"],
             "competidores_destacados": resultado["competidores_destacados"],
             "aliados_listado": resultado["aliados_listado"],
+            "aliados_destacados": resultado.get("aliados_destacados", []),
+            "atractores_seleccion": resultado.get("atractores_seleccion", {}),
             "aliados_conteos": resultado["aliados_conteos"],
             "afluencia_peatonal": resultado["afluencia_peatonal"],
             "mensaje_tier": "¡Estás viendo la vista previa gratuita! Compra el reporte Básico o Pro para desbloquear mapas detallados de competencia, o Premium para afluencia y diagnóstico estratégico inteligente con IA.",
@@ -280,6 +282,7 @@ def obtener_resultado_analisis(
                 "fecha_aprobacion": orden.fecha_aprobacion,
                 "competidores_adicionales": orden.competidores_adicionales,
                 "aliados_adicionales": orden.aliados_adicionales,
+                "pdf_listo": bool(orden.s3_key_reporte),
             },
             "metricas": analisis_cuant,
             "analisis_estrategico_ia": {
@@ -334,10 +337,9 @@ def obtener_url_descarga_pdf(
 
     try:
         if DEV_MODE:
-            # Modo Desarrollo: Retornamos el link local que expone la descarga directa
+            # Ruta relativa: misma origin del frontend (ngrok, localhost, etc.)
             logger.info("[ROUTES] Modo Desarrollo: Retornando URL de descarga directa local.")
-            base = str(request.base_url).rstrip("/")
-            url_descarga = f"{base}/api/analizar/pdf/{orden.id}/descargar"
+            url_descarga = f"/api/analizar/pdf/{orden.id}/descargar"
         else:
             # Modo Producción: Generar URL firmada real de Amazon S3
             import re

@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) {
     Exit $LASTEXITCODE
 }
 
-Write-Host "🚦 Levantando servicios (Streamlit en 8501, FastAPI en 8000)..." -ForegroundColor Green
+Write-Host "🚦 Levantando servicios (PostGIS, Admin Flask en 8501, FastAPI en 8000)..." -ForegroundColor Green
 docker compose up -d
 
 if ($LASTEXITCODE -ne 0) {
@@ -32,7 +32,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "=========================================================" -ForegroundColor Cyan
 Write-Host "🎉 ¡SERVICIOS INICIADOS CORRECTAMENTE! 🎉" -ForegroundColor Green
 Write-Host "=========================================================" -ForegroundColor Cyan
-Write-Host "👉 Panel de Administración (Streamlit): http://localhost:8501" -ForegroundColor Yellow
+Write-Host "👉 Panel de Administración (Flask): http://localhost:8501/admin/login" -ForegroundColor Yellow
 Write-Host "👉 API y SPA Público (FastAPI + SPA): http://localhost:8000" -ForegroundColor Yellow
 Write-Host "👉 Documentación Interactiva OpenAPI:  http://localhost:8000/docs" -ForegroundColor Yellow
 Write-Host "=========================================================" -ForegroundColor Cyan

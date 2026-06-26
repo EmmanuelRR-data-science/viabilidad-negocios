@@ -103,7 +103,27 @@ _DOMINIO_GIRO: dict[str, dict[str, list[str]]] = {
     },
     "restaurante": {
         "anchors": ["restaurante", "comida", "cocina", "menu", "menú", "gastronom"],
-        "relacionados": ["comida", "platillo", "menu", "menú", "cocina", "chef", "mesa", "servicio", "cena"],
+        "relacionados": [
+            "restaurante",
+            "comida",
+            "platillo",
+            "menu",
+            "menú",
+            "cocina",
+            "chef",
+            "mesa",
+            "servicio",
+            "cena",
+            "banderilla",
+            "banderillas",
+            "antojo",
+            "antojito",
+            "taco",
+            "tacos",
+            "torta",
+            "mariscos",
+            "fonda",
+        ],
         "conflictos": ["gimnasio", "farmacia", "consultorio", "escuela", "taller"],
     },
     "farmacia": {
@@ -154,6 +174,21 @@ _DOMINIO_GIRO: dict[str, dict[str, list[str]]] = {
         ],
     },
 }
+
+_TIPOS_GOOGLE_COMIDA = frozenset(
+    {"restaurant", "meal_takeaway", "meal_delivery", "cafe", "bakery", "food", "bar"}
+)
+
+
+def _google_types_competidor(competidor: dict) -> set[str]:
+    raw = competidor.get("google_types") or []
+    return {str(t).lower() for t in raw}
+
+
+def _confia_tipo_google_para_dominio(dominio: str, competidor: dict) -> bool:
+    if dominio != "restaurante":
+        return False
+    return bool(_google_types_competidor(competidor) & _TIPOS_GOOGLE_COMIDA)
 
 
 def _normalizar_texto_giro(texto: str) -> str:
@@ -239,6 +274,9 @@ def competidor_es_relevante_al_giro(rubro: str, competidor: dict) -> bool:
                 return True
             hits = sum(1 for t in tokens if _contiene_termino(texto_relacion, t))
             return hits > 0
+
+        if _confia_tipo_google_para_dominio(dominio, competidor):
+            return True
 
         cfg = _DOMINIO_GIRO[dominio]
         rel = _contar_terminos(texto_relacion, cfg["relacionados"])
@@ -523,6 +561,50 @@ def obtener_direccion(lat: float, lng: float) -> dict:
         raise e
 
 
+def _places_item_a_competidor(item: dict) -> dict:
+    loc = item.get("geometry", {}).get("location", {})
+    return {
+        "place_id": item.get("place_id"),
+        "nombre": item.get("name"),
+        "latitud": loc.get("lat"),
+        "longitud": loc.get("lng"),
+        "direccion": item.get("vicinity") or item.get("formatted_address", "Dirección no disponible"),
+        "rating": item.get("rating", 0.0),
+        "user_ratings_total": item.get("user_ratings_total", 0),
+        "google_types": list(item.get("types") or []),
+    }
+
+
+def buscar_competidores_por_proximidad(lat: float, lng: float, google_type: str) -> list:
+    """
+    Nearby Search ordenado por distancia (sin radio).
+    Complementa la búsqueda por radio para capturar locales inmediatos al pin.
+    """
+    if not _google_api_disponible():
+        return []
+
+    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    params = {
+        "location": f"{lat},{lng}",
+        "rankby": "distance",
+        "type": google_type,
+        "key": GOOGLE_MAPS_API_KEY,
+    }
+
+    try:
+        logger.info("Buscando competidores por proximidad inmediata tipo '%s'...", google_type)
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") not in ("OK", "ZERO_RESULTS"):
+            logger.warning("Nearby por proximidad falló: %s", data.get("status"))
+            return []
+        return [_places_item_a_competidor(item) for item in data.get("results", [])]
+    except Exception as err:
+        logger.warning("Error en búsqueda por proximidad Places: %s", err)
+        return []
+
+
 def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, keyword: str | None = None) -> list:
     """
     Consume la API de Google Places Nearby Search para localizar los comercios
@@ -576,18 +658,7 @@ def buscar_competidores(lat: float, lng: float, radio: float, google_type: str, 
                     descartados += 1
                     continue
 
-                loc = item.get("geometry", {}).get("location", {})
-                competidores.append(
-                    {
-                        "place_id": item.get("place_id"),
-                        "nombre": item.get("name"),
-                        "latitud": loc.get("lat"),
-                        "longitud": loc.get("lng"),
-                        "direccion": item.get("vicinity", "Dirección no disponible"),
-                        "rating": item.get("rating", 0.0),
-                        "user_ratings_total": item.get("user_ratings_total", 0),
-                    }
-                )
+                competidores.append(_places_item_a_competidor(item))
             if descartados:
                 logger.info(
                     f"Filtro de relevancia Places: {descartados} resultado(s) descartado(s) por no declarar "

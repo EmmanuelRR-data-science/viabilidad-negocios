@@ -35,3 +35,17 @@ class OrdenPago(Base):
     foda_json = Column(Text, nullable=True)
     fecha_creacion = Column(DateTime, server_default=func.now())
     fecha_aprobacion = Column(DateTime, nullable=True)
+
+
+class AppUsuario(Base):
+    """Usuario autenticado con Google (Sign-In)."""
+
+    __tablename__ = "app_usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    google_sub = Column(String(128), unique=True, nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    nombre = Column(String(255), nullable=True)
+    avatar_url = Column(String(512), nullable=True)
+    primera_sesion = Column(DateTime, server_default=func.now())
+    ultima_sesion = Column(DateTime, server_default=func.now(), onupdate=func.now())

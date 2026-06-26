@@ -10,6 +10,7 @@ from app.config import DEV_MODE, PAYMENTS_MOCK
 from app.middleware import LLMRateLimitMiddleware, UserFriendlyExceptionMiddleware
 from app.payments import router as payments_router
 from app.routes_analytics import router as analytics_router
+from app.routes_auth import router as auth_router
 
 logger = logging.getLogger("main")
 
@@ -86,6 +87,7 @@ def disparar_error_prueba(tipo: str = "db"):
 
 # 3. Registrar routers
 app.include_router(api_router)
+app.include_router(auth_router)
 app.include_router(payments_router)
 app.include_router(analytics_router)
 
@@ -97,6 +99,10 @@ if os.path.exists("frontend"):
 
 @app.on_event("startup")
 def startup_event():
+    from app.database import engine
+    from app.models import AppUsuario, Base
+
+    Base.metadata.create_all(bind=engine, tables=[AppUsuario.__table__])
     logger.info("=========================================================")
     logger.info("🚀 GeoViabilidad Hook API Iniciada Correctamente 🚀")
     logger.info("Consola interactiva disponible en: http://localhost:8000/docs")

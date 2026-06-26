@@ -1,6 +1,7 @@
 Author(s): Emmanuel Ramírez Romero & Antigravity AI
-Status: Propuesta
-Ultima actualización: 2026-05-21
+Status: Beta operativa (VPS) — arquitectura AWS definida; go-live comercial pendiente (H4)
+Ultima actualización: 2026-06-18
+Versión de referencia: API `1.0.0` · Frontend `app.js v1.0.4` · Rama `spotlight`
 
 ---
 
@@ -52,11 +53,14 @@ Para sustentar la viabilidad técnica y económica de la arquitectura de costo m
 Facilitar a pymes, inversionistas y emprendedores mexicanos la toma de decisiones estratégicas de localización inteligente basadas en datos demográficos y de mercado objetivos, **mitigando de forma directa la tasa de fracaso del 70% de nuevos negocios en México** debido a una mala ubicación comercial. Esto se logra mediante una plataforma de geomarketing interactiva y económica basada en micropagos, complementada por un pipeline administrativo robusto que automatiza la ingesta de Shapefiles de INEGI para mantener los datos demográficos actualizados en base de datos PostgreSQL + PostGIS sin requerir expertos en Sistemas de Información Geográfica (SIG).
 
 ### Goals
-1.  **Democratización del Geomarketing Corporativo**: Brindar a micro y pequeñas empresas análisis comerciales detallados y diagnósticos por IA, que tradicionalmente cuestan miles de dólares, a tarifas accesibles a partir de **$99 MXN** mediante un esquema de cobro transaccional por punto con **Mercado Pago Checkout Pro**.
-2.  **Eliminación de Barreras Técnicas SIG (INEGI al Vuelo)**: Desarrollar algoritmos de intersección geoespacial (`ST_Intersects`) optimizados con índices GIST en PostGIS que digieran la compleja estructura demográfica de AGEBs de INEGI y la crucen dinámicamente con competencia local en menos de **800ms**.
-3.  **Autosuficiencia en Ingesta de Datos (Cero Placeholders)**: Diseñar e implementar un pipeline administrativo asíncrono en `/admin` para que gestores no técnicos puedan subir, reproyectar geodésicamente al datum estándar `EPSG:4326` e insertar Shapefiles estatales de INEGI en hilos de fondo en menos de **15 segundos** por bloque.
-4.  **IA Explicable para Emprendedores**: Integrar **Amazon Bedrock** para traducir variables cuantitativas y espaciales complejas (como densidad demográfica, saturación comercial Huff e índices de atracción) en reportes FODA intuitivos e interpretables en lenguaje natural.
-5.  **Garantía de Operación a Costo Mínimo**: Estructurar un backend unificado en un contenedor Docker ejecutándose en una instancia de **Amazon EC2** con tareas en segundo plano en memoria (`BackgroundTasks`) que elimine por completo el cobro fijo de balanceadores (ALB) y colas de mensajería (SQS), manteniendo el costo de nube AWS en **menos de $22.00 USD mensuales**.
+1.  **Democratización del Geomarketing Corporativo**: Brindar a micro y pequeñas empresas análisis comerciales detallados y diagnósticos por IA, que tradicionalmente cuestan miles de dólares, a tarifas accesibles mediante un esquema de cobro transaccional por punto con **Mercado Pago Checkout Pro**:
+    *   **Plan Básico:** $299.00 MXN (reporte 6 páginas)
+    *   **Plan Pro:** $649.00 MXN (reporte 10 páginas + mapas + heatmap peatonal)
+    *   **Plan Premium:** $799.00 MXN (reporte 13 páginas + aliados guiados + afluencia real en score)
+2.  **Eliminación de Barreras Técnicas SIG (INEGI al Vuelo)**: Desarrollar algoritmos de intersección geoespacial (`ST_Intersects`) optimizados con índices GIST en PostGIS que digieran la complejidad demográfica de AGEBs de INEGI y la crucen dinámicamente con competencia local en menos de **800ms**.
+3.  **Autosuficiencia en Ingesta de Datos (Cero Placeholders)**: Pipeline administrativo asíncrono en `/admin` (Streamlit) para subir, reproyectar a `EPSG:4326` e insertar Shapefiles estatales de INEGI en hilos de fondo.
+4.  **IA Explicable para Emprendedores**: Cadena de inferencia **Groq → Amazon Bedrock → respaldo cuantitativo** que traduce variables geoespaciales en **lectura estratégica** (fortalezas, oportunidades, consideraciones, conclusión) y FODA en el PDF impreso.
+5.  **Garantía de Operación a Costo Mínimo**: Backend unificado en contenedor Docker con `BackgroundTasks`; arquitectura objetivo AWS **< $22 USD/mes**. **Estado actual:** beta en VPS Hetzner con PostGIS compartido (`geo-analisis-db`).
 
 ### Non-Goals
 1.  **No proveer consultoría legal o de uso de suelo**: El sistema no valida licencias comerciales ni normativas jurídicas de zonificación y uso de suelo locales.
@@ -77,11 +81,33 @@ Adicionalmente, realizar un cruce demográfico con la oferta de competidores en 
 ## Overview
 
 El sistema opera bajo un modelo desacoplado y optimizado:
-1.  **Frontend Estático**: Hospedado en un bucket de Amazon S3 y distribuido mediante **AWS CloudFront** para acelerar cargas y asegurar conexiones HTTPS de manera gratuita.
-2.  **Backend Unificado**: Desarrollado en Python 3.12 (gestionado con `uv`) bajo **FastAPI**, empaquetado en un contenedor Docker en una instancia de **Amazon EC2**. Este único contenedor actúa tanto como API como motor asíncrono en memoria para tareas pesadas mediante hilos de fondo (`BackgroundTasks`), evitando el aprovisionamiento de colas SQS o workers redundantes.
-3.  **Base de Datos Geoespacial Fija**: Una instancia única de **Amazon RDS PostgreSQL (db.t4g.micro)** con almacenamiento GP3 de 20GB y la extensión espacial **PostGIS** instalada. Se omiten RDS Proxy y Aurora Serverless por costes fijos elevados.
-4.  **Capa de Gestión de Parámetros**: Inyección de variables de entorno y API Keys sin cargo mediante **AWS SSM Parameter Store**.
-5.  **Identidad**: **Amazon Cognito** para registros y logins de clientes con validación JWT transparente.
+
+1.  **Frontend SPA (Vanilla JS)**: Servido por el mismo contenedor FastAPI en `/` (desarrollo/VPS) o, en producción objetivo, bucket **S3 + CloudFront**.
+2.  **Backend Unificado**: Python 3.11+ / **FastAPI** en Docker (`uvicorn`), con tareas asíncronas en memoria (`BackgroundTasks`). Expone API `1.0.0` y monta estáticos `frontend/`.
+3.  **Base de Datos Geoespacial**: **PostgreSQL + PostGIS** (`geo-analisis-db` en red Docker). Objetivo producción: RDS `db.t4g.micro`.
+4.  **Capa de Parámetros**: Variables `.env` en beta; objetivo producción: **AWS SSM Parameter Store**.
+5.  **Identidad**: **Amazon Cognito** (objetivo H4). **Estado actual:** `DEV_MODE=True` simula JWT mock; producción sin Cognito retorna HTTP `501`.
+6.  **Entorno beta (Jun 2026)**: VPS `135.181.30.179`, ruta `/opt/viabilidad-negocios`, puerto público `8000`, `DEV_MODE=True`, `PAYMENTS_MOCK=true`. Admin Streamlit en `127.0.0.1:8501` (túnel SSH).
+
+### Estado de implementación por componente (cerrado en beta)
+
+| Componente | Estado | Notas |
+|------------|--------|-------|
+| Motor analítico (PostGIS + Places + BestTime + SVA) | ✅ Operativo | ISC, segmentación, multi-radio |
+| NSE (nivel socioeconómico) | ✅ Operativo | `app/nse.py`, KPI dashboard, PDF |
+| Vigencia operativa de comercios | ✅ Operativo | `app/vigencia_comercio.py`, badges UI/PDF |
+| Personalización competidores/aliados por tier | ✅ Operativo | Validación en `schemas.py` |
+| Autodetección IA (`ia_auto`) | ✅ Operativo | `bedrock.determinar_categorias_ia` |
+| Aliados guiados (Premium) | ✅ Operativo | `app/aliados_guiados.py`, sin LLM |
+| Caché resultado (`resultado_json` / `foda_json`) | ✅ Operativo | Single source of truth dashboard/PDF |
+| Búsqueda por dirección | ✅ Operativo | `GET /api/analizar/buscar-direccion` |
+| Heatmap peatonal en dashboard | ✅ Operativo | Reemplaza FODA/ROI en web; PDF conserva FODA |
+| Lectura estratégica 3+3+3 | ✅ Operativo | `app/lectura_estrategica.py` |
+| PDF por tier (6 / 10 / 13 págs) | ✅ Operativo | `app/reports.py` |
+| Pagos Mercado Pago | ⚠️ Mock | `PAYMENTS_MOCK` + `webhook-mock` |
+| Cognito JWT real | ⚠️ Pendiente H4 | HTTP `501` fuera de `DEV_MODE` |
+| AWS S3 / SES / Bedrock live | ⚠️ Pendiente H4 | Activos solo con `AWS_ENABLED` |
+| Producción AWS end-to-end | ⚠️ Parcial | Docker VPS; ECR en `docker-compose.prod.yml` |
 
 ---
 
@@ -112,9 +138,9 @@ Representa el camino desde que el cliente solicita el análisis, se procesa la t
           │
           ├───► [ PostGIS (RDS PostgreSQL) ] ───► Consulta Demografía Ponderada (ST_Intersects)
           │
-          ├───► [ Google Places / BestTime ] ───► Recupera Competencia y Afluencia Peatonal
+          ├───► [ Google Places / BestTime ] ───► Recupera Competencia, Vigencia y Afluencia Peatonal
           │
-          ├───► [ Amazon Bedrock (Meta Llama 3.1) ] ───► Genera FODA Contextualizado
+          ├───► [ Groq / Amazon Bedrock ] ───────► Lectura estratégica + FODA (PDF)
           │
           ├───► [ ReportLab PDF Engine ] ────────► Compila PDF Ejecutivo (6, 10 o 13 páginas)
           │
@@ -165,13 +191,13 @@ sequenceDiagram
     participant API as FastAPI (Dockerized EC2 Single Instance)
     participant DB as PostgreSQL + PostGIS (RDS t4g.micro)
     participant MP as Mercado Pago (Checkout Pro)
-    participant LLM as Amazon Bedrock (Llama 3.1)
+    participant LLM as Groq / Amazon Bedrock
     participant S3 as Amazon S3 (Informes Privados)
     participant SES as Amazon SES
 
-    Cliente->>API: 1. Inicia sesión (JWT de Cognito) & Elige punto en mapa
-    Cliente->>API: 2. Envía intenciones de negocio & selecciona Tier de pago
-    API->>MP: 3. Registra preferencia de cobro
+    Cliente->>API: 1. Inicia sesión (JWT mock en DEV / Cognito en prod) & Elige punto en mapa
+    Cliente->>API: 2. Configura giro, radio, competidores/aliados (intenciones opcionales en backend)
+    API->>MP: 3. Registra preferencia de cobro (o mock si PAYMENTS_MOCK)
     MP-->>Cliente: 4. Abre pasarela de cobro Checkout Pro
     Cliente->>MP: 5. Realiza pago seguro (Tarjeta, transferencia, etc.)
     Note over MP, API: El proceso se vuelve asíncrono
@@ -205,6 +231,37 @@ Para mantener actualizada la base de datos nacional con datos del Censo de Pobla
 
 ---
 
+### API pública actual (`app/main.py`, `routes_analytics.py`, `payments.py`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/health` | Estado del servicio (`dev_mode`, `payments_mock`) |
+| POST | `/api/analizar/previa` | Vista previa analítica (tier gratuito simulado) |
+| GET | `/api/analizar/resultado/{orden_id}` | Dashboard post-pago (lee caché `resultado_json`) |
+| GET | `/api/analizar/geocodificar` | Dirección inversa al clic en mapa |
+| GET | `/api/analizar/buscar-direccion` | Autocompletado de dirección (México) |
+| POST | `/api/analizar/aliados/sugerir` | Sugerencias modo guiado (Premium) |
+| GET | `/api/analizar/pdf/{orden_id}` | URL firmada S3 o descarga local DEV |
+| POST | `/api/pagos/preferencia` | Checkout Pro o mock |
+| POST | `/api/pagos/webhook` | Webhook Mercado Pago |
+| POST | `/api/pagos/webhook-mock` | Simulación de pago (solo `PAYMENTS_MOCK`) |
+
+### Cadena de inferencia LLM (`app/bedrock.py`) — **Cerrado**
+
+1. **Groq** (`GROQ_API_KEY`, modelo default `llama-3.3-70b-versatile`) si hay clave configurada.
+2. **Amazon Bedrock** (`meta.llama3-70b-instruct-v1:0`) solo con `AWS_ENABLED=True`.
+3. **Respaldo cuantitativo** (`_foda_respaldo_cuantitativo`) sin LLM si fallan ambos.
+
+Medidas de seguridad: sanitización anti prompt-injection, guardrail Groq, rate limit por IP (`LLMRateLimitMiddleware`), suite `tests/security/llm_stress_test.py`.
+
+### Dashboard web vs PDF — **Cerrado**
+
+* **Web:** mapa de calor BestTime (Pro/Premium), lectura estratégica, KPIs (SVA, población, competidores, NSE), tabla competidores con **vigencia operativa**. FODA clásico y ROI **no** se muestran en dashboard.
+* **PDF:** conserva FODA, ROI, NSE, vigencia, heatmap y secciones por tier.
+* **UI temporal:** sección "Intenciones del negocio" oculta vía `UI_FEATURES.intencionesNegocio = false` en `frontend/app.js`; el backend sigue aceptando el campo.
+
+---
+
 ### Rediseño de Portada PDF (Estándar Visual Diapositiva 14)
 
 Con el fin de unificar el branding corporativo de Phiqus, la portada (Página 1) del PDF generado fue rediseñada para coincidir con la diapositiva 14 del estándar visual:
@@ -216,15 +273,26 @@ Con el fin de unificar el branding corporativo de Phiqus, la portada (Página 1)
 
 ## Consideraciones
 
-### 🔒 Seguridad en Producción
-*   **Aislamiento de Datos**: La base de datos RDS PostgreSQL se configurará en una subred privada dentro de la VPC. Ningún puerto de base de datos (`5432`) será expuesto directamente a Internet. El acceso se limitará exclusivamente a la IP privada de la instancia de Amazon EC2.
-*   **Protección de Secretos**: No se incluirán claves de API o credenciales en el repositorio de GitHub. Todos los secretos en producción se almacenarán en **AWS SSM Parameter Store** como parámetros cifrados del tipo `SecureString` y se inyectarán como variables de entorno al levantar el contenedor Docker en la EC2.
-*   **Autenticación Robusta**: Todo acceso a los endpoints del visor y reportes se validará en el backend de FastAPI interceptando y decodificando los tokens JWT de Amazon Cognito.
-*   **Acceso al VPS**: Los despliegues se automatizarán mediante flujos de **GitHub Actions** firmados. El acceso administrativo directo a servidores o contenedores se restringirá a llaves SSH autorizadas.
+### 🔒 Seguridad
+
+#### Producción objetivo (AWS)
+*   **Aislamiento de Datos**: RDS en subred privada; puerto `5432` sin exposición a Internet.
+*   **Protección de Secretos**: SSM Parameter Store (`SecureString`); sin credenciales en Git.
+*   **Autenticación**: JWT Cognito en todos los endpoints transaccionales.
+*   **Webhooks Mercado Pago**: Validación de firma e idempotencia en `ordenes_pagos`.
+
+#### Beta VPS (implementado Jun 2026) — **Cerrado**
+*   **Puertos públicos:** `8000` (app), `3000` (otras apps en mismo host), `22` (SSH limitado).
+*   **Servicios internos:** admin Streamlit `8501`, PostgreSQL solo red Docker, sin mapeo host en `5432`.
+*   **Firewall:** UFW + cadena `DOCKER-USER` bloquea `8080`, `8501`, `5050`, `5432` desde Internet.
+*   **Scripts:** `scripts/vps-hardening.sh`, `scripts/vps-ufw-cleanup.sh`, `infra/vps/ufw-after.rules`.
+*   **Acceso admin:** túnel SSH `ssh -L 8501:127.0.0.1:8501 root@<vps>`.
 
 ### 💳 Integración de Cobro con Mercado Pago
-*   **Integridad de Webhooks**: El endpoint de webhook `/api/pagos/webhook` validará la firma de seguridad emitida por Mercado Pago en las cabeceras HTTP para impedir ataques de suplantación.
-*   **Idempotencia**: Se implementará un mecanismo de control de estado en la tabla `ordenes_pagos` para asegurar que las notificaciones de webhooks duplicadas no generen reportes o llamadas al LLM de forma redundante.
+*   **Modo mock (beta):** Con `PAYMENTS_MOCK=true`, `POST /api/pagos/preferencia` retorna checkout simulado y `POST /api/pagos/webhook-mock` aprueba la orden sin contactar Mercado Pago.
+*   **Integridad de Webhooks**: El endpoint `/api/pagos/webhook` validará la firma de Mercado Pago en producción.
+*   **Idempotencia**: Control de estado en `ordenes_pagos` para evitar reportes duplicados.
+*   **Precios (`PRECIOS_TIER`):** básico `299.00`, pro `649.00`, premium `799.00` MXN — sincronizados con `frontend/app.js` (`TIER_PRICING`).
 
 ---
 
@@ -242,3 +310,9 @@ Con el fin de unificar el branding corporativo de Phiqus, la portada (Página 1)
 2.  **Rentabilidad por Consulta**: Calcular el costo computacional promedio de APIs externas (Google Places + BestTime + Bedrock) contra el ingreso por Tier para asegurar un margen operativo neto superior al **70%**.
 3.  **Tasa de Éxito de Ingesta**: Porcentaje de archivos Shapefiles comprimidos cargados por administradores que concluyen su inserción a PostGIS exitosamente en el primer intento.
 4.  **Descargas de Reportes**: Conteo dinámico de PDFs firmados generados y descargados por los usuarios según el Tier adquirido.
+
+---
+
+## Extensiones documentadas
+
+Las funcionalidades incrementales posteriores al diseño base (NSE, vigencia operativa, aliados guiados, heatmap dashboard, pagos mock, seguridad VPS) se documentan en detalle en **[rfc.md](../../rfc.md)** (secciones §1–§22), sincronizado con la rama `spotlight`.

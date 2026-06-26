@@ -173,4 +173,5 @@ scratch/
 
 # Database dumps and backups
 *.dump
+!backups/agebs_demografia.dump
 *.sql.gz

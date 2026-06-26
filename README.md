@@ -6,7 +6,7 @@ Plataforma de análisis de viabilidad comercial geoespacial para México. Combin
 
 - **Backend**: FastAPI (Python 3.11), SQLAlchemy, PostgreSQL + PostGIS
 - **Frontend**: SPA estática (HTML/CSS/JS) servida por FastAPI
-- **Consola administrativa**: Streamlit (ingesta de shapefiles INEGI y dashboard)
+- **Consola administrativa**: Flask (`admin/`, puerto 8501): leads, órdenes e ingesta INEGI
 - **IA**: AWS Bedrock (Llama 3 70B) con fallback a Groq
 - **Integraciones**: Google Places/Geocoding, BestTime, Mercado Pago (Checkout Pro), AWS S3/SES
 - **Reportes**: ReportLab (PDF)
@@ -14,8 +14,21 @@ Plataforma de análisis de viabilidad comercial geoespacial para México. Combin
 ## Requisitos
 
 - Docker y Docker Compose
-- Una base de datos PostgreSQL + PostGIS accesible en la red `geoanalisis-sdd_geo-network` (red externa de Docker)
 - Llaves de API (opcionales en `DEV_MODE=True`, que simula Cognito y Mercado Pago)
+
+El `docker-compose.yml` incluye PostgreSQL + PostGIS (`geo-analisis-db`, puerto host `5435`). No hace falta un repositorio aparte para la base de datos.
+
+**Primera vez / despliegue limpio:** con PostGIS arriba (`docker compose up -d geo-db`), restaura la demografía nacional incluida en el repo:
+
+```bash
+# Linux / macOS / Git Bash
+bash scripts/restore_demografia_local.sh
+
+# Windows (PowerShell)
+./scripts/restore_demografia_local.ps1
+```
+
+Ver `backups/MANIFEST.json` para cobertura (32 entidades, ~64k AGEBs).
 
 ## Inicio rápido
 
@@ -41,7 +54,7 @@ cp .env.example .env
 |---|---|
 | API + SPA pública | http://localhost:8000 |
 | Documentación OpenAPI | http://localhost:8000/docs |
-| Consola administrativa (Streamlit) | http://localhost:8501 |
+| Consola administrativa (Flask) | http://localhost:8501/admin/login |
 
 ## Variables de entorno
 
@@ -64,8 +77,8 @@ Ver `.env.example` para la lista completa. Las principales:
 ```
 app/                # Backend FastAPI (analytics, bedrock, payments, reports, etc.)
 frontend/           # SPA pública (index.html, app.js, index.css)
-admin_app.py        # Consola administrativa Streamlit
-ingest_all_states.py# Ingesta masiva de shapefiles INEGI
+admin/              # Panel administrativo Flask (leads, órdenes, ingesta INEGI)
+ingest_all_states.py# Ingesta masiva de shapefiles INEGI (CLI)
 tests/              # Suite de pruebas (incluye tests de seguridad LLM)
 fuentes/            # Datos crudos INEGI (ignorado en git)
 scratch/            # Experimentos y scripts de depuración (ignorado en git)

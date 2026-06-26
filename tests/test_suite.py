@@ -375,8 +375,37 @@ def test_sva_calculo_transparente_y_simulador():
     assert sin_comp["score_competencia"] == 100.0
     assert sin_comp["sva"] > escenarios[0]["sva"]
 
+    analisis_20 = {
+        **analisis,
+        "competidores_conteo": 20,
+        "competidores_listado": [{"distancia_metros": i * 50} for i in range(1, 21)],
+    }
+    esc_20 = escenarios_simulacion_sva(analisis_20, tier="pro", radio_metros=1000)
+    nombres = [e["escenario"] for e in esc_20]
+    assert len(nombres) == len(set(nombres))
+    diez_cercanos = [
+        e for e in esc_20 if e["competidores"] == 10 and "más cercanos" in e["escenario"]
+    ]
+    assert len(diez_cercanos) == 1
+
     _, sva_calc = componer_sva(72.2, score_comp, 55.0)
     assert sva_calc == 62
+
+
+def test_pdf_conteos_iat_y_radio_kpi():
+    from app.reports import _formato_radio_kpi, _texto_conteo_iat_categoria
+
+    assert _formato_radio_kpi(1500) == "1.5 km"
+    assert _formato_radio_kpi(1000) == "1 km"
+    assert _formato_radio_kpi(800) == "800 m"
+
+    texto = _texto_conteo_iat_categoria(20, 2, tier="premium")
+    assert "20 en mapas" in texto
+    assert "2 en listado detallado" in texto
+    assert "catálogo amplio" in texto
+
+    texto_simple = _texto_conteo_iat_categoria(5, 0, tier="pro")
+    assert texto_simple == "5 detectados en el radio"
 
 
 def test_competidores_mas_cercanos_y_lectura():
@@ -811,7 +840,7 @@ def test_crear_preferencia_invalida_basico():
     }
     response = client.post("/api/pagos/preferencia", json=payload_invalid_comps, headers=headers)
     assert response.status_code == 422
-    assert "El Tier Básico permite un máximo de 1 competidor" in response.text
+    assert "El reporte Básico permite un máximo de 1 competidor" in response.text
 
     # 3. Any allies should be INVALID
     payload2 = {
@@ -824,7 +853,7 @@ def test_crear_preferencia_invalida_basico():
     }
     response2 = client.post("/api/pagos/preferencia", json=payload2, headers=headers)
     assert response2.status_code == 422
-    assert "El Tier Básico no permite personalizar aliados" in response2.text
+    assert "El reporte Básico no permite personalizar aliados" in response2.text
 
 
 def test_crear_preferencia_invalida_pro_aliados():
@@ -842,7 +871,7 @@ def test_crear_preferencia_invalida_pro_aliados():
     }
     response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
     assert response.status_code == 422
-    assert "El Tier Pro no permite personalizar aliados" in response.text
+    assert "El reporte Pro no permite personalizar aliados" in response.text
 
 
 def test_crear_preferencia_invalida_pro_limites():
@@ -860,7 +889,7 @@ def test_crear_preferencia_invalida_pro_limites():
     }
     response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
     assert response.status_code == 422
-    assert "El Tier Pro permite un máximo de 3 competidores" in response.text
+    assert "El reporte Pro permite un máximo de 3 competidores" in response.text
 
 
 def test_crear_preferencia_invalida_premium_limites():
@@ -878,7 +907,7 @@ def test_crear_preferencia_invalida_premium_limites():
     }
     response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
     assert response.status_code == 422
-    assert "El Tier Premium permite un máximo de 5 competidores" in response.text
+    assert "El reporte Premium permite un máximo de 5 competidores" in response.text
 
     payload2 = {
         "tier_adquirido": "premium",
@@ -890,7 +919,7 @@ def test_crear_preferencia_invalida_premium_limites():
     }
     response2 = client.post("/api/pagos/preferencia", json=payload2, headers=headers)
     assert response2.status_code == 422
-    assert "El Tier Premium permite un máximo de 5 aliados" in response2.text
+    assert "El reporte Premium permite un máximo de 5 aliados" in response2.text
 
 
 def test_crear_preferencia_valida_pro_premium():
@@ -1116,6 +1145,69 @@ def test_buscar_direccion_api():
     assert "Reforma 222" in data["resultados"][0]["direccion"]
 
 
+def test_seleccion_atractores_destacados_por_calificacion():
+    from app.seleccion_atractores import (
+        MIN_RESENAS_BUENA,
+        RATING_BUENA_PREMIUM,
+        seleccionar_atractores_destacados,
+    )
+
+    def _aliado(rating: float, reviews: int = 10, dist: float = 100.0, idx: int = 0) -> dict:
+        return {
+            "nombre": f"Lugar {idx}-{rating}",
+            "rating": rating,
+            "user_ratings_total": reviews,
+            "distancia_metros": dist,
+            "latitud": 19.43 + idx * 0.0001,
+            "longitud": -99.13,
+        }
+
+    muchos_buenos = [_aliado(4.5, dist=50 + i * 10, idx=i) for i in range(12)]
+    destacados, meta = seleccionar_atractores_destacados(muchos_buenos, tier="pro")
+    assert len(destacados) == 10
+    assert meta["tamano_aplicado"] == 10
+    assert meta["atractores_calificacion_alta_en_pool"] == 10
+    assert meta["resenas_minimas_buena"] == MIN_RESENAS_BUENA
+
+    seis_buenos = [_aliado(4.2, dist=80 + i * 20, idx=i) for i in range(6)] + [
+        _aliado(3.2, dist=200 + i * 30, idx=10 + i) for i in range(6)
+    ]
+    destacados6, meta6 = seleccionar_atractores_destacados(seis_buenos, tier="pro")
+    assert len(destacados6) == 7
+    assert meta6["tamano_aplicado"] == 7
+
+    cuatro_buenos = [_aliado(4.0, dist=100 + i * 15, idx=i) for i in range(4)] + [
+        _aliado(2.5, dist=300 + i * 20, idx=10 + i) for i in range(8)
+    ]
+    destacados4, meta4 = seleccionar_atractores_destacados(cuatro_buenos, tier="pro")
+    assert len(destacados4) == 5
+    assert meta4["tamano_aplicado"] == 5
+
+    pocos_buenos = [_aliado(4.3, dist=90, idx=0), _aliado(3.1, dist=120, idx=1)] + [
+        _aliado(2.0, dist=150 + i * 10, idx=2 + i) for i in range(8)
+    ]
+    destacados3, meta3 = seleccionar_atractores_destacados(pocos_buenos, tier="pro")
+    assert len(destacados3) == 3
+    assert meta3["tamano_aplicado"] == 3
+
+    # Rating alto pero pocas reseñas no cuenta como "buena calificación"
+    rating_sin_muestra = [_aliado(4.9, reviews=2, idx=i) for i in range(8)] + [
+        _aliado(3.0, reviews=20, idx=10 + i) for i in range(4)
+    ]
+    _, meta_resenas = seleccionar_atractores_destacados(rating_sin_muestra, tier="pro")
+    assert meta_resenas["atractores_calificacion_alta_en_pool"] == 0
+
+    # Premium exige rating ≥ 4.2 además de 5 reseñas
+    mix_premium = [
+        _aliado(4.15, reviews=50, idx=0),
+        _aliado(4.25, reviews=8, idx=1),
+        _aliado(4.1, reviews=100, idx=2),
+    ] + [_aliado(3.5, reviews=10, idx=3 + i) for i in range(7)]
+    _, meta_prem = seleccionar_atractores_destacados(mix_premium, tier="premium")
+    assert meta_prem["calificacion_minima_buena"] == RATING_BUENA_PREMIUM
+    assert meta_prem["atractores_calificacion_alta_en_pool"] == 1
+
+
 def test_sugerir_atractores_floreria_familias_tar():
     from app.aliados_guiados import sugerir_atractores
 
@@ -1203,7 +1295,7 @@ def test_crear_preferencia_guiado_solo_premium():
     }
     response_pro = client.post("/api/pagos/preferencia", json=payload_pro, headers=headers)
     assert response_pro.status_code == 422
-    assert "solo está disponible en Tier Premium" in response_pro.text
+    assert "solo está disponible en reporte Premium" in response_pro.text
 
     payload_prem = {
         "tier_adquirido": "premium",

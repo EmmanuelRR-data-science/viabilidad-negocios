@@ -19,10 +19,37 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="index.css?v=1.0.2">
+    <link rel="stylesheet" href="index.css?v=1.0.3">
 </head>
 <body class="light-theme" id="body-app">
 
+    <!-- Acceso PhiQus (previo a la aplicación) -->
+    <div id="phiqus-gate" class="phiqus-gate" role="dialog" aria-modal="true" aria-labelledby="phiqus-gate-title">
+        <div class="phiqus-gate-card glass-card">
+            <div class="phiqus-gate-brand">
+                <span class="logo-icon" aria-hidden="true">📍</span>
+                <div>
+                    <h2 id="phiqus-gate-title">GeoViabilidad <span>Hook</span></h2>
+                    <p>Acceso restringido · PhiQus</p>
+                </div>
+            </div>
+            <p class="phiqus-gate-desc">Ingresa tus credenciales para acceder al analizador de viabilidad comercial.</p>
+            <form id="phiqus-gate-form" class="phiqus-gate-form" autocomplete="off">
+                <label class="phiqus-field">
+                    <span>Usuario</span>
+                    <input type="text" id="phiqus-username" name="username" required autocomplete="username" placeholder="Usuario PhiQus">
+                </label>
+                <label class="phiqus-field">
+                    <span>Contraseña</span>
+                    <input type="password" id="phiqus-password" name="password" required autocomplete="current-password" placeholder="Contraseña">
+                </label>
+                <p id="phiqus-gate-error" class="phiqus-gate-error hidden" role="alert"></p>
+                <button type="submit" class="btn-primary phiqus-gate-submit">Entrar a la plataforma</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-shell" class="hidden">
     <!-- Cabecera de la Aplicación -->
     <header class="app-header glass-card">
         <div class="header-logo">
@@ -34,10 +61,15 @@
         </div>
         
         <div class="header-controls">
-            <!-- Selector de Perfil Cognito Simulado -->
-            <div class="profile-selector glass-card" id="profile-container">
+            <div id="google-user-chip" class="google-user-chip hidden" aria-live="polite" title="Sesión Google activa">
+                <span id="google-user-avatar" class="google-user-avatar" aria-hidden="true"></span>
+                <span id="google-user-name" class="google-user-name"></span>
+            </div>
+
+            <!-- Perfil simulado (oculto; el rol lo fija la autenticación Google) -->
+            <div class="profile-selector glass-card hidden" id="profile-container" aria-hidden="true">
                 <span class="profile-icon">👤</span>
-                <select id="user-role-select" class="clean-select">
+                <select id="user-role-select" class="clean-select" tabindex="-1">
                     <option value="guest" selected>Invitado (Desconectado)</option>
                     <option value="user">Cliente (usr_mock_123)</option>
                     <option value="admin">Administrador (admin_root)</option>
@@ -435,7 +467,7 @@
                         </span>
                     </h3>
                     <p class="kpi-value" id="kpi-nse">🔒 Bloqueado</p>
-                    <p class="kpi-desc" id="kpi-nse-desc">Indicador del poder adquisitivo promedio en la zona. Desbloquéalo al adquirir cualquier plan de reporte.</p>
+                    <p class="kpi-desc" id="kpi-nse-desc">Indicador del poder adquisitivo promedio en la zona. Desbloquéalo al comprar cualquier reporte (Básico, Pro o Premium).</p>
                 </div>
             </div>
         </div>
@@ -479,7 +511,7 @@
                         <span class="tooltip-text">Distribución por calificación, competidores mejor valorados con distancia y reseñas públicas de Google en la zona.</span>
                     </span>
                 </h3>
-                <p class="chart-helper-text" id="comp-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver las calificaciones de competidores locales.</p>
+                <p class="chart-helper-text" id="comp-chart-locked-msg">🔒 Compra el reporte PRO o Premium para ver las calificaciones de competidores locales.</p>
                 <div class="competitor-analysis-row">
                     <div class="competitor-chart-col">
                         <h4 class="competitor-subtitle">Distribución por rating (todos los detectados)</h4>
@@ -518,6 +550,7 @@
         <!-- Aliados detalle (Premium) -->
         <div class="chart-card glass-card hidden" id="aliados-detalle-card">
             <h3>Aliados y atractores — detalle</h3>
+            <p class="chart-helper-text hidden" id="aliados-detalle-hint"></p>
             <p class="chart-helper-text aliados-vigencia-disclaimer" id="aliados-vigencia-disclaimer"></p>
             <div class="table-wrapper">
                 <table class="clean-table" id="aliados-detalle-table">
@@ -526,6 +559,7 @@
                             <th>Establecimiento</th>
                             <th>Tipo</th>
                             <th>Calificación</th>
+                            <th>Distancia</th>
                             <th>Vigencia</th>
                         </tr>
                     </thead>
@@ -544,7 +578,7 @@
                         <span class="tooltip-text">Lista de magnetos comerciales principales (transporte, bancos, escuelas) y su grado de atracción de flujo peatonal.</span>
                     </span>
                 </h3>
-                <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Desbloquea el plan PRO o Premium para ver los atractores de tráfico locales.</p>
+                <p class="chart-helper-text" id="poi-chart-locked-msg">🔒 Compra el reporte PRO o Premium para ver los atractores de tráfico locales.</p>
                 <div class="table-wrapper" id="poi-table-container">
                     <table class="clean-table" id="poi-table">
                         <thead>
@@ -580,12 +614,25 @@
                     📊 Mapa de Calor de Afluencia Peatonal y Horarios Pico
                     <span class="info-tooltip-wrapper tooltip-right">
                         <span class="info-icon">?</span>
-                        <span class="tooltip-text">Muestra la densidad de tráfico de personas por hora y día de la semana en la zona del local comercial, obtenido de análisis de afluencia peatonal.</span>
+                        <span class="tooltip-text">Muestra la densidad de tráfico por hora y día según la telemetría BestTime de un competidor identificado en la zona (no de aliados ni atractores). No representa necesariamente el tránsito peatonal general de la calle.</span>
                     </span>
                 </h3>
+                <p class="heatmap-establecimiento-ref hidden" id="heatmap-establecimiento-ref"></p>
                 <div class="heatmap-wrapper" id="heatmap-grid-container">
                     <!-- Se generará dinámicamente con JS -->
                 </div>
+                <div class="heatmap-summary-wrap hidden" id="heatmap-summary-wrap">
+                    <table class="heatmap-summary-table" id="heatmap-summary-table">
+                        <thead>
+                            <tr>
+                                <th>Rango horario</th>
+                                <th>Intensidad peatonal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="heatmap-summary-body"></tbody>
+                    </table>
+                </div>
+                <p class="heatmap-nota hidden" id="heatmap-nota-establecimiento"></p>
                 <div class="heatmap-legend" id="heatmap-legend-container" style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 15px; font-size: 11px; color: var(--text-secondary);">
                     <span>Tránsito de personas:</span>
                     <div style="display: flex; gap: 4px; align-items: center;">
@@ -693,27 +740,27 @@
         </div>
     </div>
     
-    <!-- Modal de Registro/Login con Google (Cognito Mock) -->
+    <!-- Modal de Login con Google (respaldo manual; el flujo principal ocurre al analizar) -->
     <div id="google-login-modal" class="payment-modal-overlay hidden">
         <div class="payment-modal-content glass-card" style="max-width: 400px;">
             <div class="modal-header">
-                <h3>🌐 Registrarse / Iniciar Sesión</h3>
+                <h3>🌐 Continuar con Google</h3>
                 <button id="close-login-modal-btn" class="close-btn">&times;</button>
             </div>
             <div class="modal-body" style="text-align: center; gap: 15px; padding: 30px 25px; display: flex; flex-direction: column;">
                 <span style="font-size: 48px; margin-bottom: 5px; display: block;">🔒</span>
-                <h4 style="font-size: 16px; font-weight: 700; color: var(--text-primary);">Guarda tu Reporte Comercial</h4>
+                <h4 style="font-size: 16px; font-weight: 700; color: var(--text-primary);">Vincula tu cuenta</h4>
                 <p class="billing-desc" style="font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); margin: 0;">
-                    Para poder personalizar tu análisis y descargar el reporte ejecutivo de forma segura, inicia sesión.
+                    Necesitamos autenticarte con Google para guardar tu análisis y habilitar la compra del reporte.
                 </p>
                 
-                <button id="google-signin-btn" class="btn-secondary font-glow" style="background: var(--text-primary); color: var(--bg-main); border: 1px solid var(--glass-border); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer;">
-                    <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24">
-                        <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.47 15.01 1 12 1 7.28 1 3.25 3.72 1.25 7.75l3.89 3.01C6.07 7.75 8.78 5.04 12 5.04z"/>
-                        <path fill="#4285F4" d="M23.49 12.27c0-.82-.07-1.61-.21-2.38H12v4.51h6.44c-.28 1.47-1.11 2.71-2.36 3.55l3.66 2.84c2.14-1.97 3.39-4.88 3.39-8.52z"/>
-                        <path fill="#FBBC05" d="M5.14 10.76A7.08 7.08 0 0 1 5 12c0 .43.05.85.14 1.24L1.25 16.25A11.96 11.96 0 0 1 0 12c0-1.52.29-2.98.81-4.32l4.33 3.08z"/>
-                        <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.66-2.84c-1.1.74-2.5 1.18-4.3 1.18-3.22 0-5.93-2.71-6.9-5.72l-3.89 3.01C3.25 20.28 7.28 23 12 23z"/>
-                    </svg>
+                <p id="google-login-hint" class="billing-desc" style="font-size: 12px; line-height: 1.5; color: var(--text-secondary); margin: 0;">
+                    Selecciona tu cuenta de Google para continuar con el análisis.
+                </p>
+
+                <div id="google-signin-button-container" class="google-signin-button-container"></div>
+
+                <button id="google-signin-btn" type="button" class="btn-secondary font-glow hidden" style="background: var(--text-primary); color: var(--bg-main); border: 1px solid var(--glass-border); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer;">
                     Continuar con Google
                 </button>
                 
@@ -733,14 +780,18 @@
         <p>&copy; 2026 GeoViabilidad Hook &mdash; Location Intelligence en México. Todos los derechos reservados.</p>
         <p class="footer-meta">Servidor corporativo optimizado y seguro. Información protegida mediante encriptación avanzada.</p>
     </footer>
+    </div><!-- /#app-shell -->
 
     <!-- Leaflet.js JS (Mapas) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
     <!-- Chart.js (Gráficos) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Identity Services (Sign-In) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <!-- Lógica de la Aplicación -->
-    <script src="app.js?v=1.0.4"></script>
+    <script src="app.js?v=1.1.3"></script>
 </body>
 </html>

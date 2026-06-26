@@ -2154,3 +2154,207 @@ body.light-theme .heatmap-cell:hover {
     box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
     border-color: rgba(15, 23, 42, 0.15);
 }
+
+.heatmap-establecimiento-ref {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.heatmap-summary-wrap {
+    margin-top: 16px;
+    overflow-x: auto;
+}
+
+.heatmap-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.heatmap-summary-table th,
+.heatmap-summary-table td {
+    border: 1px solid var(--glass-border);
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.heatmap-summary-table th {
+    background: rgba(15, 23, 42, 0.85);
+    color: #f8fafc;
+    font-weight: 600;
+}
+
+body.light-theme .heatmap-summary-table th {
+    background: #0f172a;
+}
+
+.heatmap-summary-table tr.section-row td {
+    background: rgba(255, 255, 255, 0.04);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.heatmap-summary-table tr.sub-row td:first-child {
+    padding-left: 22px;
+    color: var(--text-secondary);
+}
+
+.heatmap-summary-table td.sin-dato {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.heatmap-nota {
+    margin-top: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* --- Pantalla de acceso PhiQus (previo a la app) --- */
+.phiqus-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--bg-gradient);
+}
+
+.phiqus-gate.hidden {
+    display: none;
+}
+
+.phiqus-gate-card {
+    width: min(420px, 100%);
+    padding: 32px 28px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.phiqus-gate-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.phiqus-gate-brand h2 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.phiqus-gate-brand h2 span {
+    color: var(--primary-color);
+}
+
+.phiqus-gate-brand p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.phiqus-gate-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.phiqus-gate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.phiqus-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.phiqus-field span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.phiqus-field input {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: var(--transition-fast);
+}
+
+.phiqus-field input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.phiqus-gate-error {
+    font-size: 0.85rem;
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.phiqus-gate-submit {
+    width: 100%;
+    margin-top: 4px;
+}
+
+#app-shell.hidden {
+    display: none;
+}
+
+.google-user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    max-width: 220px;
+}
+
+.google-user-chip.hidden {
+    display: none;
+}
+
+.google-user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+}
+
+.google-user-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.google-signin-button-container {
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
+}

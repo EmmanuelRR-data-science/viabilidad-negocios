@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from app.censo_segmentos_map import SEGMENTO_CENSO_MAP, SEGMENTO_DB_COLUMNS
+from app.ingest_shapefile_utils import normalize_cvegeo
 
 NSE_CENSO_COLUMNS = ("GRAPROES", "VIVPAR_HAB", "VPH_AUTOM", "VPH_INTER", "VPH_PC")
 
@@ -158,6 +159,7 @@ def merge_ageb_record(
     geom_data: dict | None,
     census_data: dict | None,
 ) -> dict:
+    cvegeo = normalize_cvegeo(cvegeo) or cvegeo
     entidad = geom_data["entidad"] if geom_data else cvegeo[:2]
     municipio = geom_data["municipio"] if geom_data else cvegeo[2:5]
     wkt = geom_data.get("geom_wkt") if geom_data else None

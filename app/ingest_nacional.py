@@ -16,8 +16,6 @@ import zipfile
 import fiona
 import pandas as pd
 import pyproj
-from shapely.geometry import shape
-from shapely.ops import transform
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
@@ -28,6 +26,7 @@ from app.ingest_censo_helpers import (
     censo_ageb_from_row,
     merge_ageb_record,
 )
+from app.ingest_shapefile_utils import find_ageb_shapefile, geom_wkt_from_fiona_feature, normalize_cvegeo
 
 logger = logging.getLogger("ingest_nacional")
 
@@ -76,31 +75,25 @@ def _load_geoms_from_state_zip(spatial_zip_path: str, state_str: str) -> dict:
         with zipfile.ZipFile(io.BytesIO(sub_zip_data), "r") as z_sub:
             z_sub.extractall(temp_dir)
 
-        shp_files = []
-        for root, _dirs, files in os.walk(temp_dir):
-            for file in files:
-                if file.endswith("a.shp") or (
-                    file.endswith(".shp")
-                    and not any(file.endswith(x) for x in ["sia.shp", "sil.shp", "sip.shp", "mun.shp", "ent.shp"])
-                ):
-                    shp_files.append(os.path.join(root, file))
-        if not shp_files:
+        target_shp = find_ageb_shapefile(temp_dir)
+        if not target_shp:
             return geoms_dict
 
-        with fiona.open(shp_files[0], "r") as src:
+        with fiona.open(target_shp, "r") as src:
             proj_in = pyproj.CRS.from_user_input(src.crs)
             proj_out = pyproj.CRS.from_epsg(4326)
             transformer = pyproj.Transformer.from_crs(proj_in, proj_out, always_xy=True)
             for record in src:
-                cvegeo = record["properties"]["CVEGEO"]
+                cvegeo = normalize_cvegeo(record["properties"].get("CVEGEO"))
                 if not cvegeo:
+                    continue
+                wkt = geom_wkt_from_fiona_feature(record["geometry"], transformer)
+                if not wkt:
                     continue
                 cve_ent = record["properties"].get("CVE_ENT") or cvegeo[:2]
                 cve_mun = record["properties"].get("CVE_MUN") or cvegeo[2:5]
-                shp_geom = shape(record["geometry"])
-                reprojected_geom = transform(transformer.transform, shp_geom)
                 geoms_dict[cvegeo] = {
-                    "geom_wkt": reprojected_geom.wkt,
+                    "geom_wkt": wkt,
                     "entidad": cve_ent,
                     "municipio": cve_mun,
                 }

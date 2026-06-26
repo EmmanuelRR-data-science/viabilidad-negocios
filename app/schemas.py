@@ -57,17 +57,17 @@ class PreferenciaCreate(BaseModel):
 
         if tier == "basico":
             if comps and len(comps) > 1:
-                raise ValueError("El Tier Básico permite un máximo de 1 competidor personalizado.")
+                raise ValueError("El reporte Básico permite un máximo de 1 competidor personalizado.")
             if allies and len(allies) > 0:
-                raise ValueError("El Tier Básico no permite personalizar aliados estratégicos.")
+                raise ValueError("El reporte Básico no permite personalizar aliados estratégicos.")
         elif tier == "pro":
             if allies and len(allies) > 0:
-                raise ValueError("El Tier Pro no permite personalizar aliados estratégicos.")
+                raise ValueError("El reporte Pro no permite personalizar aliados estratégicos.")
             if comps and len(comps) > 3:
-                raise ValueError("El Tier Pro permite un máximo de 3 competidores personalizados.")
+                raise ValueError("El reporte Pro permite un máximo de 3 competidores personalizados.")
         elif tier == "premium":
             if comps and len(comps) > 5:
-                raise ValueError("El Tier Premium permite un máximo de 5 competidores personalizados.")
+                raise ValueError("El reporte Premium permite un máximo de 5 competidores personalizados.")
             if self.modo_analisis_aliados == "guiado":
                 if allies and len(allies) > 0:
                     raise ValueError(
@@ -83,9 +83,9 @@ class PreferenciaCreate(BaseModel):
                 except ValueError as exc:
                     raise ValueError(str(exc)) from exc
             elif allies and len(allies) > 5:
-                raise ValueError("El Tier Premium permite un máximo de 5 aliados personalizados.")
+                raise ValueError("El reporte Premium permite un máximo de 5 aliados personalizados.")
         if self.modo_analisis_aliados == "guiado" and tier != "premium":
-            raise ValueError("El modo guiado de aliados solo está disponible en Tier Premium.")
+            raise ValueError("El modo guiado de aliados solo está disponible en reporte Premium.")
         if self.modo_analisis_aliados == "guiado" and not self.config_aliados_guiados:
             raise ValueError("El modo guiado requiere config_aliados_guiados.")
         return self

@@ -34,16 +34,16 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application files (Unified Fullstack Deployment)
-COPY admin_app.py .
+COPY admin/ admin/
 COPY ingest_all_states.py .
 COPY .kiro/ .kiro/
 COPY app/ app/
 COPY frontend/ frontend/
 COPY scripts/ scripts/
 
-# Expose ports for Streamlit and FastAPI
+# Expose ports for Admin Flask and FastAPI
 EXPOSE 8501
 EXPOSE 8000
 
-# Run the Streamlit admin dashboard by default (can be overridden by entrypoint)
-ENTRYPOINT ["streamlit", "run", "admin_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Default: panel admin Flask (override in docker-compose for otros servicios)
+ENTRYPOINT ["flask", "--app", "admin.app:app", "run", "--host", "0.0.0.0", "--port", "8501"]

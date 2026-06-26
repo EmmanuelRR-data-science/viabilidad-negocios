@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  geo-db:
+    image: postgis/postgis:16-3.4
+    container_name: geo-analisis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-geoanalisis}
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin_password_safe}
+    ports:
+      - "${DB_PORT:-5435}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - geo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-geoanalisis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   admin-app:
     build:
       context: .
@@ -14,15 +34,22 @@ services:
       - DB_HOST=geo-analisis-db
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-geoanalisis}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-PhiQus}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-viabilidad-negocios}
+      - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY:-dev-admin-secret-change-me}
+      - FUENTES_DIR=/app/fuentes
+      - ADMIN_MAX_UPLOAD_MB=${ADMIN_MAX_UPLOAD_MB:-600}
+      - FLASK_DEBUG=${FLASK_DEBUG:-1}
     volumes:
-      # Mount the local fuentes directory to read raw state shapefiles for demography ingestion
-      - ./fuentes:/app/fuentes
+      - ./admin:/app/admin
       - ./app:/app/app
-      - ./admin_app.py:/app/admin_app.py
+      - ./fuentes:/app/fuentes
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      geo-db:
+        condition: service_healthy
     networks:
-      - default
       - geo-network
     restart: always
 
@@ -47,6 +74,8 @@ services:
       - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-meta.llama3-70b-instruct-v1:0}
       - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-}
       - BESTTIME_API_KEY=${BEST_TIME_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GROQ_MODEL=${GROQ_MODEL:-}
@@ -55,12 +84,18 @@ services:
       - ./app:/app/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      geo-db:
+        condition: service_healthy
     networks:
-      - default
       - geo-network
     restart: always
+
+volumes:
+  postgres_data:
+    name: geoanalisis-sdd_postgres_data
+    external: true
 
 networks:
   geo-network:
     name: geoanalisis-sdd_geo-network
-    external: true

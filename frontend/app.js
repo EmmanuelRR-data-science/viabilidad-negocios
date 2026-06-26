@@ -18,6 +18,13 @@ const state = {
     
     // Perfiles y Tokens
     currentUserRole: 'guest', // 'guest', 'user', o 'admin'
+    googleAuthenticated: false,
+    googleAuthPromise: null,
+    googleClientId: null,
+    googleAuthEnabled: false,
+    googleUser: null,
+    googleAuthPending: null,
+    appBootstrapped: false,
     currentTheme: 'light', // 'dark' o 'light'
     
     // Capas de azulejos de Leaflet
@@ -69,6 +76,14 @@ const priceFormatter = new Intl.NumberFormat("es-MX", {
 const progressTimers = {};
 const KPI_VALUE_IDS = ["kpi-sva", "kpi-poblacion", "kpi-competidores"];
 
+const PHIQUS_GATE = {
+    username: "PhiQus",
+    password: "viabilidad-negocios",
+    storageKey: "phiqus_gate_session",
+};
+
+const GOOGLE_AUTH_STORAGE_KEY = "google_auth_session";
+
 // Flags de UI — cambiar a true para reactivar secciones ocultas temporalmente
 const UI_FEATURES = {
     intencionesNegocio: false,
@@ -88,22 +103,252 @@ const INTRO_COPY = {
 // --- INICIALIZACIÓN AL CARGAR LA PÁGINA ---
 document.addEventListener("DOMContentLoaded", () => {
     logger("Iniciando SPA de GeoViabilidad Hook...");
-    
-    // 1. Inicializar el Visor Cartográfico (Leaflet)
-    initMap();
-    
-    // 2. Vincular Eventos de la UI
-    bindUIEvents();
-
-    // 3. Etiquetas de precios con moneda MXN
-    initTierPricingLabels();
-
-    // 4. Secciones de UI controladas por feature flags
-    initUIFeatures();
-    
-    // 5. Comprobar y crear carpetas locales estáticas en desarrollo
-    logger("Inicialización completa. Esperando clic en el mapa...");
+    initPhiqusGate();
 });
+
+function initPhiqusGate() {
+    const gate = document.getElementById("phiqus-gate");
+    const shell = document.getElementById("app-shell");
+    const form = document.getElementById("phiqus-gate-form");
+
+    if (!gate || !shell || !form) {
+        bootstrapApp();
+        return;
+    }
+
+    if (sessionStorage.getItem(PHIQUS_GATE.storageKey) === "1") {
+        gate.classList.add("hidden");
+        shell.classList.remove("hidden");
+        bootstrapApp();
+        return;
+    }
+
+    gate.classList.remove("hidden");
+    shell.classList.add("hidden");
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const username = document.getElementById("phiqus-username")?.value?.trim() || "";
+        const password = document.getElementById("phiqus-password")?.value || "";
+        const errorEl = document.getElementById("phiqus-gate-error");
+
+        if (username === PHIQUS_GATE.username && password === PHIQUS_GATE.password) {
+            sessionStorage.setItem(PHIQUS_GATE.storageKey, "1");
+            sessionStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+            state.googleAuthenticated = false;
+            state.googleUser = null;
+            state.currentUserRole = "guest";
+            updateUserChip(null);
+            if (errorEl) errorEl.classList.add("hidden");
+            gate.classList.add("hidden");
+            shell.classList.remove("hidden");
+            bootstrapApp();
+            logger("Acceso PhiQus concedido.");
+            return;
+        }
+
+        if (errorEl) {
+            errorEl.textContent = "Usuario o contraseña incorrectos.";
+            errorEl.classList.remove("hidden");
+        }
+    });
+}
+
+function bootstrapApp() {
+    if (state.appBootstrapped) return;
+    state.appBootstrapped = true;
+
+    restoreGoogleSession();
+    initGoogleAuthConfig();
+
+    initMap();
+    bindUIEvents();
+    initTierPricingLabels();
+    initUIFeatures();
+    logger("Inicialización completa. Esperando clic en el mapa...");
+}
+
+function restoreGoogleSession() {
+    const raw = sessionStorage.getItem(GOOGLE_AUTH_STORAGE_KEY);
+    if (!raw || raw === "1") {
+        return;
+    }
+    try {
+        const data = JSON.parse(raw);
+        if (data?.token && data?.email) {
+            state.googleAuthenticated = true;
+            state.googleUser = data;
+            state.currentUserRole = "user";
+            updateUserChip(data.user || data);
+        }
+    } catch (err) {
+        logger("Sesión Google almacenada inválida:", err);
+        sessionStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+    }
+}
+
+async function initGoogleAuthConfig() {
+    try {
+        const response = await fetch("/api/auth/config");
+        if (!response.ok) return;
+        const data = await response.json();
+        state.googleClientId = data.client_id || null;
+        state.googleAuthEnabled = Boolean(data.enabled && data.client_id);
+        logger(`Google Sign-In ${state.googleAuthEnabled ? "habilitado" : "no configurado"}.`);
+    } catch (err) {
+        logger("No se pudo cargar configuración de Google Auth:", err);
+    }
+}
+
+function updateUserChip(user) {
+    const chip = document.getElementById("google-user-chip");
+    const nameEl = document.getElementById("google-user-name");
+    const avatarEl = document.getElementById("google-user-avatar");
+    if (!chip || !nameEl || !avatarEl) return;
+
+    if (!user?.email) {
+        chip.classList.add("hidden");
+        nameEl.textContent = "";
+        avatarEl.style.backgroundImage = "";
+        return;
+    }
+
+    const label = user.nombre || user.email.split("@")[0];
+    nameEl.textContent = label;
+    if (user.avatar_url) {
+        avatarEl.style.backgroundImage = `url('${user.avatar_url}')`;
+    } else {
+        avatarEl.style.backgroundImage = "";
+    }
+    chip.classList.remove("hidden");
+}
+
+function persistGoogleSession(data) {
+    const session = {
+        token: data.token,
+        email: data.user.email,
+        nombre: data.user.nombre,
+        google_sub: data.user.google_sub,
+        avatar_url: data.user.avatar_url,
+        user: data.user,
+    };
+    sessionStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(session));
+    state.googleAuthenticated = true;
+    state.googleUser = session;
+    state.currentUserRole = "user";
+    updateUserChip(data.user);
+}
+
+function waitForGoogleGsi(timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+        if (window.google?.accounts?.id) {
+            resolve();
+            return;
+        }
+        const started = Date.now();
+        const timer = setInterval(() => {
+            if (window.google?.accounts?.id) {
+                clearInterval(timer);
+                resolve();
+                return;
+            }
+            if (Date.now() - started >= timeoutMs) {
+                clearInterval(timer);
+                reject(new Error("Google Identity Services no cargó a tiempo."));
+            }
+        }, 100);
+    });
+}
+
+let googleSignInInitialized = false;
+
+function prepareGoogleSignInUi(options = {}) {
+    const modal = document.getElementById("google-login-modal");
+    const modalTitle = modal?.querySelector(".modal-header h3");
+    const modalDesc = modal?.querySelector(".billing-desc");
+    const hint = document.getElementById("google-login-hint");
+    const progressContainer = document.getElementById("login-progress-container");
+
+    if (options.showModal || options.analyzeFlow) {
+        modal?.classList.remove("hidden");
+    }
+    progressContainer?.classList.add("hidden");
+
+    if (options.analyzeFlow && modalTitle) {
+        modalTitle.textContent = "🌐 Autenticando para analizar";
+    }
+    if (options.analyzeFlow && modalDesc) {
+        modalDesc.textContent =
+            "Vinculamos tu cuenta de Google mientras preparamos el análisis de viabilidad de tu ubicación.";
+    }
+    if (hint) {
+        const originActual = window.location.origin;
+        const baseHint = options.analyzeFlow
+            ? "Elige tu cuenta de Google para continuar con el análisis."
+            : "Selecciona tu cuenta de Google para continuar.";
+        hint.innerHTML =
+            `${baseHint}<br><br>` +
+            `<strong>Origen actual:</strong> <code style="font-size:11px;">${originActual}</code><br>` +
+            `Si ves <em>origin_mismatch</em>, agrega exactamente esa URL en Google Cloud → Credenciales → Orígenes JavaScript autorizados.`;
+    }
+
+    if (!googleSignInInitialized) {
+        google.accounts.id.initialize({
+            client_id: state.googleClientId,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: false,
+        });
+        googleSignInInitialized = true;
+    }
+
+    const container = document.getElementById("google-signin-button-container");
+    if (container) {
+        container.innerHTML = "";
+        google.accounts.id.renderButton(container, {
+            theme: "outline",
+            size: "large",
+            width: 320,
+            text: "continue_with",
+            locale: "es",
+        });
+    }
+
+    if (options.analyzeFlow) {
+        google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                logger("One Tap no disponible; usa el botón de Google.", notification);
+            }
+        });
+    }
+}
+
+async function handleGoogleCredentialResponse(response) {
+    const pending = state.googleAuthPending;
+    try {
+        const authResponse = await fetch("/api/auth/google", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: response.credential }),
+        });
+        if (!authResponse.ok) {
+            const errData = await authResponse.json().catch(() => ({}));
+            throw new Error(errData.detail || "No se pudo validar la sesión de Google.");
+        }
+        const data = await authResponse.json();
+        persistGoogleSession(data);
+        document.getElementById("google-login-modal")?.classList.add("hidden");
+        logger(`Sesión Google iniciada: ${data.user.email}`);
+        if (pending?.options?.showAlert) {
+            alert(`Autenticación exitosa. Bienvenido, ${data.user.nombre || data.user.email}.`);
+        }
+        pending?.resolve?.();
+    } catch (err) {
+        logger("Error en autenticación Google:", err);
+        alert(err.message || "No se pudo completar el inicio de sesión con Google.");
+        pending?.reject?.(err);
+    }
+}
 
 // --- LOGGER INTERNO ---
 function logger(message, data = null) {
@@ -327,12 +572,7 @@ function bindUIEvents() {
     const themeBtn = document.getElementById("theme-toggle-btn");
     themeBtn.addEventListener("click", toggleTheme);
     
-    // D. Perfil de Usuario Cognito Simulado
-    const roleSelect = document.getElementById("user-role-select");
-    roleSelect.addEventListener("change", (e) => {
-        state.currentUserRole = e.target.value;
-        logger(`Usuario Cognito cambiado a: ${state.currentUserRole}`);
-    });
+    // D. Perfil simulado (selector oculto; rol gestionado por autenticación Google)
     
     // E. Botón de Analizar Ubicación (Previa)
     const analyzeBtn = document.getElementById("analyze-btn");
@@ -348,10 +588,24 @@ function bindUIEvents() {
     document.getElementById("cancel-payment-btn").addEventListener("click", closePaymentModal);
     document.getElementById("close-login-modal-btn").addEventListener("click", () => {
         document.getElementById("google-login-modal").classList.add("hidden");
+        if (state.googleAuthPending) {
+            state.googleAuthPending.reject(new Error("Autenticación cancelada."));
+            state.googleAuthPending = null;
+            state.googleAuthPromise = null;
+        }
     });
     
-    // G2. Iniciar Sesión con Google
-    document.getElementById("google-signin-btn").addEventListener("click", processGoogleSigninMock);
+    // G2. Respaldo manual si GIS no renderiza botón
+    document.getElementById("google-signin-btn").addEventListener("click", () => {
+        ensureGoogleAuthenticated({ showModal: true, showAlert: true })
+            .then(() => {
+                if (state.pendingTier) {
+                    openPaymentModal(state.pendingTier);
+                    state.pendingTier = null;
+                }
+            })
+            .catch((err) => logger("Google sign-in cancelado o fallido:", err));
+    });
     
     // H. Cambiar Opción de Pago Simulada
     const payOptions = document.querySelectorAll(".pay-option-btn");
@@ -957,14 +1211,22 @@ function drawBufferCircle() {
     }).addTo(state.map);
 }
 
-// --- CABECERAS DE AUTENTICACIÓN SIMULADAS DE COGNITO ---
+// --- CABECERAS DE AUTENTICACIÓN (Google ID token o mock de pruebas) ---
 function getAuthHeaders() {
-    // Inyecta el JWT simulado de Cognito en base al rol para satisfacer app/auth.py
-    const token = state.currentUserRole === 'admin' ? "mock-jwt-admin" : "mock-jwt-user";
-    return {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-    };
+    const headers = {};
+    if (state.googleUser?.token) {
+        headers.Authorization = `Bearer ${state.googleUser.token}`;
+        return headers;
+    }
+    const token = state.currentUserRole === "admin" ? "mock-jwt-admin" : "mock-jwt-user";
+    headers.Authorization = `Bearer ${token}`;
+    return headers;
+}
+
+function getJsonAuthHeaders() {
+    const headers = getAuthHeaders();
+    headers["Content-Type"] = "application/json";
+    return headers;
 }
 
 // --- COMPROBAR VALIDEZ DE FORMULARIO ---
@@ -1007,11 +1269,18 @@ function syncHeatmapSection(tier, afluencia) {
         section.classList.remove("hidden");
         if (legend) legend.style.display = "flex";
         renderHeatmap(afluencia);
+        renderHeatmapSummaryTable(afluencia);
         logger("Mapa de calor visible: tier pagado y telemetría BestTime disponible.");
     } else {
         section.classList.add("hidden");
         if (grid) grid.innerHTML = "";
         if (legend) legend.style.display = "none";
+        const summaryWrap = document.getElementById("heatmap-summary-wrap");
+        const refEl = document.getElementById("heatmap-establecimiento-ref");
+        const notaEl = document.getElementById("heatmap-nota-establecimiento");
+        if (summaryWrap) summaryWrap.classList.add("hidden");
+        if (refEl) refEl.classList.add("hidden");
+        if (notaEl) notaEl.classList.add("hidden");
         if (tierIncluyeHeatmap(tier) && !hasBestTimeHeatmapData(afluencia)) {
             logger("Mapa de calor oculto: BestTime sin cobertura en esta coordenada.");
         }
@@ -1028,7 +1297,7 @@ function renderNseKpi(metricas, locked) {
         valueEl.textContent = "🔒 Bloqueado";
         card.classList.add("kpi-locked");
         if (descEl) {
-            descEl.textContent = "Indicador del poder adquisitivo promedio en la zona. Desbloquéalo al adquirir cualquier plan de reporte.";
+            descEl.textContent = "Indicador del poder adquisitivo promedio en la zona. Desbloquéalo al comprar cualquier reporte (Básico, Pro o Premium).";
         }
         return;
     }
@@ -1084,11 +1353,18 @@ function applyBlurRules(tier) {
 async function runPreviewAnalysis() {
     logger("Detonando Vista Previa (Modo de Compra Directo)...");
 
+    const aliadosPayload = collectAliadosPayload();
+    if (aliadosPayload.invalid) {
+        setGuiadoError("Completa el cuestionario guiado: perfil, horarios y al menos 2 tipos de lugares.");
+        return;
+    }
+
     const btn = document.getElementById("analyze-btn");
     const progressId = "analyze-progress-container";
     setButtonLoading(btn, true, "ANALIZANDO ZONA...");
     startInlineProgress(progressId, {
         messages: [
+            "Autenticando con Google...",
             "Consultando datos demográficos (INEGI)...",
             "Mapeando competencia en la zona...",
             "Calculando score de viabilidad...",
@@ -1096,6 +1372,8 @@ async function runPreviewAnalysis() {
     });
 
     try {
+        await ensureGoogleAuthenticated({ showModal: true, analyzeFlow: true });
+
         document.getElementById("results-dashboard").classList.remove("hidden");
         setKpisLoading(true);
 
@@ -1115,14 +1393,6 @@ async function runPreviewAnalysis() {
 
         const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
         const competidoresSel = Array.from(compCheckboxes).map(cb => cb.value);
-        const aliadosPayload = collectAliadosPayload();
-        if (aliadosPayload.invalid) {
-            setGuiadoError("Completa el cuestionario guiado: perfil, horarios y al menos 2 tipos de lugares.");
-            setKpisLoading(false);
-            resetInlineProgress(progressId);
-            restoreAnalyzeButton(btn);
-            return;
-        }
 
         const intenciones = document.getElementById("intenciones-textarea")?.value?.trim() || null;
         const compAdicionales = document.getElementById("competidores-adicionales-input")?.value?.trim() || null;
@@ -1141,7 +1411,7 @@ async function runPreviewAnalysis() {
         const response = await fetch(`/api/analizar/previa?${queryParams}`, {
             method: "POST",
             headers: headers,
-            body: JSON.stringify(previewBody)
+            body: JSON.stringify(previewBody),
         });
 
         if (response.ok) {
@@ -1301,6 +1571,37 @@ function collectAliadosPayloadForTier(tier) {
     return collectAliadosPayload();
 }
 
+function sliceSelection(arr, max) {
+    return Array.isArray(arr) && arr.length > 0 ? arr.slice(0, max) : null;
+}
+
+function formatPremiumAliadosResumen(aliadosSeleccionados, aliadosAdicionales, aliadosPayload, categoryMap) {
+    if (aliadosPayload.modo_analisis_aliados === "guiado") {
+        const tipos = aliadosPayload.config_aliados_guiados?.atractores_confirmados
+            || aliadosPayload.aliados_seleccionados
+            || [];
+        return tipos
+            .map((a) => {
+                const sug = (state.aliadosGuiadoSugerencias || []).find((s) => s.tipo === a);
+                return sug?.etiqueta || categoryMap[a] || a;
+            })
+            .join(", ");
+    }
+    if (Array.isArray(aliadosSeleccionados) && aliadosSeleccionados.length > 0) {
+        const base = aliadosSeleccionados
+            .map((a) => {
+                if (a === "ia_auto") return categoryMap.ia_auto_aliado;
+                return categoryMap[a] || a;
+            })
+            .join(", ");
+        return aliadosAdicionales ? `${base} (+ "${aliadosAdicionales}")` : base;
+    }
+    if (aliadosAdicionales) {
+        return `Franquicias o marcas específicas: ${aliadosAdicionales}`;
+    }
+    return "Bancos, Escuelas y Transporte por defecto";
+}
+
 async function parseApiErrorMessage(response) {
     try {
         const data = await response.json();
@@ -1350,7 +1651,7 @@ async function openPaymentModal(tier) {
     document.getElementById("confirm-payment-btn")?.removeAttribute("disabled");
 
     try {
-        const headers = getAuthHeaders();
+        const headers = getJsonAuthHeaders();
 
         const compCheckboxes = document.querySelectorAll("#competidores-checkboxes input[type='checkbox']:checked");
         let competidores_seleccionados = Array.from(compCheckboxes).map(cb => cb.value);
@@ -1392,21 +1693,22 @@ async function openPaymentModal(tier) {
 
         // Ajustar según el nivel de pago (Tier)
         if (tier === "basico") {
-            competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 1) : null;
+            competidores_seleccionados = sliceSelection(competidores_seleccionados, 1);
             aliados_seleccionados = null;
         } else if (tier === "pro") {
-            competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 3) : null;
+            competidores_seleccionados = sliceSelection(competidores_seleccionados, 3);
             aliados_seleccionados = null;
         } else if (tier === "premium") {
-            competidores_seleccionados = competidores_seleccionados.length > 0 ? competidores_seleccionados.slice(0, 5) : null;
+            competidores_seleccionados = sliceSelection(competidores_seleccionados, 5);
             if (aliadosPayload.modo_analisis_aliados === "guiado") {
-                aliados_seleccionados = aliadosPayload.aliados_seleccionados;
+                aliados_seleccionados = aliadosPayload.aliados_seleccionados || null;
             } else {
-                aliados_seleccionados = aliados_seleccionados.length > 0 ? aliados_seleccionados.slice(0, 5) : null;
+                aliados_seleccionados = sliceSelection(aliados_seleccionados, 5);
             }
         }
 
         // Configurar textos del resumen visual en el modal
+        if (summaryContainer && summaryComps && summaryAllies) {
         if (tier === "basico") {
             summaryContainer.classList.remove("hidden");
             const compLabel = competidores_seleccionados ? categoryMap[competidores_seleccionados[0]] : "Giro principal (Cafetería por defecto)";
@@ -1415,7 +1717,7 @@ async function openPaymentModal(tier) {
                 compText += ` (+ "${compAdicionales}")`;
             }
             summaryComps.innerHTML = compText;
-            summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (Omitido en Tier Básico)`;
+            summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (no incluido en reporte Básico)`;
         } else if (tier === "pro") {
             summaryContainer.classList.remove("hidden");
             const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
@@ -1424,31 +1726,30 @@ async function openPaymentModal(tier) {
                 compText += ` (+ "${compAdicionales}")`;
             }
             summaryComps.innerHTML = compText;
-            summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (Omitido en Tier Pro)`;
+            summaryAllies.innerHTML = `🌱 <b>Aliados incluidos:</b> Ninguno (no incluido en reporte Pro)`;
         } else if (tier === "premium") {
             summaryContainer.classList.remove("hidden");
-            const compLabels = competidores_seleccionados ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ") : "Giro principal por defecto";
-            const allyLabels = aliados_seleccionados
-                ? aliados_seleccionados.map(a => {
-                    if (a === "ia_auto") return categoryMap.ia_auto_aliado;
-                    const sug = (state.aliadosGuiadoSugerencias || []).find(s => s.tipo === a);
-                    return sug?.etiqueta || categoryMap[a] || a;
-                }).join(", ")
-                : "Bancos, Escuelas y Transporte por defecto";
+            const compLabels = competidores_seleccionados
+                ? competidores_seleccionados.map(c => categoryMap[c] || c).join(", ")
+                : "Giro principal por defecto";
+            const allyLabels = formatPremiumAliadosResumen(
+                aliados_seleccionados,
+                aliadosAdicionales,
+                aliadosPayload,
+                categoryMap
+            );
             let compText = `🏪 <b>Competidores a analizar (Máx 5):</b> ${compLabels}`;
             if (compAdicionales) {
                 compText += ` (+ "${compAdicionales}")`;
             }
-            let allyText = aliadosPayload.modo_analisis_aliados === "guiado"
+            const allyText = aliadosPayload.modo_analisis_aliados === "guiado"
                 ? `🧭 <b>Aliados (modo guiado):</b> ${allyLabels}`
-                : `🌱 <b>Aliados a analizar (Máx 5):</b> ${allyLabels}`;
-            if (aliadosAdicionales) {
-                allyText += ` (+ "${aliadosAdicionales}")`;
-            }
+                : `🌱 <b>Aliados a analizar:</b> ${allyLabels}`;
             summaryComps.innerHTML = compText;
             summaryAllies.innerHTML = allyText;
         } else {
             summaryContainer.classList.add("hidden");
+        }
         }
 
         const payload = {
@@ -1524,8 +1825,11 @@ async function processSimulatedPayment() {
         });
         
         if (!response.ok) {
-            alert("El webhook mock del servidor rechazó la simulación.");
-            closePaymentModal();
+            const detail = await parseApiErrorMessage(response);
+            logger("Webhook mock rechazado:", detail);
+            alert(`No se pudo simular el pago: ${detail}`);
+            document.getElementById("confirm-payment-btn")?.removeAttribute("disabled");
+            progressContainer?.classList.add("hidden");
             return;
         }
         
@@ -1680,10 +1984,14 @@ async function unlockPaidReport() {
             // Ocultar botones de compra y mostrar el botón de descarga
             document.getElementById("dashboard-actions").classList.add("hidden");
             document.getElementById("download-section").classList.remove("hidden");
+            preparePdfDownloadButton();
             
             // Pintar pines de competidores y aliados en el mapa (solo si Pro o Premium para el mapa físico)
             if (state.activeTier === "pro" || state.activeTier === "premium") {
-                renderCompetitorPins(metricas.competidores_listado, metricas.aliados_listado);
+                renderCompetitorPins(
+                    metricas.competidores_listado,
+                    metricas.aliados_destacados || metricas.aliados_listado
+                );
             } else {
                 clearMapPins();
             }
@@ -1760,6 +2068,105 @@ function renderCompetitorPins(competidores, aliados) {
 }
 
 // --- RENDERIZAR MAPA DE CALOR (HEATMAP) ---
+const NOTA_ESTABLECIMIENTO_REFERENCIA =
+    "La afluencia refleja el paso de personas en el establecimiento comercial de referencia " +
+    "utilizado para la medición (BestTime), no necesariamente el tránsito peatonal general de la calle. " +
+    "Las horas sin dato reportado (0 %) no se incluyen en el promedio nocturno.";
+
+const LABEL_NOCHE_PROMEDIO = "Noche — promedio de horas con dato (20:00–23:00)";
+const HORAS_NOCHE = [20, 21, 22, 23];
+
+function _promedioRango(curva, inicio, fin) {
+    const segmento = curva.slice(inicio, fin);
+    if (!segmento.length) return 0;
+    return Math.round(segmento.reduce((a, b) => a + b, 0) / segmento.length);
+}
+
+function _formatoIntensidad(valor) {
+    return valor > 0 ? `${valor}%` : "Sin dato";
+}
+
+function calcularDesgloseNoche(curva) {
+    const porHora = {};
+    HORAS_NOCHE.forEach((h) => {
+        porHora[h] = curva[h] !== undefined ? Number(curva[h]) : 0;
+    });
+    const conDato = HORAS_NOCHE.map((h) => porHora[h]).filter((v) => v > 0);
+    const promedioConDato = conDato.length
+        ? Math.round(conDato.reduce((a, b) => a + b, 0) / conDato.length)
+        : 0;
+    return { porHora, promedioConDato, horasConDato: conDato.length };
+}
+
+function construirFilasTablaAfluencia(curva) {
+    if (!Array.isArray(curva) || curva.length < 24) return [];
+
+    const filas = [
+        { rango: "Mañana (08:00 - 12:00)", intensidad: `${_promedioRango(curva, 8, 12)}%`, tipo: "bloque" },
+        { rango: "Mediodía (12:00 - 16:00)", intensidad: `${_promedioRango(curva, 12, 16)}%`, tipo: "bloque" },
+        { rango: "Tarde (16:00 - 20:00)", intensidad: `${_promedioRango(curva, 16, 20)}%`, tipo: "bloque" },
+        { rango: "Desglose nocturno (competidor de referencia)", intensidad: "", tipo: "section" },
+    ];
+
+    const noche = calcularDesgloseNoche(curva);
+    HORAS_NOCHE.forEach((h) => {
+        filas.push({
+            rango: `${String(h).padStart(2, "0")}:00`,
+            intensidad: _formatoIntensidad(noche.porHora[h]),
+            tipo: "sub",
+        });
+    });
+    filas.push({
+        rango: LABEL_NOCHE_PROMEDIO,
+        intensidad: noche.horasConDato > 0 ? `${noche.promedioConDato}%` : "Sin dato",
+        tipo: "bloque",
+    });
+    return filas;
+}
+
+function textoEstablecimientoReferencia(nombre) {
+    if (nombre) {
+        return `Competidor de referencia para la medición: ${nombre}.`;
+    }
+    return "Medición basada en el competidor identificado en la zona con telemetría BestTime disponible.";
+}
+
+function renderHeatmapSummaryTable(afluencia) {
+    const wrap = document.getElementById("heatmap-summary-wrap");
+    const tbody = document.getElementById("heatmap-summary-body");
+    const refEl = document.getElementById("heatmap-establecimiento-ref");
+    const notaEl = document.getElementById("heatmap-nota-establecimiento");
+    if (!wrap || !tbody) return;
+
+    const curva = afluencia?.afluencia_horaria;
+    const filas = construirFilasTablaAfluencia(curva);
+    if (!filas.length) {
+        wrap.classList.add("hidden");
+        if (refEl) refEl.classList.add("hidden");
+        if (notaEl) notaEl.classList.add("hidden");
+        return;
+    }
+
+    if (refEl) {
+        refEl.textContent = textoEstablecimientoReferencia(afluencia?.venue_name);
+        refEl.classList.remove("hidden");
+    }
+    if (notaEl) {
+        notaEl.textContent = NOTA_ESTABLECIMIENTO_REFERENCIA;
+        notaEl.classList.remove("hidden");
+    }
+
+    tbody.innerHTML = filas
+        .map(({ rango, intensidad, tipo }) => {
+            const rowClass =
+                tipo === "section" ? "section-row" : tipo === "sub" ? "sub-row" : "";
+            const cellClass = intensidad === "Sin dato" ? "sin-dato" : "";
+            return `<tr class="${rowClass}"><td>${_escapeHtml(rango)}</td><td class="${cellClass}">${_escapeHtml(intensidad)}</td></tr>`;
+        })
+        .join("");
+    wrap.classList.remove("hidden");
+}
+
 // Escala térmica para el heatmap: interpola tono dorado (45°) → rojo (0°) según la afluencia,
 // con opacidad creciente para que las horas muertas se desvanezcan y los picos resalten.
 function heatColor(val) {
@@ -1996,11 +2403,20 @@ function renderAliadosDetalleTable(metricas, tier = "gratuito") {
         return;
     }
 
-    const aliados = metricas.aliados_listado || [];
+    const aliados = metricas.aliados_destacados || metricas.aliados_listado || [];
+    const seleccion = metricas.atractores_seleccion || {};
     if (aliados.length === 0) {
         card.classList.add("hidden");
         tbody.innerHTML = "";
         return;
+    }
+
+    const hint = document.getElementById("aliados-detalle-hint");
+    if (hint && seleccion.regla) {
+        hint.textContent = seleccion.regla;
+        hint.classList.remove("hidden");
+    } else if (hint) {
+        hint.classList.add("hidden");
     }
 
     tbody.innerHTML = aliados.map(aliado => `
@@ -2008,6 +2424,7 @@ function renderAliadosDetalleTable(metricas, tier = "gratuito") {
             <td>${_escapeHtml(aliado.nombre || "Establecimiento")}</td>
             <td>${_escapeHtml(aliado.tipo || "—")}</td>
             <td>${aliado.rating > 0 ? `⭐ ${Number(aliado.rating).toFixed(1)} (${Number(aliado.user_ratings_total || 0).toLocaleString()})` : "Sin calificación"}</td>
+            <td>${_formatDistanceMeters(aliado.distancia_metros) || "—"}</td>
             <td>${_renderVigenciaCell(aliado)}</td>
         </tr>
     `).join("");
@@ -2241,8 +2658,120 @@ function renderPOITable(metricas) {
     }
 }
 
+async function savePdfFromUrl(downloadUrl, fallbackFilename = "Reporte_Viabilidad.pdf") {
+    const absoluteUrl = downloadUrl.startsWith("http")
+        ? downloadUrl
+        : `${window.location.origin}${downloadUrl.startsWith("/") ? downloadUrl : `/${downloadUrl}`}`;
+
+    const fileResponse = await fetch(absoluteUrl);
+    if (!fileResponse.ok) {
+        throw new Error(await parseApiErrorMessage(fileResponse));
+    }
+
+    let filename = fallbackFilename;
+    const disposition = fileResponse.headers.get("Content-Disposition");
+    if (disposition) {
+        const match = /filename=\"?([^\";]+)/i.exec(disposition);
+        if (match?.[1]) {
+            filename = decodeURIComponent(match[1].replace(/\"/g, ""));
+        }
+    }
+
+    const blob = await fileResponse.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+}
+
 // --- DESCARGA DE REPORTE PDF (GET /api/analizar/pdf/{orden_id}) ---
+async function fetchPdfDownloadUrl(ordenId, { retries = 20, delayMs = 2000, onWaiting = null } = {}) {
+    const headers = getAuthHeaders();
+    let lastDetail = "No se pudo obtener el enlace de descarga.";
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        const response = await fetch(`/api/analizar/pdf/${ordenId}`, {
+            method: "GET",
+            headers,
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data?.url_descarga) {
+                return data.url_descarga;
+            }
+            lastDetail = "El servidor no devolvió una URL de descarga válida.";
+            break;
+        }
+
+        lastDetail = await parseApiErrorMessage(response);
+
+        // 422 = PDF aún compilándose en segundo plano
+        if (response.status === 422 && attempt < retries) {
+            if (typeof onWaiting === "function") {
+                onWaiting(attempt, retries, lastDetail);
+            }
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            continue;
+        }
+
+        throw new Error(lastDetail);
+    }
+
+    throw new Error(lastDetail || "El PDF aún se está compilando. Intenta de nuevo en unos segundos.");
+}
+
+function setPdfDownloadReadyUi(isReady, message) {
+    const btn = document.getElementById("download-pdf-btn");
+    const desc = document.getElementById("download-p-desc");
+    if (desc && message) {
+        desc.textContent = message;
+    }
+    if (!btn) return;
+    btn.disabled = !isReady;
+    btn.textContent = isReady
+        ? "⬇️ DESCARGAR REPORTE EN PDF"
+        : "⏳ PREPARANDO PDF...";
+}
+
+async function preparePdfDownloadButton() {
+    if (!state.activeOrderId) return;
+
+    setPdfDownloadReadyUi(
+        false,
+        "Estamos compilando tu reporte en PDF. Este paso puede tardar unos segundos."
+    );
+
+    try {
+        await fetchPdfDownloadUrl(state.activeOrderId, {
+            onWaiting: (_attempt, _max, detail) => {
+                setPdfDownloadReadyUi(false, detail || "Compilando reporte PDF...");
+            },
+        });
+        setPdfDownloadReadyUi(
+            true,
+            "Tu reporte está listo. Haz clic para descargar la versión en PDF."
+        );
+    } catch (err) {
+        logger("PDF aún no disponible:", err);
+        setPdfDownloadReadyUi(
+            true,
+            `${err?.message || "El PDF puede tardar un poco más."} Puedes intentar descargar con el botón.`
+        );
+    }
+}
+
 async function triggerPDFDownload() {
+    if (!state.activeOrderId) {
+        alert("No hay una orden activa asociada. Completa el pago del reporte primero.");
+        return;
+    }
+
     logger(`Solicitando descarga de PDF para Orden ID: ${state.activeOrderId}...`);
 
     const btn = document.getElementById("download-pdf-btn");
@@ -2251,94 +2780,164 @@ async function triggerPDFDownload() {
     startInlineProgress(progressId, {
         messages: [
             "Verificando acceso al reporte...",
+            "Esperando compilación del PDF...",
             "Generando enlace seguro de descarga...",
             "Preparando archivo PDF...",
         ],
         maxWhileWaiting: 92,
     });
 
-    const headers = getAuthHeaders();
     try {
-        const response = await fetch(`/api/analizar/pdf/${state.activeOrderId}`, {
-            method: "GET",
-            headers: headers
+        const downloadUrl = await fetchPdfDownloadUrl(state.activeOrderId, {
+            onWaiting: (attempt, max) => {
+                const statusEl = document.querySelector(`#${progressId} [data-progress-status]`);
+                if (statusEl) {
+                    statusEl.textContent = `Compilando PDF (${attempt}/${max})...`;
+                }
+            },
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            const downloadUrl = data.url_descarga;
-            logger(`URL firmada privada resuelta. Descargando desde: ${downloadUrl}`);
-
-            finishInlineProgress(progressId, "Descarga lista. Abriendo archivo...");
-            window.open(downloadUrl, "_blank");
-            setTimeout(() => resetInlineProgress(progressId), 1500);
-        } else {
-            resetInlineProgress(progressId);
-            alert("No se pudo resolver la URL privada de descarga.");
-        }
+        logger(`URL de descarga resuelta. Descargando desde: ${downloadUrl}`);
+        finishInlineProgress(progressId, "Descarga lista. Guardando archivo...");
+        await savePdfFromUrl(downloadUrl, `Reporte_Viabilidad_${state.activeOrderId}.pdf`);
+        finishInlineProgress(progressId, "PDF descargado correctamente.");
+        setPdfDownloadReadyUi(true, "Tu reporte está listo. Haz clic para descargar la versión en PDF.");
     } catch (err) {
         resetInlineProgress(progressId);
         logger("Falla al descargar PDF:", err);
-        alert("Error de red al conectar con el servidor de análisis.");
+        alert(err?.message || "No se pudo descargar el PDF. Intenta de nuevo en unos segundos.");
     } finally {
         setButtonLoading(btn, false);
+        setTimeout(() => resetInlineProgress(progressId), 1500);
     }
 }
 
 // --- INTERCEPCIÓN DE COMPRA Y AUTENTICACIÓN GOOGLE ---
 function checkAuthAndBuy(tier) {
-    if (state.currentUserRole === 'guest') {
+    if (!state.googleAuthenticated) {
         state.pendingTier = tier;
-        // Limpiar cargador anterior del modal de login
-        document.getElementById("login-progress-container").classList.add("hidden");
-        document.getElementById("google-signin-btn").removeAttribute("disabled");
-        // Mostrar modal de registro/login
-        document.getElementById("google-login-modal").classList.remove("hidden");
-        logger(`Redirigiendo flujo de compra para Tier ${tier.toUpperCase()} a modal de registro Google/Cognito.`);
-    } else {
-        openPaymentModal(tier);
+        ensureGoogleAuthenticated({ showModal: true, showAlert: true })
+            .then(() => {
+                state.pendingTier = null;
+                openPaymentModal(tier);
+            })
+            .catch(() => logger(`Compra ${tier.toUpperCase()} cancelada: falta autenticación Google.`));
+        return;
     }
+    openPaymentModal(tier);
 }
 
-async function processGoogleSigninMock() {
-    const signinBtn = document.getElementById("google-signin-btn");
-    const progressContainer = document.getElementById("login-progress-container");
-    const progressFill = document.getElementById("login-progress-bar-fill");
-    const statusText = document.getElementById("login-status-text");
+function ensureGoogleAuthenticated(options = {}) {
+    if (state.googleAuthenticated && state.googleUser?.token) {
+        return Promise.resolve();
+    }
+    if (state.googleAuthPromise) {
+        return state.googleAuthPromise;
+    }
 
-    signinBtn.setAttribute("disabled", "true");
-    progressContainer.classList.remove("hidden");
-    statusText.textContent = "Conectando con Google Accounts...";
-    progressFill.style.width = "0%";
+    if (!state.googleAuthEnabled) {
+        state.googleAuthPromise = runGoogleSigninMock(options)
+            .then(() => {
+                state.googleAuthenticated = true;
+                state.currentUserRole = "user";
+                sessionStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, "1");
+            })
+            .finally(() => {
+                state.googleAuthPromise = null;
+            });
+        return state.googleAuthPromise;
+    }
 
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += 10;
-        progressFill.style.width = `${progress}%`;
+    state.googleAuthPromise = new Promise((resolve, reject) => {
+        state.googleAuthPending = { resolve, reject, options };
+        waitForGoogleGsi()
+            .then(() => prepareGoogleSignInUi(options))
+            .catch((err) => {
+                reject(err);
+            });
+    }).finally(() => {
+        state.googleAuthPromise = null;
+        state.googleAuthPending = null;
+    });
 
-        if (progress === 30) {
-            statusText.textContent = "Autenticando sesión y validando credenciales...";
-        } else if (progress === 60) {
-            statusText.textContent = "Verificando perfil de usuario...";
-        } else if (progress === 90) {
-            statusText.textContent = "Generando accesos seguros...";
+    return state.googleAuthPromise;
+}
+
+function runGoogleSigninMock(options = {}) {
+    const { showModal = false, showAlert = false, analyzeFlow = false } = options;
+
+    if (state.googleAuthenticated) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+        const modal = document.getElementById("google-login-modal");
+        const signinBtn = document.getElementById("google-signin-btn");
+        const progressContainer = document.getElementById("login-progress-container");
+        const progressFill = document.getElementById("login-progress-bar-fill");
+        const statusText = document.getElementById("login-status-text");
+        const modalTitle = modal?.querySelector(".modal-header h3");
+        const modalDesc = modal?.querySelector(".billing-desc");
+
+        if (showModal && modal) {
+            modal.classList.remove("hidden");
+            if (analyzeFlow && modalTitle) {
+                modalTitle.textContent = "🌐 Autenticando para analizar";
+            }
+            if (analyzeFlow && modalDesc) {
+                modalDesc.textContent =
+                    "Vinculamos tu cuenta de Google mientras preparamos el análisis de viabilidad de tu ubicación.";
+            }
         }
 
-        if (progress >= 100) {
-            clearInterval(interval);
-            
-            // Cambiar rol a Cliente y actualizar selector visual
-            state.currentUserRole = 'user';
-            document.getElementById("user-role-select").value = 'user';
-            
-            // Ocultar modal de login
-            document.getElementById("google-login-modal").classList.add("hidden");
-            
-            // Notificación visual de éxito
-            alert("¡Autenticación con Google exitosa! Bienvenido, demo_google@geoviabilidad.com. Se reanuda tu compra.");
-            
-            // Proceder con la compra
-            openPaymentModal(state.pendingTier);
+        if (signinBtn) {
+            signinBtn.classList.toggle("hidden", analyzeFlow);
+            signinBtn.setAttribute("disabled", "true");
         }
-    }, 150);
+        if (progressContainer) progressContainer.classList.remove("hidden");
+        if (statusText) {
+            statusText.textContent = analyzeFlow
+                ? "Conectando con Google para iniciar el análisis..."
+                : "Conectando con Google Accounts...";
+        }
+        if (progressFill) progressFill.style.width = "0%";
+
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 10;
+            if (progressFill) progressFill.style.width = `${progress}%`;
+
+            if (statusText) {
+                if (progress === 30) {
+                    statusText.textContent = "Autenticando sesión y validando credenciales...";
+                } else if (progress === 60) {
+                    statusText.textContent = "Verificando perfil de usuario...";
+                } else if (progress === 90) {
+                    statusText.textContent = analyzeFlow
+                        ? "Listo. Continuando con el análisis de la zona..."
+                        : "Generando accesos seguros...";
+                }
+            }
+
+            if (progress >= 100) {
+                clearInterval(interval);
+                if (signinBtn) {
+                    signinBtn.removeAttribute("disabled");
+                    signinBtn.classList.remove("hidden");
+                }
+                if (progressContainer) progressContainer.classList.add("hidden");
+                if (modal) modal.classList.add("hidden");
+                if (modalTitle) modalTitle.textContent = "🌐 Continuar con Google";
+                if (modalDesc) {
+                    modalDesc.textContent =
+                        "Necesitamos autenticarte con Google para guardar tu análisis y habilitar la compra del reporte.";
+                }
+                if (showAlert) {
+                    alert("Autenticación con Google exitosa. Bienvenido, demo_google@geoviabilidad.com.");
+                }
+                logger("Autenticación Google completada.");
+                resolve();
+            }
+        }, 150);
+    });
 }
