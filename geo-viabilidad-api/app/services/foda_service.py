@@ -171,14 +171,19 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     Retorna el diagnóstico FODA completo listo para el PDF/API.
     """
-    rubro = datos_entorno.get("rubro", "Giro no especificado")
+    from app.clients.v0.bedrock.bedrock_client_processed import sanitizar_input_usuario
+
+    rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
+    rubro = sanitizar_input_usuario(rubro_raw, field="rubro") or "Negocio general"
+    datos_entorno_sanitizado = {**datos_entorno, "rubro": rubro}
+
     comp_adicionales = datos_entorno.get("competidores_adicionales")
     aliados_adicionales = datos_entorno.get("aliados_adicionales")
 
-    foda_llm = _invocar_foda_llm(datos_entorno, intenciones)
+    foda_llm = _invocar_foda_llm(datos_entorno_sanitizado, intenciones)
     if foda_llm is None:
         return foda_respaldo_cuantitativo(
-            datos_entorno,
+            datos_entorno_sanitizado,
             rubro,
             comp_adicionales=comp_adicionales,
             aliados_adicionales=aliados_adicionales,
@@ -186,7 +191,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
 
     return _aplicar_politica_honesta_foda(
         foda_llm,
-        datos_entorno,
+        datos_entorno_sanitizado,
         rubro,
         comp_adicionales=comp_adicionales,
         aliados_adicionales=aliados_adicionales,
