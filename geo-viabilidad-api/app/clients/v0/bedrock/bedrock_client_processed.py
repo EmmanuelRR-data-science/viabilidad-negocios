@@ -55,6 +55,10 @@ _MALICIOUS_PATTERNS = [
     re.compile(r"MERCADOPAGO", re.IGNORECASE),
     re.compile(r"\[INST\]", re.IGNORECASE),
     re.compile(r"<<SYS>>", re.IGNORECASE),
+    re.compile(r"postgresql", re.IGNORECASE),
+    re.compile(r"base\s+de\s+datos", re.IGNORECASE),
+    re.compile(r"nombres?\s+de\s+las?\s+tablas", re.IGNORECASE),
+    re.compile(r"columnas?\s+de\s+las?\s+tablas", re.IGNORECASE),
 ]
 
 
