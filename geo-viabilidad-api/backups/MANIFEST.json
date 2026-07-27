@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-26T16:52:00-06:00",
+  "dump_file": "agebs_demografia.dump",
+  "format": "pg_dump custom (-Fc)",
+  "tables": ["agebs_demografia", "categorias_cruce"],
+  "database": "geoanalisis",
+  "postgis_image": "postgis/postgis:16-3.4",
+  "coverage": {
+    "estados": 32,
+    "total_agebs": 64349,
+    "agebs_con_geometria": 63982,
+    "agebs_con_censo": 64317,
+    "agebs_con_nse": 59107,
+    "agebs_con_segmentos": 64317,
+    "agebs_sin_geometria": 367,
+    "categorias_cruce": 10
+  },
+  "production_ready": true,
+  "notes": [
+    "Ingesta nacional completa: 32 entidades federativas.",
+    "367 AGEBs tienen censo pero no polígono en cartografía INEGI (huérfanos conocidos).",
+    "NSE depende de variables censales disponibles por AGEB; no todos los registros tienen graproes > 0.",
+    "Restaurar con scripts/restore_demografia_local.sh antes de levantar la API."
+  ]
+}
