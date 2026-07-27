@@ -13,6 +13,8 @@ from app.clients.v0.bedrock.bedrock_client_processed import (  # noqa: F401
     validar_schema_foda,
     verificar_guardrail_groq,
 )
+from app.clients.v0.bedrock.bedrock_client_raw import _GROQ_GUARD_MODEL  # noqa: F401
 
 # Alias legacy usado por report_pdf_service
 _generar_consideraciones_apertura = generar_consideraciones_apertura
+

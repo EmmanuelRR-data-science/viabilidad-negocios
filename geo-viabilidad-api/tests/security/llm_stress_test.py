@@ -242,7 +242,7 @@ class AttackResult:
 
 def _invoke_llm_real(rubro: str, intenciones: str) -> tuple[Any, float]:
     """Invoca el LLM real de Groq y mide el tiempo."""
-    from app.clients.bedrock import generar_analisis_foda
+    from app.services.foda_service import generar_analisis_foda
 
     entorno = {**BASE_ENTORNO, "rubro": rubro}
     start = time.perf_counter()
@@ -254,25 +254,18 @@ def _invoke_llm_real(rubro: str, intenciones: str) -> tuple[Any, float]:
 def _invoke_llm_mock(rubro: str, intenciones: str) -> tuple[Any, float]:
     """
     Invoca el LLM en modo mock sin dependencias de BD ni de app.main.
-    Parchea app.config antes de importar bedrock para garantizar DEV_MODE=True
-    y deshabilitar la llamada real a Groq/Bedrock.
-    Esta fase prueba únicamente nuestra lógica de sanitización y detección.
     """
-    # Parchar variables de entorno antes de que bedrock lea config
+    # Parchar variables de entorno antes de que config lea los valores
     env_patch = {"DEV_MODE": "True", "GROQ_API_KEY": ""}
     with mock.patch.dict(os.environ, env_patch):
-        # Importar bedrock aquí, dentro del contexto parcheado
-
-        import app.bedrock as _bedrock
-
+        # Importar foda_service aquí, dentro del contexto parcheado
+        import app.services.foda_service as _bedrock
         import app.core.config as _cfg
 
         # Forzar recarga de la config para que tome DEV_MODE=True del entorno parcheado.
-        # GROQ_API_KEY se vacía porque el FODA enlatado ahora solo se usa cuando NO hay llave LLM.
         with (
             mock.patch.object(_cfg, "DEV_MODE", True),
             mock.patch.object(_cfg, "GROQ_API_KEY", ""),
-            mock.patch.object(_bedrock, "DEV_MODE", True),
         ):
             entorno = {**BASE_ENTORNO, "rubro": rubro}
             start = time.perf_counter()
@@ -883,14 +876,12 @@ class TestGuardrailGroq:
 
         env_patch = {"DEV_MODE": "False", "GROQ_API_KEY": "gsk_fake_test_key"}
         with m.patch.dict(os.environ, env_patch):
-            import app.bedrock as _bedrock
-
+            import app.services.foda_service as _bedrock
             import app.core.config as _cfg
 
             with (
                 m.patch.object(_cfg, "DEV_MODE", False),
                 m.patch.object(_cfg, "GROQ_API_KEY", "gsk_fake_test_key"),
-                m.patch.object(_bedrock, "DEV_MODE", False),
                 m.patch("requests.post") as mock_post,
             ):
                 mock_post.return_value.status_code = 200

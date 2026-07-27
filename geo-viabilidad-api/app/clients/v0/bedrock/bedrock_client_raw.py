@@ -8,13 +8,15 @@ from app.core.config import AWS_REGION
 logger = logging.getLogger("bedrock_client_raw")
 
 
+_GROQ_GUARD_MODEL = "openai/gpt-oss-safeguard-20b"
+
+
 def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool, str]:
     """Llama a Groq API con el modelo de moderación de seguridad Llama Guard 4."""
-    model_guard = "openai/gpt-oss-safeguard-20b"  # Modelo de seguridad/moderación sugerido
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": model_guard,
+        "model": _GROQ_GUARD_MODEL,
         "messages": [{"role": "user", "content": texto_usuario}],
         "temperature": 0.0,
         "max_tokens": 20,
@@ -31,9 +33,13 @@ def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool
             categoria = parts[1].strip() if len(parts) > 1 else "unsafe"
             return False, categoria
         return True, "safe"
+    except requests.exceptions.Timeout as timeout_err:
+        logger.warning(f"[RAW] Error al verificar moderación Llama Guard: {timeout_err}")
+        return True, "timeout"
     except Exception as err:
         logger.warning(f"[RAW] Error al verificar moderación Llama Guard: {err}")
-        return True, "safe"
+        return True, "error"
+
 
 
 def invocar_groq_foda_raw(
