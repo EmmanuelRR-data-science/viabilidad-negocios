@@ -1,0 +1,68 @@
+{
+  "measured_at": "2026-06-19 14:02:16",
+  "postgres": [
+    {
+      "label": "Postgres ping (SELECT 1)",
+      "p50_ms": 2.0
+    },
+    {
+      "label": "Postgres demografía ponderada (ST_Intersects)",
+      "p50_ms": 61.0
+    },
+    {
+      "label": "Postgres cálculo NSE",
+      "p50_ms": 26.0
+    },
+    {
+      "label": "Postgres cruce rubro -> categoria",
+      "p50_ms": 2.0
+    }
+  ],
+  "remote": {
+    "base_url": "http://135.181.30.179:8000",
+    "api": [
+      {
+        "label": "GET /health",
+        "runs": 3,
+        "p50_ms": 448.0,
+        "p95_ms": 646.0,
+        "mean_ms": 513.0,
+        "status": 200,
+        "error": null
+      },
+      {
+        "label": "POST /api/analizar/previa (análisis completo en página)",
+        "runs": 2,
+        "p50_ms": 4655.0,
+        "p95_ms": 4691.0,
+        "mean_ms": 4673.0,
+        "status": 200,
+        "error": null
+      },
+      {
+        "label": "GET /api/analizar/buscar-direccion?q=Reforma+222",
+        "runs": 3,
+        "p50_ms": 433.0,
+        "p95_ms": 437.0,
+        "mean_ms": 434.0,
+        "status": 422,
+        "error": null
+      },
+      {
+        "label": "POST /api/pagos/preferencia",
+        "p50_ms": 212.0,
+        "status": 201
+      }
+    ],
+    "flujo": {
+      "desbloqueo_post_pago_ms": 713.0,
+      "primer_resultado_dashboard_ms": 4329.0,
+      "resultado_status_first": 200,
+      "generacion_pdf_ms": 2906.0,
+      "pdf_polls": 2,
+      "orden_id": 473,
+      "resultado_con_cache_ms": 428.0,
+      "resultado_status_cache": 200
+    }
+  }
+}

@@ -1,0 +1,32 @@
+<nav class="navbar navbar-expand-lg navbar-dark admin-navbar">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand mb-0 h1 text-decoration-none text-white" href="{{ url_for('admin.dashboard') }}">
+            GeoViabilidad · Admin
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="adminNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('admin.dashboard') }}">Resumen</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{% if active_page == 'usuarios' %} active{% endif %}" href="{{ url_for('admin.usuarios') }}">Leads</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{% if active_page == 'ordenes' %} active{% endif %}" href="{{ url_for('admin.ordenes') }}">Órdenes</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{% if active_page == 'ingesta' %} active{% endif %}" href="{{ url_for('admin.ingesta') }}">Ingesta INEGI</a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-white-50 small">Sesión: {{ admin_user }}</span>
+                <form method="post" action="{{ url_for('admin.logout') }}">
+                    <button type="submit" class="btn btn-outline-light btn-sm">Cerrar sesión</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>

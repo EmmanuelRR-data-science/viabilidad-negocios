@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Leads · Admin GeoViabilidad{% endblock %}
+{% block body %}
+{% include "_nav.html" %}
+
+<main class="container-fluid px-4 py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Leads (usuarios Google)</h1>
+            <p class="text-muted mb-0">{{ total_resultados }} resultado(s) · máximo 250 en pantalla</p>
+        </div>
+        <a href="{{ export_url }}" class="btn btn-success">Descargar Excel filtrado</a>
+    </div>
+
+    <div class="card admin-card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label" for="q">Buscar</label>
+                    <input type="search" class="form-control" id="q" name="q" value="{{ filters.q or '' }}" placeholder="Nombre o correo">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="compro">¿Compró?</label>
+                    <select class="form-select" id="compro" name="compro">
+                        <option value="" {% if not filters.compro %}selected{% endif %}>Todos</option>
+                        <option value="si" {% if filters.compro == 'si' %}selected{% endif %}>Sí</option>
+                        <option value="no" {% if filters.compro == 'no' %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="rubro">Rubro</label>
+                    <input list="rubros-list" class="form-control" id="rubro" name="rubro" value="{{ filters.rubro or '' }}" placeholder="Ej. cafetería">
+                    <datalist id="rubros-list">
+                        {% for rubro in rubros %}
+                        <option value="{{ rubro }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="desde">Desde</label>
+                    <input type="date" class="form-control" id="desde" name="desde" value="{{ filters.desde.isoformat() if filters.desde else '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="hasta">Hasta</label>
+                    <input type="date" class="form-control" id="hasta" name="hasta" value="{{ filters.hasta.isoformat() if filters.hasta else '' }}">
+                </div>
+                <div class="col-md-1 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+            <div class="mt-2">
+                <a href="{{ url_for('admin.usuarios') }}" class="small text-decoration-none">Limpiar filtros</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card admin-card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Correo</th>
+                        <th>Primera sesión</th>
+                        <th>Última sesión</th>
+                        <th>Órdenes</th>
+                        <th>¿Compró?</th>
+                        <th>Rubro reciente</th>
+                        <th>Tier</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in leads %}
+                    <tr>
+                        <td>{{ lead.nombre or "—" }}</td>
+                        <td>{{ lead.email }}</td>
+                        <td>{{ lead.primera_sesion or "—" }}</td>
+                        <td>{{ lead.ultima_sesion or "—" }}</td>
+                        <td>{{ lead.total_ordenes }}</td>
+                        <td>
+                            {% if lead.compro_reporte == "Sí" %}
+                                <span class="badge text-bg-success">Sí</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ lead.rubro_reciente or "—" }}</td>
+                        <td>{{ lead.tier_reciente or "—" }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">No hay leads con los filtros seleccionados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+{% endblock %}
