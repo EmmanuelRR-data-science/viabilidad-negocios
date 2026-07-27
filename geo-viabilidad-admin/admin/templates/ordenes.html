@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_macros.html" import estado_badge %}
+{% block title %}Órdenes · Admin GeoViabilidad{% endblock %}
+{% block body %}
+{% include "_nav.html" %}
+
+<main class="container-fluid px-4 py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Órdenes de pago</h1>
+            <p class="text-muted mb-0">{{ total_resultados }} resultado(s) · máximo 250 en pantalla</p>
+        </div>
+        <a href="{{ export_url }}" class="btn btn-success">Descargar Excel filtrado</a>
+    </div>
+
+    <div class="card admin-card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label" for="q">Buscar</label>
+                    <input type="search" class="form-control" id="q" name="q" value="{{ filters.q or '' }}" placeholder="Correo, checkout, rubro...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="estado">Estado</label>
+                    <select class="form-select" id="estado" name="estado">
+                        <option value="" {% if not filters.estado %}selected{% endif %}>Todos</option>
+                        <option value="approved" {% if filters.estado == 'approved' %}selected{% endif %}>Aprobado</option>
+                        <option value="pending" {% if filters.estado == 'pending' %}selected{% endif %}>Pendiente</option>
+                        <option value="rejected" {% if filters.estado == 'rejected' %}selected{% endif %}>Rechazado</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="tier">Tier</label>
+                    <select class="form-select" id="tier" name="tier">
+                        <option value="" {% if not filters.tier %}selected{% endif %}>Todos</option>
+                        <option value="basico" {% if filters.tier == 'basico' %}selected{% endif %}>Básico</option>
+                        <option value="pro" {% if filters.tier == 'pro' %}selected{% endif %}>Pro</option>
+                        <option value="premium" {% if filters.tier == 'premium' %}selected{% endif %}>Premium</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="rubro">Rubro</label>
+                    <input list="rubros-list" class="form-control" id="rubro" name="rubro" value="{{ filters.rubro or '' }}">
+                    <datalist id="rubros-list">
+                        {% for rubro in rubros %}
+                        <option value="{{ rubro }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label" for="desde">Desde</label>
+                    <input type="date" class="form-control" id="desde" name="desde" value="{{ filters.desde.isoformat() if filters.desde else '' }}">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label" for="hasta">Hasta</label>
+                    <input type="date" class="form-control" id="hasta" name="hasta" value="{{ filters.hasta.isoformat() if filters.hasta else '' }}">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+            <div class="mt-2">
+                <a href="{{ url_for('admin.ordenes') }}" class="small text-decoration-none">Limpiar filtros</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card admin-card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Checkout</th>
+                        <th>Usuario</th>
+                        <th>Correo</th>
+                        <th>Estado</th>
+                        <th>Tier</th>
+                        <th>Rubro</th>
+                        <th>Monto</th>
+                        <th>Creada</th>
+                        <th>PDF</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.orden_id }}</td>
+                        <td><code class="small">{{ order.checkout_id }}</code></td>
+                        <td>{{ order.nombre_usuario or "—" }}</td>
+                        <td>{{ order.email }}</td>
+                        <td>{{ estado_badge(order.estado_pago) }}</td>
+                        <td>{{ order.tier }}</td>
+                        <td>{{ order.rubro }}</td>
+                        <td>${{ order.monto_mxn }}</td>
+                        <td>{{ order.fecha_creacion or "—" }}</td>
+                        <td>{{ order.pdf_listo }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">No hay órdenes con los filtros seleccionados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+{% endblock %}

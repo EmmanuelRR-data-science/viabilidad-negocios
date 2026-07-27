@@ -1,0 +1,28 @@
+{
+  "basico": {
+    "name": "Básico",
+    "price": 299.0,
+    "max_competitors": 1,
+    "max_allies": 0,
+    "pdf_pages": 6,
+    "features": []
+  },
+  "pro": {
+    "name": "Pro",
+    "price": 649.0,
+    "max_competitors": 3,
+    "max_allies": 0,
+    "pdf_pages": 10,
+    "features": []
+  },
+  "premium": {
+    "name": "Premium",
+    "price": 799.0,
+    "max_competitors": 5,
+    "max_allies": 5,
+    "pdf_pages": 13,
+    "features": [
+      "aliados_guiados"
+    ]
+  }
+}

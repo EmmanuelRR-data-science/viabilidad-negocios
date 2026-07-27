@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Acceso Admin · GeoViabilidad{% endblock %}
+{% block body %}
+<main class="admin-login d-flex align-items-center justify-content-center min-vh-100">
+    <div class="card admin-card shadow-lg border-0">
+        <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+                <p class="text-uppercase text-muted small mb-1">PhiQus · Panel interno</p>
+                <h1 class="h3 mb-2">GeoViabilidad Hook</h1>
+                <p class="text-secondary mb-0">Administración y exportación de leads</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} py-2" role="alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="post" class="vstack gap-3">
+                <div>
+                    <label for="username" class="form-label">Usuario</label>
+                    <input type="text" class="form-control" id="username" name="username" required autocomplete="username">
+                </div>
+                <div>
+                    <label for="password" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Entrar al panel</button>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

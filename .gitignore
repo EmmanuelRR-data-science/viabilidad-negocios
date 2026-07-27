@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+﻿# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -166,3 +166,12 @@ fuentes/
 *.dbf
 *.prj
 *.cpg
+
+# Scratch: experiments, debug scripts, local reports and email mocks
+# (a few legacy scripts remain tracked; everything new is ignored)
+scratch/
+
+# Database dumps and backups
+*.dump
+!geo-viabilidad-api/backups/agebs_demografia.dump
+*.sql.gz
