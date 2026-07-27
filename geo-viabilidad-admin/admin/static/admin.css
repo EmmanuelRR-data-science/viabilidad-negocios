@@ -1,0 +1,63 @@
+:root {
+    --admin-bg: #0f172a;
+    --admin-accent: #2563eb;
+    --admin-card: #ffffff;
+}
+
+body.admin-body {
+    background: #f1f5f9;
+    color: #0f172a;
+    font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.admin-login {
+    background: radial-gradient(circle at top, #1e293b 0%, #0f172a 55%);
+}
+
+.admin-login .admin-card {
+    width: min(100%, 420px);
+    border-radius: 14px;
+}
+
+.admin-card {
+    border-radius: 14px;
+}
+
+.admin-navbar {
+    background: linear-gradient(90deg, #0f172a, #1e3a8a);
+}
+
+.admin-stat-card {
+    border: 0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.table td,
+.table th {
+    white-space: nowrap;
+}
+
+.navbar-nav .nav-link.active {
+    font-weight: 600;
+    color: #fff !important;
+}
+
+.ingest-log {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    background: #0f172a;
+    color: #e2e8f0;
+    resize: vertical;
+}
+
+.nav-tabs .nav-link {
+    color: #475569;
+}
+
+@media (max-width: 768px) {
+    .table td,
+    .table th {
+        white-space: normal;
+    }
+}

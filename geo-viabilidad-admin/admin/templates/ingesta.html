@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Ingesta INEGI · Admin GeoViabilidad{% endblock %}
+{% block body %}
+{% include "_nav.html" %}
+
+<main class="container-fluid px-4 py-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} py-2" role="alert">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">Ingesta geoespacial y demográfica INEGI</h1>
+        <p class="text-muted mb-0">Fuentes INEGI en <code>{{ fuentes.fuentes_dir }}</code></p>
+    </div>
+
+    {% if not db_connected %}
+        <div class="alert alert-danger">No se pudo conectar a PostgreSQL/PostGIS. Revisa variables DB_* en Docker.</div>
+    {% elif schema_error %}
+        <div class="alert alert-warning">Advertencia al inicializar tablas: {{ schema_error }}</div>
+    {% elif schema_ok %}
+        <div class="alert alert-success py-2">Base de datos conectada y tablas del sistema verificadas.</div>
+    {% endif %}
+
+    {% if stats %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100"><div class="card-body">
+                <p class="text-muted small mb-1">AGEBs registradas</p>
+                <p class="h3 mb-0">{{ "{:,}".format(stats.total_agebs) }}</p>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100"><div class="card-body">
+                <p class="text-muted small mb-1">Con cartografía</p>
+                <p class="h3 mb-0">{{ "{:,}".format(stats.con_geom) }}</p>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100"><div class="card-body">
+                <p class="text-muted small mb-1">Con censo</p>
+                <p class="h3 mb-0">{{ "{:,}".format(stats.con_censo) }}</p>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-stat-card h-100"><div class="card-body">
+                <p class="text-muted small mb-1">Con NSE (GRAPROES)</p>
+                <p class="h3 mb-0">{{ "{:,}".format(stats.con_nse) }}</p>
+            </div></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if ingest_flash and ingest_flash.logs %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <strong>Consola de la última ejecución</strong>
+            {% if ingest_flash.inserted_count %}
+                · {{ "{:,}".format(ingest_flash.inserted_count) }} registros
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <textarea class="form-control border-0 ingest-log" readonly rows="12">{{ ingest_flash.logs | join('\n') }}</textarea>
+        </div>
+    </div>
+    {% endif %}
+
+    <ul class="nav nav-tabs" id="ingestaTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="shapefile-tab" data-bs-toggle="tab" data-bs-target="#shapefile" type="button">1. Cartografía (.zip)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="censo-tab" data-bs-toggle="tab" data-bs-target="#censo" type="button">2. Censo CSV (.zip)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="nacional-tab" data-bs-toggle="tab" data-bs-target="#nacional" type="button">3. Ingesta nacional</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="cobertura-tab" data-bs-toggle="tab" data-bs-target="#cobertura" type="button">4. Cobertura</button>
+        </li>
+    </ul>
+
+    <div class="tab-content card admin-card border-top-0 rounded-top-0 shadow-sm p-4" id="ingestaTabsContent">
+        <div class="tab-pane fade show active" id="shapefile" role="tabpanel">
+            <h2 class="h5">Carga manual de cartografía estatal</h2>
+            <p class="text-muted">ZIP con shapefile de AGEBs urbanas (<code>*a.shp</code>, .shx, .dbf, .prj).</p>
+            <form method="post" action="{{ url_for('admin.ingesta_shapefile') }}" enctype="multipart/form-data" class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label" for="shapefile_zip">Archivo ZIP</label>
+                    <input class="form-control" type="file" id="shapefile_zip" name="shapefile_zip" accept=".zip" required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100" {% if not db_connected %}disabled{% endif %}>
+                        Procesar geometrías
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="tab-pane fade" id="censo" role="tabpanel">
+            <h2 class="h5">Carga manual de variables demográficas</h2>
+            <p class="text-muted">ZIP del censo INEGI (ej. <code>resageburb_01csv20.zip</code>).</p>
+            <form method="post" action="{{ url_for('admin.ingesta_censo') }}" enctype="multipart/form-data" class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label" for="censo_zip">Archivo ZIP</label>
+                    <input class="form-control" type="file" id="censo_zip" name="censo_zip" accept=".zip" required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100" {% if not db_connected %}disabled{% endif %}>
+                        Procesar censo
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="tab-pane fade" id="nacional" role="tabpanel">
+            <h2 class="h5">Ingesta masiva de la República (32 estados)</h2>
+            <p class="text-muted">Lee archivos locales en <code>fuentes/</code> sin subirlos por red. Puede tardar varias horas.</p>
+
+            <ul class="list-group mb-3">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Cartografía <code>889463807469_s.zip</code></span>
+                    {% if fuentes.cartografia_ok %}
+                        <span class="badge text-bg-success">Detectada</span>
+                    {% else %}
+                        <span class="badge text-bg-danger">No encontrada</span>
+                    {% endif %}
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Archivos censo <code>resageburb_XXcsv20.zip</code></span>
+                    <span class="badge {% if fuentes.census_ready %}text-bg-success{% else %}text-bg-warning{% endif %}">
+                        {{ fuentes.census_files }}/32
+                    </span>
+                </li>
+            </ul>
+
+            <form method="post" action="{{ url_for('admin.ingesta_nacional') }}" onsubmit="return confirm('¿Iniciar ingesta nacional de 32 estados? Este proceso es largo.');">
+                <button type="submit" class="btn btn-danger" {% if not db_connected or not fuentes.cartografia_ok %}disabled{% endif %}>
+                    Iniciar ingesta de 32 estados
+                </button>
+            </form>
+        </div>
+
+        <div class="tab-pane fade" id="cobertura" role="tabpanel">
+            <h2 class="h5">Cobertura por entidad federativa</h2>
+            {% if stats and stats.estados %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código estado</th>
+                            <th>AGEBs totales</th>
+                            <th>Con geometría</th>
+                            <th>Con demografía</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in stats.estados %}
+                        <tr>
+                            <td>{{ row.entidad }}</td>
+                            <td>{{ "{:,}".format(row.total) }}</td>
+                            <td>{{ "{:,}".format(row.con_geom) }}</td>
+                            <td>{{ "{:,}".format(row.con_censo) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Aún no hay cobertura cargada. Usa las pestañas anteriores para ingestar datos.</p>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+<script>
+    (function () {
+        const hash = window.location.hash.replace("#", "");
+        if (!hash) return;
+        const trigger = document.querySelector(`#${hash}-tab`);
+        if (trigger) bootstrap.Tab.getOrCreateInstance(trigger).show();
+    })();
+</script>
+{% endblock %}
