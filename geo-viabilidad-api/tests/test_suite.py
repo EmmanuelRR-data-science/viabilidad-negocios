@@ -679,7 +679,7 @@ def test_crear_preferencia_cobro_api():
         "intenciones": "Quiero poner una cafetería de especialidad.",
     }
     # Bearer authentication header is required, even if simulated in DEV_MODE
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
     assert response.status_code == 201
 
@@ -718,7 +718,7 @@ def test_crear_preferencia_cobro_con_campos_adicionales_api():
         "competidores_adicionales": "Starbucks, Cielito Querido",
         "aliados_adicionales": "OXXO, Banamex",
     }
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     response = client.post("/api/pagos/preferencia", json=payload, headers=headers)
     assert response.status_code == 201
 
@@ -804,7 +804,7 @@ def test_crear_preferencia_invalida_basico():
     """
     Test that Básico tier accepts up to 1 custom competitor and rejects allies or more than 1 competitor.
     """
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
 
     # 1. 1 competitor should be VALID
     payload_valid = {
@@ -860,7 +860,7 @@ def test_crear_preferencia_invalida_pro_aliados():
     """
     Test that Pro tier rejects custom allies.
     """
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     payload = {
         "tier_adquirido": "pro",
         "latitud": 19.432608,
@@ -878,7 +878,7 @@ def test_crear_preferencia_invalida_pro_limites():
     """
     Test that Pro tier rejects more than 3 custom competitors.
     """
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     payload = {
         "tier_adquirido": "pro",
         "latitud": 19.432608,
@@ -896,7 +896,7 @@ def test_crear_preferencia_invalida_premium_limites():
     """
     Test that Premium tier rejects more than 5 custom competitors or allies.
     """
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     payload = {
         "tier_adquirido": "premium",
         "latitud": 19.432608,
@@ -926,7 +926,7 @@ def test_crear_preferencia_valida_pro_premium():
     """
     Test successful creation of Pro and Premium preferences with custom selections.
     """
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     payload_pro = {
         "tier_adquirido": "pro",
         "latitud": 19.432608,
@@ -1009,7 +1009,7 @@ def test_obtener_resultado_analisis_cache_api():
         db.refresh(orden)
 
         # Retrieve the analysis result
-        headers = {"Authorization": "Bearer test-jwt-token"}
+        headers = {"Authorization": "Bearer mock-token"}
         response = client.get(f"/api/analizar/resultado/{orden.id}", headers=headers)
         assert response.status_code == 200
 
@@ -1057,7 +1057,7 @@ def test_descargar_pdf_local_endpoint():
         db.refresh(orden)
 
         # 1. Get the download URL (requires auth headers)
-        headers = {"Authorization": "Bearer test-jwt-token"}
+        headers = {"Authorization": "Bearer mock-token"}
         response = client.get(f"/api/reportes/pdf/{orden.id}", headers=headers)
         assert response.status_code == 200
         data = response.json()
@@ -1152,7 +1152,7 @@ def test_buscar_direccion_api():
     Test that the search endpoint `/api/analizar/buscar-direccion` works
     correctly and returns mock coordinates in DEV_MODE.
     """
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     response = client.get("/api/analizar/buscar-direccion?direccion=Reforma%20222", headers=headers)
     assert response.status_code == 200
     data = response.json()
@@ -1299,7 +1299,7 @@ def test_resolver_aliados_modo_guiado_sin_llm():
 
 
 def test_crear_preferencia_guiado_solo_premium():
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     payload_pro = {
         "tier_adquirido": "pro",
         "latitud": 19.432608,
@@ -1336,7 +1336,7 @@ def test_crear_preferencia_guiado_solo_premium():
 
 
 def test_api_sugerir_aliados_guiados():
-    headers = {"Authorization": "Bearer test-jwt-token"}
+    headers = {"Authorization": "Bearer mock-token"}
     response = client.post(
         "/api/analizar/aliados/sugerir",
         json={

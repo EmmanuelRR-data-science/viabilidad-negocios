@@ -2,17 +2,11 @@
 
 Monorepo del producto **GeoViabilidad**: análisis de viabilidad comercial geoespacial para México.
 
-Este README es el **runbook del equipo** (Pedro / Luis / Miguel / quien clone el repo): cómo levantar, probar y validar el stack sin depender de AWS.
-
-Funciona en **Linux, macOS y Windows** (Docker es el camino principal). Los ejemplos de shell usan **bash**; al final hay equivalentes PowerShell.
+Este README describe cómo levantar, probar y validar el stack sin depender de AWS.
 
 ---
 
 ## Despliegue rápido tras `git clone`
-
-Repositorio: [EmmanuelRR-data-science/viabilidad-negocios](https://github.com/EmmanuelRR-data-science/viabilidad-negocios)
-
-Rama de entrega: **`PR-v1`** (desde `spotlight-review`).
 
 ### Opción A — un solo script (recomendado)
 
@@ -97,7 +91,7 @@ Versiones de producto (SemVer):
 
 ---
 
-## Arranque en 3 pasos (camino feliz)
+## Arranque en 3 pasos
 
 ### 1. Variables de entorno
 
@@ -177,98 +171,11 @@ Detalle de scripts: [`geo-viabilidad-api/scripts/README.md`](geo-viabilidad-api/
 
 ---
 
-## Flujo de prueba sugerido (sin front-expertise)
+## Flujo de prueba sugerido
 
 1. http://localhost:8000 → login PhiQus.
 2. Marcar un punto en CDMX, elegir giro (ej. Cafetería), **Analizar**.
 3. Con `PAYMENTS_MOCK=true`, comprar un plan y validar que el PDF se genera / descarga.
 4. Alternativa solo API: usar Swagger en `:8001/docs` (health, pagos/config, endpoints de análisis según contrato).
 
-Guía paso a paso del producto: [`docs/GUIA_USO_LOCAL.md`](docs/GUIA_USO_LOCAL.md)  
-Guía para testers no técnicos: [`docs/GUIA_PRUEBAS_USUARIO.md`](docs/GUIA_PRUEBAS_USUARIO.md)
 
----
-
-## Tests y calidad (Python)
-
-```bash
-# API
-cd geo-viabilidad-api
-uv sync --group dev
-uv run ruff check app tests scripts
-uv run pytest tests/ -q --ignore=tests/security
-
-# Admin
-cd ../geo-viabilidad-admin
-uv sync --group dev
-uv run ruff check admin tests
-uv run pytest tests/ -q
-
-# Data (lint)
-cd ../geo-viabilidad-data
-uv sync --group dev
-uv run ruff check geo_viabilidad_data
-```
-
-Debug del motor **sin IA** (JSON + Excel): ver sección en [`geo-viabilidad-api/README.md`](geo-viabilidad-api/README.md) (`scripts/debug_analisis_cuantitativo.py`).
-
----
-
-## Parar / reiniciar
-
-```bash
-docker compose down          # para contenedores (conserva volumen PostGIS)
-docker compose up -d         # vuelve a levantar
-./run_local.sh               # rebuild + up
-docker compose logs -f web-api
-docker compose logs -f admin-app
-```
-
----
-
-## Arquitectura y docs
-
-| Documento | Contenido |
-|-----------|-----------|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Árbol y endpoints |
-| [`docs/REPO_SPLIT_AND_LAYERS.md`](docs/REPO_SPLIT_AND_LAYERS.md) | Plan multi-repo / capas |
-| [`rfcs/rfc-api-layers.md`](rfcs/rfc-api-layers.md) | Capas API (routers → services → clients) |
-| [`geo-viabilidad-api/README.md`](geo-viabilidad-api/README.md) | Runbook API, LLM_PROVIDER, Commitizen |
-| [`geo-viabilidad-admin/README.md`](geo-viabilidad-admin/README.md) | Runbook Admin |
-| [`geo-viabilidad-data/README.md`](geo-viabilidad-data/README.md) | Paquete data compartido |
-
-**Dependencias Python:** solo `pyproject.toml` + `uv.lock` (sin inventario `requirements.txt`). Docker usa `uv sync --frozen`.
-
----
-
-## Windows (PowerShell) — equivalentes
-
-```powershell
-Copy-Item .env.example .env
-./run_local.ps1
-# Datos demográficos (primera vez):
-./setup_local.ps1   # incluye LFS + restore; o solo restore tras run_local:
-curl http://localhost:8001/health
-```
-
-Para restore **sin** volver a levantar contenedores, usa la lógica de `setup_local.ps1` (copia dump + `pg_restore` vía `docker exec`) o WSL con `restore_demografia_docker.sh`.
-
----
-
-## Problemas frecuentes
-
-| Síntoma | Qué revisar |
-|---------|-------------|
-| `run_local.sh` / build falla | Docker corriendo; espacio en disco; logs del build API (GDAL) |
-| SPA en `:8000` pero docs 404 | Swagger está en **`:8001/docs`**, no en `:8000` |
-| Análisis sin población / NSE | Restaurar demografía (sección arriba) |
-| Login Google no abre | `GOOGLE_OAUTH_CLIENT_ID` en `.env` + orígenes autorizados |
-| FODA vacío / sin narrativa IA | `LLM_PROVIDER=groq` + `GROQ_API_KEY` válida |
-| Pagos “reales” en local | Dejar `PAYMENTS_MOCK=true`; MP sandbox necesita HTTPS/`PUBLIC_APP_URL` |
-| Permiso denegado en `./run_local.sh` | `chmod +x run_local.sh` |
-
----
-
-## Nota histórica
-
-Este monorepo proviene de `viabilidad-hook` (reorganización 2026). Trabajar siempre sobre **`geo-viabilidad-negocios`**.

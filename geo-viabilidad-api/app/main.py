@@ -171,9 +171,9 @@ app.include_router(reports_router)
 
 @app.on_event("startup")
 def startup_event():
-    from app.clients.v0.database import AppUsuario, Base, engine
+    from app.clients.v0.database import AppUsuario, OrdenPago, Base, engine
 
-    Base.metadata.create_all(bind=engine, tables=[AppUsuario.__table__])
+    Base.metadata.create_all(bind=engine, tables=[AppUsuario.__table__, OrdenPago.__table__])
     logger.info("=========================================================")
     logger.info("🚀 Geo Viabilidad API Iniciada Correctamente 🚀")
     if DEV_MODE:

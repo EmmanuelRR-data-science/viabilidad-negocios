@@ -8,7 +8,7 @@ Arquitectura por capas: [`rfcs/rfc-api-layers.md`](../rfcs/rfc-api-layers.md) ·
 
 ---
 
-## Arranque rápido (equipo)
+## Arranque rápido
 
 Desde la raíz del monorepo (`geo-viabilidad-negocios/`):
 

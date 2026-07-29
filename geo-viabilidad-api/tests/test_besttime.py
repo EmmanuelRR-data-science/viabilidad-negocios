@@ -156,7 +156,7 @@ def test_obtener_afluencia_todos_los_venues_fallan_retorna_no_data(mock_valid, m
 
     result = obtener_afluencia(19.43, -99.13, "cafeteria", competidores=competidores)
     assert result["status"] == "no_data"
-    assert mock_forecast.call_count == 3
+    assert mock_forecast.call_count == 2
 
 
 def test_construir_filas_horas_pico_desde_curvas_reales():

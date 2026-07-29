@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -175,3 +175,7 @@ scratch/
 *.dump
 !geo-viabilidad-api/backups/agebs_demografia.dump
 *.sql.gz
+
+# Documentacion del proyecto excluida del repositorio publico
+/docs/
+/rfcs/
