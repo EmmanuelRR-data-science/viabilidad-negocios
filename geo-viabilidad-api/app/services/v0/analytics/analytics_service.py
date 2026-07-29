@@ -23,6 +23,10 @@ from app.domain.competencia_busqueda import (
 from app.domain.demografia_segmentos import construir_segmentacion_desde_raw, segmentacion_vacia
 from app.domain.nse import construir_nse_desde_raw, resolver_sin_censo
 from app.domain.seleccion_atractores import seleccionar_atractores_destacados
+from app.domain.sva_calculo import (
+    calcular_score_competencia,
+    calcular_score_demografico,
+)
 from app.domain.vigencia_comercio import vigencia_sin_verificar
 from app.services.tiers import get_tier_strategy
 
@@ -268,12 +272,6 @@ def _enriquecer_aliado(item: dict, tipo_semantico: str) -> dict:
         "latitud": item.get("latitud"),
         "longitud": item.get("longitud"),
     }
-
-
-from app.domain.sva_calculo import (
-    calcular_score_competencia,
-    calcular_score_demografico,
-)
 
 
 def _agregar_aliados_al_listado(

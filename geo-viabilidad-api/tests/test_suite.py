@@ -43,13 +43,17 @@ def test_calcular_score_demografico_por_densidad():
 
 def test_health_check():
     """
-    Test that the health check endpoint is functional and reports 'online'.
+    Test that the health check endpoint is functional and reports 'ok'
+    without leaking environment flags.
     """
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "online"
+    assert data["status"] == "ok"
     assert "GeoViabilidad Hook" in data["service"]
+    assert "timestamp" in data
+    assert "dev_mode" not in data
+    assert "payments_mock" not in data
 
 
 def test_exception_middleware_db():
@@ -57,7 +61,7 @@ def test_exception_middleware_db():
     Test that database connection errors (OperationalError) are caught by the
     UserFriendlyExceptionMiddleware and translated to a user-friendly message.
     """
-    response = client.get("/error-test?tipo=db")
+    response = client.get("/error-test?tipo=db", headers={"Authorization": "Bearer mock-token"})
     assert response.status_code == 500
     data = response.json()
     assert data["status"] == "error"
@@ -71,7 +75,7 @@ def test_exception_middleware_aws():
     Test that AWS client/sdk errors (ClientError) are caught by the
     UserFriendlyExceptionMiddleware and translated to a user-friendly message.
     """
-    response = client.get("/error-test?tipo=aws")
+    response = client.get("/error-test?tipo=aws", headers={"Authorization": "Bearer mock-token"})
     assert response.status_code == 500
     data = response.json()
     assert data["status"] == "error"
@@ -85,7 +89,7 @@ def test_exception_middleware_unexpected():
     Test that unexpected runtime errors are caught by the
     UserFriendlyExceptionMiddleware and translated to a user-friendly message.
     """
-    response = client.get("/error-test?tipo=unexpected")
+    response = client.get("/error-test?tipo=unexpected", headers={"Authorization": "Bearer mock-token"})
     assert response.status_code == 500
     data = response.json()
     assert data["status"] == "error"
@@ -763,7 +767,11 @@ def test_webhook_processing_and_mock():
 
         # Trigger mock webhook to approve the payment
         webhook_payload = {"checkout_id": checkout_id, "estado_pago": "approved"}
-        response = client.post("/api/pagos/webhook-mock", json=webhook_payload)
+        response = client.post(
+            "/api/pagos/webhook-mock",
+            json=webhook_payload,
+            headers={"Authorization": "Bearer mock-token"},
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -1055,6 +1063,7 @@ def test_descargar_pdf_local_endpoint():
         data = response.json()
         assert data["status"] == "success"
         assert f"/api/reportes/pdf/{orden.id}/descargar" in data["url_descarga"]
+        assert "token=" in data["url_descarga"]
 
         # Create dummy PDF file locally
         os.makedirs("scratch/reports", exist_ok=True)
@@ -1063,14 +1072,32 @@ def test_descargar_pdf_local_endpoint():
             f.write("dummy pdf content")
 
         try:
-            # 2. Access download URL (should NOT require auth headers)
-            dl_response = client.get(f"/api/reportes/pdf/{orden.id}/descargar")
+            # Sin token → 422 (query requerida)
+            dl_unauth = client.get(f"/api/reportes/pdf/{orden.id}/descargar")
+            assert dl_unauth.status_code == 422
+
+            # Con token de la URL firmada
+            from urllib.parse import parse_qs, urlparse
+
+            qs = parse_qs(urlparse(data["url_descarga"]).query)
+            dl_token = qs["token"][0]
+            dl_response = client.get(
+                f"/api/reportes/pdf/{orden.id}/descargar",
+                params={"token": dl_token},
+            )
             assert dl_response.status_code == 200
             assert dl_response.headers["content-type"] == "application/pdf"
             assert (
                 'attachment; filename="Reporte_Viabilidad_floreria.pdf"' in dl_response.headers["content-disposition"]
             )
             assert dl_response.text == "dummy pdf content"
+
+            # Token de un solo uso: segunda descarga falla
+            dl_reuse = client.get(
+                f"/api/reportes/pdf/{orden.id}/descargar",
+                params={"token": dl_token},
+            )
+            assert dl_reuse.status_code in (401, 403)
         finally:
             if os.path.exists(local_pdf):
                 os.remove(local_pdf)

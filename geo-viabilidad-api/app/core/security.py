@@ -1,11 +1,13 @@
 import logging
+from typing import Annotated
 
-from fastapi import HTTPException, Security, status
+from fastapi import HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from app.clients.v0.google.google_auth import es_token_mock, google_auth_habilitado, verificar_id_token_google
-from app.core.config import DEV_MODE, GOOGLE_OAUTH_CLIENT_ID
+from app.clients.v0.google.google_auth import es_token_mock, google_auth_habilitado
+from app.core.config import DEV_MODE, SESSION_COOKIE_NAME
+from app.core.session_tokens import verificar_session_token
 
 logger = logging.getLogger("auth")
 security_scheme = HTTPBearer(auto_error=False)
@@ -13,7 +15,7 @@ security_scheme = HTTPBearer(auto_error=False)
 
 class UserContext(BaseModel):
     """
-    Contexto de usuario autenticado extraído de Google Sign-In o del simulador de pruebas.
+    Contexto de usuario autenticado (sesión de app, mock de pruebas o legado DEV).
     """
 
     cognito_user_id: str
@@ -32,41 +34,62 @@ def _contexto_mock(token: str | None) -> UserContext:
     )
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security_scheme)) -> UserContext:
+def _extraer_bearer_o_cookie(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+) -> str | None:
+    if credentials and credentials.credentials:
+        return credentials.credentials
+    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if cookie_token:
+        return cookie_token
+    return None
+
+
+def get_current_user(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Security(security_scheme)] = None,
+) -> UserContext:
     """
-    Dependencia de FastAPI para obtener y validar el usuario actualmente firmado.
-    Prioridad: token mock (tests) → ID token Google → fallback DEV sin OAuth configurado.
+    Valida sesión de aplicación.
+
+    Orden: Bearer de sesión / mock → cookie HttpOnly `gv_session`.
+    El ID token de Google ya no se acepta en endpoints de negocio (solo en `/api/auth/google`).
     """
-    token = credentials.credentials if credentials else None
-
-    if es_token_mock(token):
-        return _contexto_mock(token)
-
-    if token and google_auth_habilitado():
-        try:
-            idinfo = verificar_id_token_google(token)
-            return UserContext(
-                cognito_user_id=str(idinfo["sub"]),
-                email=str(idinfo.get("email") or ""),
-                nombre=(idinfo.get("name") or idinfo.get("given_name") or None),
-                roles=["user"],
-            )
-        except Exception as err:
-            logger.warning("Bearer token rechazado: %s", err)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token de acceso inválido o caducado. Vuelve a iniciar sesión con Google.",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from err
-
-    if DEV_MODE and not GOOGLE_OAUTH_CLIENT_ID:
-        logger.info("Modo desarrollo sin Google OAuth: acceso simulado concedido.")
-        return _contexto_mock(token)
-
-    if not credentials:
+    token = _extraer_bearer_o_cookie(request, credentials)
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Se requiere autenticación con Google.",
+            detail="Se requiere autenticación. Inicia sesión con Google.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Tokens mock solo en desarrollo local / demos. En producción (DEV_MODE=false) se rechazan.
+    if es_token_mock(token):
+        if DEV_MODE:
+            return _contexto_mock(token)
+        logger.warning("Se rechazó token mock con DEV_MODE=false.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Autenticación mock no disponible fuera de desarrollo.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    claims = verificar_session_token(token)
+    if claims:
+        return UserContext(
+            cognito_user_id=str(claims["sub"]),
+            email=str(claims.get("email") or ""),
+            nombre=(claims.get("name") or None),
+            roles=list(claims.get("roles") or ["user"]),
+        )
+
+    # Rechazar ID tokens de Google u otros JWT ajenos en el hot path.
+    if google_auth_habilitado() and token.count(".") == 2:
+        logger.warning("Se rechazó un JWT que no es sesión de aplicación (posible ID token de Google).")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión inválida o expirada. Vuelve a iniciar sesión con Google.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

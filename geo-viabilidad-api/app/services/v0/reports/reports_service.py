@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.clients.v0.database import OrdenPago
 from app.clients.v0.s3.s3_client_processed import obtener_url_descarga
 from app.core.config import DEV_MODE, LOCAL_REPORTS_DIR, REPORTS_LOCAL_STORAGE, S3_REPORTS_BUCKET
+from app.core.download_tokens import crear_download_token, verificar_download_token
 from app.exceptions import ForbiddenError, NotFoundError, PaymentRequiredError, ValidationUserError
 from app.schemas.v0.reports_schemas import DescargaPDFResponse
 
@@ -50,33 +51,30 @@ def obtener_url_descarga_pdf(
 ) -> DescargaPDFResponse:
     """Valida la orden, autentica propiedad/roles, y construye la URL de descarga segura.
 
-    En modo local se devuelve una ruta relativa para que el cliente use el origen
-    de la página (evita Mixed Content detrás de ngrok/proxies).
+    En modo local se emite un token firmado de un solo uso (TTL corto) en la query.
     """
     orden = db.query(OrdenPago).filter(OrdenPago.id == orden_id).first()
     if not orden:
         raise OrdenNoEncontradaError(f"Orden {orden_id} no encontrada.")
 
-    # Validar permisos
     if orden.cognito_user_id != cognito_user_id and "admin" not in roles:
         raise AccesoNoAutorizadoError("No tienes autorización para descargar este reporte.")
 
-    # Validar estado de pago
     if orden.estado_pago != "approved":
         raise PagoNoAcreditadoError("El análisis está pendiente de pago o procesamiento.")
 
-    # Validar disponibilidad del PDF
     if not orden.s3_key_reporte:
         raise ReporteNoDisponibleError("El reporte PDF aún se encuentra en proceso de compilación.")
 
     filename = _construir_nombre_archivo(orden.rubro)
 
-    # Determinar si usamos almacenamiento local (desarrollo/tests) o S3.
-    # Ruta relativa por defecto: el frontend la resuelve con window.location.origin.
     if REPORTS_LOCAL_STORAGE or DEV_MODE:
-        logger.info("[REPORTS SERVICE] Retornando URL de descarga directa local.")
-        url = ruta_descarga_local or f"/api/reportes/pdf/{orden.id}/descargar"
-        validez = 600
+        token, validez = crear_download_token(orden_id=orden.id, cognito_user_id=cognito_user_id)
+        if ruta_descarga_local:
+            url = ruta_descarga_local
+        else:
+            url = f"/api/reportes/pdf/{orden.id}/descargar?token={token}"
+        logger.info("[REPORTS SERVICE] URL local con token de descarga (TTL=%ss).", validez)
     else:
         logger.info("[REPORTS SERVICE] Generando URL presignada de S3.")
         descarga = obtener_url_descarga(S3_REPORTS_BUCKET, orden.s3_key_reporte, filename)
@@ -91,25 +89,43 @@ def obtener_url_descarga_pdf(
     )
 
 
-def obtener_pdf_local_path(orden_id: int, db: Session) -> tuple[str, str]:
-    """Resuelve la ruta local del PDF para descarga directa (modo desarrollo).
+def obtener_pdf_local_path(
+    orden_id: int,
+    db: Session,
+    *,
+    cognito_user_id: str | None = None,
+    roles: list[str] | None = None,
+    download_token: str | None = None,
+) -> tuple[str, str]:
+    """Resuelve la ruta local del PDF.
 
-    Returns:
-        Tupla (ruta_absoluta, nombre_archivo_descarga).
-
-    Raises:
-        ValidationUserError: si el modo local no está habilitado.
-        OrdenNoEncontradaError: si la orden no existe.
-        ValidationUserError: si el pago no fue aprobado o el archivo no existe.
+    Autorización: token de descarga firmado (preferente) o sesión + ownership.
     """
     if not REPORTS_LOCAL_STORAGE:
         raise ValidationUserError(
             "La descarga directa local solo está disponible con REPORTS_LOCAL_STORAGE.",
         )
 
+    token_sub: str | None = None
+    if download_token:
+        try:
+            claims = verificar_download_token(download_token, orden_id=orden_id, consume=True)
+            token_sub = str(claims["sub"])
+        except ValueError as err:
+            raise AccesoNoAutorizadoError(str(err)) from err
+
     orden = db.query(OrdenPago).filter(OrdenPago.id == orden_id).first()
     if not orden:
         raise OrdenNoEncontradaError()
+
+    if token_sub:
+        if orden.cognito_user_id != token_sub and not (roles and "admin" in roles):
+            raise AccesoNoAutorizadoError("No tienes autorización para descargar este reporte.")
+    else:
+        if not cognito_user_id:
+            raise AccesoNoAutorizadoError("Se requiere un enlace de descarga válido o iniciar sesión.")
+        if orden.cognito_user_id != cognito_user_id and "admin" not in (roles or []):
+            raise AccesoNoAutorizadoError("No tienes autorización para descargar este reporte.")
 
     if orden.estado_pago != "approved":
         raise ValidationUserError(

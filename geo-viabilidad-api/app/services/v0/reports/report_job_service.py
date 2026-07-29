@@ -195,7 +195,8 @@ def generar_informe_task(orden_id: int):
             logger.info("[TASK] PDF persistido en: %s", local_pdf_path)
 
             app_base = (PUBLIC_APP_URL or "http://localhost:8000").rstrip("/")
-            presigned_url = f"{app_base}/static/reports/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
+            # Sin URL pública directa al PDF: el usuario descarga autenticado en la app.
+            presigned_url = f"{app_base}/?orden_id={orden.id}"
         else:
             logger.info(f"[TASK] Guardando reporte PDF en S3: s3://{S3_REPORTS_BUCKET}/{s3_key}")
             if subir_objeto_s3(S3_REPORTS_BUCKET, s3_key, pdf_bytes):
@@ -224,17 +225,35 @@ def generar_informe_task(orden_id: int):
         <html>
         <head>
             <style>
-                body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6; margin: 0; padding: 0; background-color: #f8fafc; }}
-                .container {{ max-width: 600px; margin: 30px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }}
+                body {{
+                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                    color: #334155; line-height: 1.6; margin: 0; padding: 0;
+                    background-color: #f8fafc;
+                }}
+                .container {{
+                    max-width: 600px; margin: 30px auto; background: #ffffff;
+                    border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+                }}
                 .header {{ background-color: #0f172a; padding: 40px 30px; text-align: center; color: #ffffff; }}
                 .header h1 {{ margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px; }}
                 .content {{ padding: 30px; }}
                 .kpi-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                .kpi-table td {{ border: 1px solid #e2e8f0; padding: 12px; text-align: center; background-color: #f1f5f9; }}
+                .kpi-table td {{
+                    border: 1px solid #e2e8f0; padding: 12px; text-align: center;
+                    background-color: #f1f5f9;
+                }}
                 .kpi-val {{ font-size: 20px; font-weight: bold; color: #2563eb; }}
                 .kpi-lbl {{ font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }}
-                .btn {{ display: inline-block; padding: 14px 28px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center; margin: 25px 0; }}
-                .footer {{ background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }}
+                .btn {{
+                    display: inline-block; padding: 14px 28px; background-color: #2563eb;
+                    color: #ffffff !important; text-decoration: none; border-radius: 6px;
+                    font-weight: bold; text-align: center; margin: 25px 0;
+                }}
+                .footer {{
+                    background-color: #f1f5f9; padding: 20px; text-align: center;
+                    font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;
+                }}
             </style>
         </head>
         <body>
@@ -244,28 +263,38 @@ def generar_informe_task(orden_id: int):
                 </div>
                 <div class="content">
                     <p>Estimado/a cliente,</p>
-                    <p>Nos complace notificarte que tu estudio de <b>Localización Inteligente y Geomarketing</b> ha sido procesado de forma exitosa.</p>
-                    <p>Tu reporte ejecutivo en formato PDF de <b>{paginas_tier} páginas</b> ha sido compilado para el giro comercial <b>'{orden.rubro}'</b> en base a los datos demográficos espaciales de INEGI.</p>
+                    <p>Nos complace notificarte que tu estudio de
+                    <b>Localización Inteligente y Geomarketing</b> ha sido procesado de forma exitosa.</p>
+                    <p>Tu reporte ejecutivo en formato PDF de <b>{paginas_tier} páginas</b> ha sido compilado
+                    para el giro comercial <b>'{orden.rubro}'</b> en base a los datos demográficos espaciales
+                    de INEGI.</p>
                     
                     <table class="kpi-table">
                         <tr>
-                            <td><span class="kpi-lbl">Score SVA</span><br/><span class="kpi-val">{sva}/100</span></td>
-                            <td><span class="kpi-lbl">Población Residente</span><br/><span class="kpi-val">{poblacion_estimada:,} hab.</span></td>
-                            <td><span class="kpi-lbl">Competidores</span><br/><span class="kpi-val">{competidores_conteo}</span></td>
+                            <td><span class="kpi-lbl">Score SVA</span><br/>
+                                <span class="kpi-val">{sva}/100</span></td>
+                            <td><span class="kpi-lbl">Población Residente</span><br/>
+                                <span class="kpi-val">{poblacion_estimada:,} hab.</span></td>
+                            <td><span class="kpi-lbl">Competidores</span><br/>
+                                <span class="kpi-val">{competidores_conteo}</span></td>
                         </tr>
                     </table>
 
-                    <p>Puedes descargar tu informe PDF encriptado de forma segura y directa haciendo clic en el siguiente botón. Este enlace tiene una <b>vigencia de 24 horas</b> por motivos de seguridad corporativa:</p>
+                    <p>Puedes descargar tu informe PDF encriptado de forma segura y directa haciendo clic
+                    en el siguiente botón. Este enlace tiene una <b>vigencia de 24 horas</b> por motivos
+                    de seguridad corporativa:</p>
                     
                     <div style="text-align: center;">
                         <a href="{presigned_url}" class="btn" target="_blank">DESCARGAR REPORTE PDF</a>
                     </div>
                     
-                    <p>Si el enlace expira, siempre podrás ingresar al dashboard interactivo de la plataforma utilizando tu cuenta y generar un nuevo acceso.</p>
+                    <p>Si el enlace expira, siempre podrás ingresar al dashboard interactivo de la plataforma
+                    utilizando tu cuenta y generar un nuevo acceso.</p>
                     <p>Atentamente,<br/><b>El equipo de Data Science de GeoViabilidad Hook</b></p>
                 </div>
                 <div class="footer">
-                    Este es un correo automático confidencial. Si recibiste este mensaje por error, por favor notifícanos de inmediato.
+                    Este es un correo automático confidencial. Si recibiste este mensaje por error,
+                    por favor notifícanos de inmediato.
                 </div>
             </div>
         </body>

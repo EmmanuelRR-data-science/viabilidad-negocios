@@ -8,6 +8,65 @@ Funciona en **Linux, macOS y Windows** (Docker es el camino principal). Los ejem
 
 ---
 
+## Despliegue rápido tras `git clone`
+
+Repositorio: [EmmanuelRR-data-science/viabilidad-negocios](https://github.com/EmmanuelRR-data-science/viabilidad-negocios)
+
+Rama de entrega: **`PR-v1`** (desde `spotlight-review`).
+
+### Opción A — un solo script (recomendado)
+
+**Linux / macOS / WSL:**
+
+```bash
+git clone https://github.com/EmmanuelRR-data-science/viabilidad-negocios.git
+cd viabilidad-negocios
+git checkout PR-v1
+chmod +x setup_local.sh
+./setup_local.sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+git clone https://github.com/EmmanuelRR-data-science/viabilidad-negocios.git
+cd viabilidad-negocios
+git checkout PR-v1
+./setup_local.ps1
+```
+
+`setup_local.*` hace, en orden: copia `.env` si falta → `git lfs pull` (dump ~67 MB) → `docker compose build` + `up -d` → restaura `agebs_demografia` **dentro del contenedor PostGIS** (no necesitas `psql` en el host).
+
+Comprueba:
+
+```bash
+curl http://localhost:8001/health
+# → {"status":"online", ...}
+```
+
+| Servicio | URL |
+|----------|-----|
+| SPA | http://localhost:8000 |
+| API / Swagger | http://localhost:8001/docs |
+| Admin | http://localhost:8501/admin/login |
+| Gate PhiQus | usuario `PhiQus` / contraseña `viabilidad-negocios` |
+
+### Opción B — pasos manuales (4 comandos)
+
+```bash
+git clone https://github.com/EmmanuelRR-data-science/viabilidad-negocios.git
+cd viabilidad-negocios && git checkout PR-v1
+cp .env.example .env && git lfs install && git lfs pull
+./run_local.sh
+bash geo-viabilidad-api/scripts/demografia/restore_demografia_docker.sh
+```
+
+En Windows nativo: sustituye `./run_local.sh` por `./run_local.ps1` y el restore por `./setup_local.ps1` (incluye el paso de dump) o ejecuta el bloque PowerShell de la sección [Windows](#windows-powershell--equivalentes).
+
+> **Requisito:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) + [Git LFS](https://git-lfs.com/). La primera build puede tardar varios minutos (GDAL en la imagen API).
+
+---
+
 ## Requisitos
 
 | Herramienta | Para qué |
@@ -107,10 +166,11 @@ Sin tablas censales el análisis cuantitativo no tiene población/NSE reales.
 Con el stack arriba (`geo-db` healthy):
 
 ```bash
-# Requiere Git LFS (el dump ~67 MB no va en el blob de Git)
-git lfs install
-git lfs pull
-bash ./geo-viabilidad-api/scripts/demografia/restore_demografia_local.sh
+# Solo Docker (sin psql en el host) — recomendado
+bash geo-viabilidad-api/scripts/demografia/restore_demografia_docker.sh
+
+# Alternativa si ya tienes psql/pg_restore instalados en el host
+bash geo-viabilidad-api/scripts/demografia/restore_demografia_local.sh
 ```
 
 Detalle de scripts: [`geo-viabilidad-api/scripts/README.md`](geo-viabilidad-api/scripts/README.md).
@@ -186,11 +246,12 @@ docker compose logs -f admin-app
 ```powershell
 Copy-Item .env.example .env
 ./run_local.ps1
+# Datos demográficos (primera vez):
+./setup_local.ps1   # incluye LFS + restore; o solo restore tras run_local:
 curl http://localhost:8001/health
 ```
 
-Demografía: usar **WSL** o Git Bash con el mismo `.sh` de arriba.  
-Si `uv sync` falla por OneDrive/hardlinks: los `pyproject.toml` ya usan `link-mode = copy`; borra `.venv` y reintenta.
+Para restore **sin** volver a levantar contenedores, usa la lógica de `setup_local.ps1` (copia dump + `pg_restore` vía `docker exec`) o WSL con `restore_demografia_docker.sh`.
 
 ---
 

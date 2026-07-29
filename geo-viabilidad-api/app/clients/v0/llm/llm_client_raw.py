@@ -92,12 +92,14 @@ def invocar_bedrock_raw(
         return None
 
 
+GROQ_GUARD_MODEL = "openai/gpt-oss-safeguard-20b"
+
+
 def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool, str]:
-    model_guard = "openai/gpt-oss-safeguard-20b"
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": model_guard,
+        "model": GROQ_GUARD_MODEL,
         "messages": [{"role": "user", "content": texto_usuario}],
         "temperature": 0.0,
         "max_tokens": 20,
@@ -112,6 +114,9 @@ def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool
             categoria = parts[1].strip() if len(parts) > 1 else "unsafe"
             return False, categoria
         return True, "safe"
+    except requests.exceptions.Timeout as err:
+        logger.warning("[RAW] Timeout en moderación Llama Guard: %s", err)
+        return True, "timeout"
     except Exception as err:
         logger.warning("[RAW] Error al verificar moderación Llama Guard: %s", err)
-        return True, "safe"
+        return True, "error"

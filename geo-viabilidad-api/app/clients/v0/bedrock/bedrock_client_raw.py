@@ -7,8 +7,7 @@ from app.core.config import AWS_REGION
 
 logger = logging.getLogger("bedrock_client_raw")
 
-
-_GROQ_GUARD_MODEL = "openai/gpt-oss-safeguard-20b"
+GROQ_GUARD_MODEL = "openai/gpt-oss-safeguard-20b"
 
 
 def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool, str]:
@@ -16,7 +15,7 @@ def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": _GROQ_GUARD_MODEL,
+        "model": GROQ_GUARD_MODEL,
         "messages": [{"role": "user", "content": texto_usuario}],
         "temperature": 0.0,
         "max_tokens": 20,
@@ -33,13 +32,12 @@ def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool
             categoria = parts[1].strip() if len(parts) > 1 else "unsafe"
             return False, categoria
         return True, "safe"
-    except requests.exceptions.Timeout as timeout_err:
-        logger.warning(f"[RAW] Error al verificar moderación Llama Guard: {timeout_err}")
+    except requests.exceptions.Timeout as err:
+        logger.warning("[RAW] Timeout en moderación Llama Guard: %s", err)
         return True, "timeout"
     except Exception as err:
-        logger.warning(f"[RAW] Error al verificar moderación Llama Guard: {err}")
+        logger.warning("[RAW] Error al verificar moderación Llama Guard: %s", err)
         return True, "error"
-
 
 
 def invocar_groq_foda_raw(

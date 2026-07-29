@@ -130,3 +130,11 @@ class WebhookMockTrigger(BaseModel):
 
     checkout_id: str
     estado_pago: str = Field("approved", description="Estado a inyectar ('approved', 'rejected')")
+
+
+class WebhookAckResponse(BaseModel):
+    """Acuse genérico de webhooks (live o mock)."""
+
+    status: str
+    detail: str | None = None
+    orden_id: int | None = None

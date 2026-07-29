@@ -9,6 +9,8 @@ from __future__ import annotations
 import io
 import logging
 
+from app.domain.aliados_deterministico import NOMBRES_CATEGORIAS_PLACES, nombre_categoria_places
+
 logger = logging.getLogger("chart_images")
 
 try:
@@ -31,8 +33,6 @@ RATING_COLORS = ["#f43f5e", "#f97316", "#fbbf24", "#22c55e"]
 
 DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 HORAS_HEATMAP = list(range(8, 23))  # 08:00 – 22:00, igual que el dashboard
-
-from app.domain.aliados_deterministico import NOMBRES_CATEGORIAS_PLACES, nombre_categoria_places
 
 CATEGORY_LABELS = NOMBRES_CATEGORIAS_PLACES
 

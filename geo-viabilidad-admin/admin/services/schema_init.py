@@ -62,16 +62,45 @@ def init_db_schemas(engine: Engine) -> tuple[bool, str | None]:
             if cnt == 0:
                 conn.execute(
                     text("""
-                    INSERT INTO categorias_cruce (codigo_scian, nombre_scian, google_place_type, categoria_negocio, peso_competencia)
+                    INSERT INTO categorias_cruce (
+                        codigo_scian, nombre_scian, google_place_type,
+                        categoria_negocio, peso_competencia
+                    )
                     VALUES
                         ('722515', 'Cafeterías y fuentes de sodas', 'cafe', 'cafeteria', 1.0),
-                        ('722511', 'Restaurantes con servicio de preparación de alimentos a la carta', 'restaurant', 'restaurante_carta', 1.0),
-                        ('722513', 'Restaurantes que preparan alimentos de consumo inmediato (pizzas, hamburguesas)', 'fast_food', 'comida_rapida', 1.0),
+                        (
+                            '722511',
+                            'Restaurantes con servicio de preparación de alimentos a la carta',
+                            'restaurant', 'restaurante_carta', 1.0
+                        ),
+                        (
+                            '722513',
+                            'Restaurantes que preparan alimentos de consumo inmediato '
+                            '(pizzas, hamburguesas)',
+                            'fast_food', 'comida_rapida', 1.0
+                        ),
                         ('464111', 'Farmacias con venta de medicamentos', 'pharmacy', 'farmacia', 0.8),
-                        ('461110', 'Comercio al por menor en tiendas de abarrotes, ultramarinos y misceláneas', 'convenience_store', 'abarrotes', 0.5),
-                        ('713940', 'Gimnasios y centros de acondicionamiento físico del sector privado', 'gym', 'gimnasio', 1.2),
-                        ('611110', 'Escuelas de educación preescolar y primaria del sector privado', 'school', 'escuela', 0.5),
-                        ('812110', 'Salones de belleza, peluquerías y clínicas de belleza', 'beauty_salon', 'estetica', 1.0),
+                        (
+                            '461110',
+                            'Comercio al por menor en tiendas de abarrotes, '
+                            'ultramarinos y misceláneas',
+                            'convenience_store', 'abarrotes', 0.5
+                        ),
+                        (
+                            '713940',
+                            'Gimnasios y centros de acondicionamiento físico del sector privado',
+                            'gym', 'gimnasio', 1.2
+                        ),
+                        (
+                            '611110',
+                            'Escuelas de educación preescolar y primaria del sector privado',
+                            'school', 'escuela', 0.5
+                        ),
+                        (
+                            '812110',
+                            'Salones de belleza, peluquerías y clínicas de belleza',
+                            'beauty_salon', 'estetica', 1.0
+                        ),
                         ('812210', 'Tintorerías y lavanderías del sector privado', 'laundry', 'lavanderia', 1.0),
                         ('621111', 'Consultorios médicos del sector privado', 'doctor', 'consultorio_medico', 0.7);
                 """)
@@ -139,7 +168,8 @@ def init_db_schemas(engine: Engine) -> tuple[bool, str | None]:
             )
             conn.execute(
                 text(
-                    "CREATE INDEX IF NOT EXISTS idx_cache_coords ON cache_analisis_api (latitud, longitud, radio_metros, rubro, servicio_tipo);"
+                    "CREATE INDEX IF NOT EXISTS idx_cache_coords ON cache_analisis_api "
+                    "(latitud, longitud, radio_metros, rubro, servicio_tipo);"
                 )
             )
 

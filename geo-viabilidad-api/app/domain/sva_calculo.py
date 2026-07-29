@@ -388,7 +388,8 @@ def escenarios_simulacion_sva(
                 "Escenario hipotético: sin rivales en el radio (no es recomendación)",
                 0,
                 0.0,
-                "Contrafactual para ver el techo del pilar de competencia; no implica que debas buscar una zona sin rivales.",
+                "Contrafactual para ver el techo del pilar de competencia; "
+                "no implica que debas buscar una zona sin rivales.",
             )
         )
 

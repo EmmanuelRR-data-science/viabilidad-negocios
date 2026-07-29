@@ -26,14 +26,14 @@ _PESO_INTERSECCION = (
 # ---------------------------------------------------------------------------
 def query_demografia_ponderada(db: Session, lat: float, lng: float, radio: int) -> dict | None:
     """Ejecuta intersección proporcional en PostGIS para población en el buffer."""
-    query = text("""
-        SELECT 
-            COALESCE(SUM(pobtot * ST_Area(ST_Intersection(geom, ST_Buffer(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radio)::geometry)::geography) / NULLIF(ST_Area(geom::geography), 0)), 0) as pobtot,
-            COALESCE(SUM(vivtot * ST_Area(ST_Intersection(geom, ST_Buffer(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radio)::geometry)::geography) / NULLIF(ST_Area(geom::geography), 0)), 0) as vivtot,
-            COALESCE(SUM(pobmas * ST_Area(ST_Intersection(geom, ST_Buffer(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radio)::geometry)::geography) / NULLIF(ST_Area(geom::geography), 0)), 0) as pobmas,
-            COALESCE(SUM(pobfem * ST_Area(ST_Intersection(geom, ST_Buffer(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radio)::geometry)::geography) / NULLIF(ST_Area(geom::geography), 0)), 0) as pobfem
+    query = text(f"""
+        SELECT
+            COALESCE(SUM(pobtot * {_PESO_INTERSECCION}), 0) as pobtot,
+            COALESCE(SUM(vivtot * {_PESO_INTERSECCION}), 0) as vivtot,
+            COALESCE(SUM(pobmas * {_PESO_INTERSECCION}), 0) as pobmas,
+            COALESCE(SUM(pobfem * {_PESO_INTERSECCION}), 0) as pobfem
         FROM agebs_demografia
-        WHERE ST_Intersects(geom, ST_Buffer(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radio)::geometry);
+        WHERE ST_Intersects(geom, {_BUFFER_GEOM});
     """)
     try:
         result = db.execute(query, {"lat": lat, "lng": lng, "radio": radio}).fetchone()

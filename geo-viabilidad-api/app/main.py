@@ -1,64 +1,138 @@
 import logging
 import os
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 
-from app.core.config import DEV_MODE, LOCAL_REPORTS_DIR, PAYMENTS_MOCK, REPORTS_LOCAL_STORAGE
-from app.core.middleware import LLMRateLimitMiddleware, UserFriendlyExceptionMiddleware
-from app.exceptions import UserFacingError
+from app.core.config import CORS_ORIGINS, DEV_MODE, LOCAL_REPORTS_DIR, REPORTS_LOCAL_STORAGE
+from app.core.deps import UserDep
+from app.core.middleware import AbuseRateLimitMiddleware, LLMRateLimitMiddleware, UserFriendlyExceptionMiddleware
+from app.exceptions import NotFoundError, UserFacingError
 from app.routers.auth import router as auth_router
 from app.routers.v0.analytics import router as analytics_router
 from app.routers.v0.payments import router as payments_router
 from app.routers.v0.reports import router as reports_router
+from app.schemas.v0.health_schemas import HealthResponse
 
 logger = logging.getLogger("main")
 
+_OPENAPI_TAGS = [
+    {
+        "name": "Salud",
+        "description": "Estado del servicio y utilidades de diagnóstico.",
+    },
+    {
+        "name": "Autenticación",
+        "description": "Configuración OAuth y login con Google (o tokens mock en desarrollo).",
+    },
+    {
+        "name": "Motor Analítico e INEGI",
+        "description": (
+            "Análisis geoespacial: vista previa, geocodificación, resultado de orden y "
+            "dump cuantitativo de debug (sin IA)."
+        ),
+    },
+    {
+        "name": "Transacciones y Pagos",
+        "description": (
+            "Preferencias de cobro, estado de órdenes, webhooks de Mercado Pago y "
+            "webhook simulado cuando `PAYMENTS_MOCK=true`."
+        ),
+    },
+    {
+        "name": "Reportes",
+        "description": "Obtención y descarga del PDF ejecutivo asociado a una orden pagada.",
+    },
+]
+
+_docs_url = "/docs" if DEV_MODE else None
+_redoc_url = "/redoc" if DEV_MODE else None
+_openapi_url = "/api/openapi.json" if DEV_MODE else None
+
 app = FastAPI(
     title="GeoViabilidad Hook - API Pública",
-    description="Backend de API pública, procesamiento asíncrono y motor de cobros por Tiers.",
+    description=(
+        "API del monorepo GeoViabilidad (v1.0.0).\n\n"
+        "**Flujo típico de demo (Swagger):**\n"
+        "1. `GET /health`\n"
+        "2. Authorize con `Bearer mock-token` (solo `DEV_MODE`) o sesión vía `/api/auth/google?for=swagger`\n"
+        "3. `GET /api/analizar/debug/cuantitativo` (JSON sin IA, requiere `DEV_MODE`)\n"
+        "4. `POST /api/analizar/previa` → `POST /api/pagos/preferencia` → "
+        "`POST /api/pagos/webhook-mock` → poll estado → descargar PDF\n\n"
+        "Arquitectura: routers → services → clients/domain. "
+        "Errores de negocio se exponen como mensajes user-centric."
+    ),
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
+    openapi_tags=_OPENAPI_TAGS,
 )
 
+# PDFs locales solo vía endpoint autenticado con token firmado (no StaticFiles público).
 if REPORTS_LOCAL_STORAGE:
-    logger.info("Reportes PDF locales: montando %s en /static/reports", LOCAL_REPORTS_DIR)
     os.makedirs(LOCAL_REPORTS_DIR, exist_ok=True)
-    app.mount("/static/reports", StaticFiles(directory=LOCAL_REPORTS_DIR), name="static_reports")
+    logger.info(
+        "Reportes PDF locales en %s (sin mount /static/reports; descarga vía API firmada).",
+        LOCAL_REPORTS_DIR,
+    )
 
+_cors_origins = CORS_ORIGINS or (["http://localhost:8000"] if DEV_MODE else [])
+logger.info("CORS allowlist: %s", _cors_origins)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.add_middleware(AbuseRateLimitMiddleware)
 app.add_middleware(LLMRateLimitMiddleware)
 app.add_middleware(UserFriendlyExceptionMiddleware)
 
 api_router = APIRouter()
 
 
-@api_router.get("/health", tags=["Salud"])
-def health_check():
-    return {
-        "status": "online",
-        "service": "GeoViabilidad Hook Backend",
-        "timestamp": "2026-05-29T14:30:00",
-        "dev_mode": DEV_MODE,
-        "payments_mock": PAYMENTS_MOCK,
-    }
+@api_router.get(
+    "/health",
+    tags=["Salud"],
+    response_model=HealthResponse,
+    summary="Health check",
+    description="Confirma que la API responde. No expone flags de entorno ni configuración interna.",
+)
+def health_check() -> HealthResponse:
+    return HealthResponse(
+        status="ok",
+        service="GeoViabilidad Hook Backend",
+        timestamp=datetime.now(UTC).isoformat(),
+    )
 
 
-@api_router.get("/error-test", tags=["Salud"])
-def disparar_error_prueba(tipo: str = "db"):
+@api_router.get(
+    "/error-test",
+    tags=["Salud"],
+    summary="[PRUEBAS] Simular error de infraestructura",
+    description=(
+        "**Solo `DEV_MODE=true` y con Bearer.** Dispara un error controlado para verificar "
+        "el middleware user-centric.\n\n"
+        "- `tipo=db` → error de base de datos simulado\n"
+        "- `tipo=aws` → error de AWS Bedrock simulado\n"
+        "- otro valor → excepción genérica\n\n"
+        "No forma parte del flujo de producto."
+    ),
+    responses={200: {"description": "No aplica; siempre eleva un error simulado."}},
+    include_in_schema=DEV_MODE,
+)
+def disparar_error_prueba(user: UserDep, tipo: str = "db"):
+    _ = user
+    if not DEV_MODE:
+        raise NotFoundError("Recurso no disponible.")
+
     if tipo == "db":
         logger.info("[TEST] Disparando OperationalError simulado de base de datos...")
         raise OperationalError("SELECT 1", {}, Exception("Database Connection refused (Simulated)"))
@@ -102,5 +176,8 @@ def startup_event():
     Base.metadata.create_all(bind=engine, tables=[AppUsuario.__table__])
     logger.info("=========================================================")
     logger.info("🚀 Geo Viabilidad API Iniciada Correctamente 🚀")
-    logger.info("OpenAPI: http://localhost:8001/docs (directo) o http://localhost:8000/docs (vía nginx)")
+    if DEV_MODE:
+        logger.info("OpenAPI: http://localhost:8001/docs (directo) o http://localhost:8000/docs (vía nginx)")
+    else:
+        logger.info("OpenAPI/docs deshabilitados (DEV_MODE=false).")
     logger.info("=========================================================")

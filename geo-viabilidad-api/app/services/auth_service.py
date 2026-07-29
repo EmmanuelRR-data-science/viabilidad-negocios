@@ -1,4 +1,4 @@
-"""Lógica de negocio: autenticación Google Sign-In."""
+"""Lógica de negocio: autenticación Google Sign-In → sesión de aplicación."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.clients.v0.database import AppUsuario
 from app.clients.v0.google.google_auth import google_auth_habilitado, verificar_id_token_google
-from app.core.config import GOOGLE_OAUTH_CLIENT_ID, PUBLIC_APP_URL
+from app.core.config import GOOGLE_OAUTH_CLIENT_ID, PUBLIC_APP_URL, SESSION_TTL_SECONDS
+from app.core.session_tokens import crear_session_token
 from app.schemas.auth_schemas import AuthConfigResponse, AuthUserResponse, GoogleAuthResponse
 
 logger = logging.getLogger("auth_service")
@@ -62,6 +63,7 @@ def upsert_usuario_google(db: Session, idinfo: dict) -> AppUsuario:
 
 
 def autenticar_con_google(credential: str, db: Session) -> GoogleAuthResponse:
+    """Valida el ID token de Google una sola vez y emite JWT de sesión de la app."""
     if not google_auth_habilitado():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -84,8 +86,16 @@ def autenticar_con_google(credential: str, db: Session) -> GoogleAuthResponse:
         ) from err
 
     usuario = upsert_usuario_google(db, idinfo)
+    access_token, expires_in = crear_session_token(
+        google_sub=usuario.google_sub,
+        email=usuario.email,
+        nombre=usuario.nombre,
+        roles=["user"],
+    )
     return GoogleAuthResponse(
-        token=credential,
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=expires_in or SESSION_TTL_SECONDS,
         user=AuthUserResponse(
             google_sub=usuario.google_sub,
             email=usuario.email,

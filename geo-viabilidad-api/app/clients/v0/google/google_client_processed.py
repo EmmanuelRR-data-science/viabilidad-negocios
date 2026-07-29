@@ -162,7 +162,7 @@ def enriquecer_competidores_con_reseñas(
 def obtener_direccion(lat: float, lng: float) -> dict:
     """Mapea geocodificación a formato DireccionFisicaDomain."""
     response_dto = obtener_direccion_raw(lat, lng)
-    if response_dto.status == "DEV_MODE" or not response_dto.results:
+    if response_dto.status == "DEV_MODE":
         # Mock fallback
         domain = DireccionFisicaDomain(
             calle="Plaza de la Constitución",
@@ -171,11 +171,28 @@ def obtener_direccion(lat: float, lng: float) -> dict:
             codigo_postal="06000",
             localidad="Ciudad de México",
             estado="Ciudad de México",
-            formato_completo="Plaza de la Constitución S/N, Centro Histórico de la Cdad. de México, 06000 Cuauhtémoc, CDMX, México",
+            formato_completo=(
+                "Plaza de la Constitución S/N, Centro Histórico de la Cdad. de México, 06000 Cuauhtémoc, CDMX, México"
+            ),
         )
         res = domain.model_dump()
         res["municipio"] = "Cuauhtémoc"
         res["pais"] = "México"
+        return res
+
+    if response_dto.status == "ERROR" or not response_dto.results:
+        domain = DireccionFisicaDomain(
+            calle="",
+            numero="",
+            colonia="",
+            codigo_postal="",
+            localidad="",
+            estado="",
+            formato_completo="",
+        )
+        res = domain.model_dump()
+        res["municipio"] = ""
+        res["pais"] = ""
         return res
 
     result = response_dto.results[0]

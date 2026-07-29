@@ -57,6 +57,54 @@ GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY") or os.environ.get("G
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
 PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "").strip().rstrip("/")
 
+# --- SESIÓN DE APLICACIÓN (JWT propio; el ID token de Google no viaja en cada request) ---
+_DEFAULT_DEV_SESSION_SECRET = "dev-insecure-session-secret-change-me"
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "").strip() or (_DEFAULT_DEV_SESSION_SECRET if DEV_MODE else "")
+if not SESSION_SECRET:
+    raise RuntimeError("SESSION_SECRET es obligatorio cuando DEV_MODE=false.")
+if not DEV_MODE and (SESSION_SECRET == _DEFAULT_DEV_SESSION_SECRET or len(SESSION_SECRET) < 32):
+    raise RuntimeError(
+        "SESSION_SECRET de producción debe tener al menos 32 caracteres y no usar el valor por defecto de desarrollo."
+    )
+SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", "3600"))
+SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "gv_session").strip() or "gv_session"
+DOWNLOAD_TOKEN_TTL_SECONDS = int(os.environ.get("DOWNLOAD_TOKEN_TTL_SECONDS", "600"))
+
+
+# --- CORS (allowlist; nunca '*' con cookies) ---
+def _parse_cors_origins() -> list[str]:
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    origins: list[str] = []
+    if raw:
+        origins.extend(o.strip().rstrip("/") for o in raw.split(",") if o.strip())
+    if PUBLIC_APP_URL:
+        origins.append(PUBLIC_APP_URL)
+    if DEV_MODE:
+        origins.extend(
+            [
+                "http://localhost:8000",
+                "http://127.0.0.1:8000",
+                "http://localhost:8001",
+                "http://127.0.0.1:8001",
+            ]
+        )
+    # Deduplicar preservando orden
+    seen: set[str] = set()
+    unique: list[str] = []
+    for o in origins:
+        if o and o not in seen:
+            seen.add(o)
+            unique.append(o)
+    return unique
+
+
+CORS_ORIGINS = _parse_cors_origins()
+if not DEV_MODE and not CORS_ORIGINS:
+    raise RuntimeError("CORS_ORIGINS o PUBLIC_APP_URL deben definirse cuando DEV_MODE=false (allowlist obligatoria).")
+
+# Secret de firma de webhooks Mercado Pago (panel → Webhooks → firma secreta)
+MERCADOPAGO_WEBHOOK_SECRET = os.environ.get("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
+
 # --- BESTTIME PEATONAL API ---
 BESTTIME_API_KEY = os.environ.get("BESTTIME_API_KEY") or os.environ.get("BEST_TIME_API_KEY", "")
 BESTTIME_CLIENT_ID = os.environ.get("BESTTIME_CLIENT_ID", "")

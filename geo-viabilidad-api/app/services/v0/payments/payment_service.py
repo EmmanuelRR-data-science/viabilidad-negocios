@@ -345,19 +345,22 @@ def disparar_webhook_simulado(
     payload: WebhookMockTrigger,
     background_tasks: BackgroundTasks,
     db: Session,
+    user: UserContext,
 ) -> dict:
     if not PAYMENTS_MOCK:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Este endpoint de pruebas solo está disponible con pagos simulados (PAYMENTS_MOCK).",
+            detail="Este endpoint de pruebas no está disponible en este entorno.",
         )
 
     orden = db.query(OrdenPago).filter(OrdenPago.checkout_id == payload.checkout_id).first()
     if not orden:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No se encontró ninguna orden con checkout_id: {payload.checkout_id}",
+            detail="No se encontró ninguna orden con el checkout indicado.",
         )
+
+    _assert_orden_accesible(orden, user)
 
     if orden.estado_pago == "approved":
         return {"status": "already_approved", "orden_id": orden.id, "detail": "La orden ya estaba aprobada."}

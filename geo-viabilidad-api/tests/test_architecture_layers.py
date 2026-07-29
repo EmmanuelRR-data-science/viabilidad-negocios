@@ -132,3 +132,35 @@ class TestAuthSchemasCanonicalLocation:
 
         with pytest.raises((ImportError, ModuleNotFoundError)):
             importlib.import_module("app.routers.auth_schemas")
+
+
+class TestNoFlatClientOrReportShims:
+    """Tras unificación v0: sin re-exports DEPRECATED en clients/ o services/ raíz."""
+
+    FORBIDDEN_MODULES = (
+        "app.clients.google_auth",
+        "app.clients.google_places",
+        "app.clients.besttime",
+        "app.clients.bedrock",
+        "app.clients.mercadopago_client",
+        "app.services.report_pdf_service",
+        "app.services.report_job_service",
+    )
+
+    @pytest.mark.parametrize("module_name", FORBIDDEN_MODULES)
+    def test_shim_modules_removed(self, module_name: str):
+        import importlib
+
+        with pytest.raises((ImportError, ModuleNotFoundError)):
+            importlib.import_module(module_name)
+
+    def test_canonical_clients_and_reports_importable(self):
+        from app.clients.v0.besttime import obtener_afluencia  # noqa: F401
+        from app.clients.v0.google.google_auth import es_token_mock  # noqa: F401
+        from app.clients.v0.mercadopago import crear_preferencia_checkout  # noqa: F401
+        from app.services.v0.reports.report_job_service import generar_informe_task  # noqa: F401
+        from app.services.v0.reports.report_pdf_service import ReportLabGenerator  # noqa: F401
+
+        assert callable(es_token_mock)
+        assert ReportLabGenerator is not None
+        assert callable(generar_informe_task)

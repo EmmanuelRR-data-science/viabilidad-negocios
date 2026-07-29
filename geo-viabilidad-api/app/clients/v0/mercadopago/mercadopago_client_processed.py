@@ -13,8 +13,9 @@ from app.clients.v0.mercadopago.mercadopago_client_raw import (
     obtener_merchant_order_raw,
     obtener_pago_raw,
 )
+from app.clients.v0.mercadopago.mercadopago_webhook_signature import validar_firma_webhook_mp
 from app.core.config import MERCADOPAGO_SANDBOX
-from app.exceptions import ExternalDependencyError
+from app.exceptions import ExternalDependencyError, ForbiddenError
 
 logger = logging.getLogger("mercadopago_client_processed")
 
@@ -142,6 +143,8 @@ async def extraer_notificacion_webhook(request: Request) -> tuple[str | None, in
 
 
 async def extraer_payment_id_webhook(request: Request) -> int | None:
+    if not validar_firma_webhook_mp(request):
+        raise ForbiddenError("No se pudo validar la notificación de pago.")
     topic, raw_id = await extraer_notificacion_webhook(request)
     if raw_id is None:
         return None

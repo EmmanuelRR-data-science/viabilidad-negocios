@@ -20,7 +20,57 @@ _RATE_LIMIT_MAX_REQUESTS = 10  # Máx requests LLM por IP por ventana
 # Rutas a las que se aplica el rate limit del LLM (incluye el endpoint públ. de análisis)
 _RATE_LIMITED_PATHS = {
     "/api/analisis",
+    "/api/analizar/previa",
 }
+
+_ABUSE_WINDOW_SECS = 60
+_ABUSE_MAX_AUTH = 20
+_ABUSE_MAX_GEO = 60
+_ABUSE_PATH_LIMITS = {
+    "/api/auth/google": _ABUSE_MAX_AUTH,
+    "/api/analizar/geocodificar": _ABUSE_MAX_GEO,
+    "/api/analizar/buscar-direccion": _ABUSE_MAX_GEO,
+}
+
+
+class AbuseRateLimitMiddleware(BaseHTTPMiddleware):
+    """Rate limit por IP para login y geocoding (mitiga abuso de cuota Google/OAuth)."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self._windows: dict[str, collections.deque] = collections.defaultdict(lambda: collections.deque())
+
+    def _is_private_ip(self, ip: str) -> bool:
+        return ip.startswith(("127.", "10.", "172.", "192.168.", "::1")) or ip == "testclient"
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path.rstrip("/") or "/"
+        # Normalizar paths con query
+        for limited_path, max_req in _ABUSE_PATH_LIMITS.items():
+            if path == limited_path or path.startswith(limited_path + "/"):
+                client_ip = request.client.host if request.client else "unknown"
+                if self._is_private_ip(client_ip):
+                    break
+                key = f"{limited_path}:{client_ip}"
+                now = time.monotonic()
+                window = self._windows[key]
+                while window and now - window[0] > _ABUSE_WINDOW_SECS:
+                    window.popleft()
+                if len(window) >= max_req:
+                    logger.warning("[RATE_LIMIT] IP %s bloqueada en %s", client_ip, limited_path)
+                    return JSONResponse(
+                        status_code=429,
+                        content={
+                            "status": "error",
+                            "friendly_message": "Has realizado demasiadas solicitudes en poco tiempo.",
+                            "suggested_action": f"Espera {_ABUSE_WINDOW_SECS} segundos e intenta de nuevo.",
+                            "retry_after_seconds": _ABUSE_WINDOW_SECS,
+                        },
+                        headers={"Retry-After": str(_ABUSE_WINDOW_SECS)},
+                    )
+                window.append(now)
+                break
+        return await call_next(request)
 
 
 class LLMRateLimitMiddleware(BaseHTTPMiddleware):
@@ -122,7 +172,10 @@ class UserFriendlyExceptionMiddleware(BaseHTTPMiddleware):
             transaction_id = f"err_aws_{uuid.uuid4().hex[:8]}"
             logger.exception(f"[{transaction_id}] CRITICAL: AWS SDK Error: {exc}")
             friendly = "Estamos experimentando una alta demanda en nuestro motor de análisis estratégico inteligente."
-            action = "Tu reporte cuantitativo está a salvo. Puedes intentar regenerar el análisis estratégico en unos minutos sin costo adicional."
+            action = (
+                "Tu reporte cuantitativo está a salvo. Puedes intentar regenerar el análisis "
+                "estratégico en unos minutos sin costo adicional."
+            )
             return JSONResponse(
                 status_code=500,
                 content={
@@ -140,7 +193,10 @@ class UserFriendlyExceptionMiddleware(BaseHTTPMiddleware):
                 content={
                     "status": "error",
                     "friendly_message": "No pudimos conectar con los servidores de mapas satelitales.",
-                    "suggested_action": "El resto de la demografía del INEGI está lista. Intenta consultar el mapa de nuevo en unos minutos.",
+                    "suggested_action": (
+                        "El resto de la demografía del INEGI está lista. "
+                        "Intenta consultar el mapa de nuevo en unos minutos."
+                    ),
                     "transaction_id": transaction_id,
                 },
             )
@@ -166,7 +222,10 @@ class UserFriendlyExceptionMiddleware(BaseHTTPMiddleware):
                 content={
                     "status": "error",
                     "friendly_message": "Ha surgido un inconveniente inesperado en la plataforma.",
-                    "suggested_action": "No te preocupes; nuestro equipo técnico ha sido notificado automáticamente. Por favor, intenta tu consulta en breve.",
+                    "suggested_action": (
+                        "No te preocupes; nuestro equipo técnico ha sido notificado automáticamente. "
+                        "Por favor, intenta tu consulta en breve."
+                    ),
                     "transaction_id": transaction_id,
                 },
             )

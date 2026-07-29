@@ -24,7 +24,9 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 
-RUN uv sync --frozen --no-dev --no-install-project
+# Path dep en lock es editable; en imagen se reinstala no-editable para que no dependa del path del builder.
+RUN uv sync --frozen --no-dev --no-install-project \
+    && uv pip install --python /opt/venv/bin/python --reinstall /src/geo-viabilidad-data
 
 FROM python:3.11-slim-bookworm
 

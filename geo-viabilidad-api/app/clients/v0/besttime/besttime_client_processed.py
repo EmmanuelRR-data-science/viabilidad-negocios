@@ -16,7 +16,7 @@ logger = logging.getLogger("besttime_client_processed")
 
 DIAS_SEMANA_ESP = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 _BESTTIME_HORA_INICIO_DIA = 6
-_BESTTIME_MAX_INTENTOS = 3
+_BESTTIME_MAX_INTENTOS = 2
 
 
 def _normalizar_curva_a_medianoche(day_raw: list) -> list[int]:

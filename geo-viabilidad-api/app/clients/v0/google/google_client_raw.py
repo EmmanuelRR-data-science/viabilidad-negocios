@@ -92,8 +92,8 @@ def obtener_direccion_raw(lat: float, lng: float) -> GoogleGeocodeResponseDTO:
         data = response.json()
         return GoogleGeocodeResponseDTO.model_validate(data)
     except Exception as e:
-        logger.error(f"[RAW] Error en geocodificación inversa: {e}")
-        raise e
+        logger.error("[RAW] Error en geocodificación inversa: %s", e)
+        return GoogleGeocodeResponseDTO(status="ERROR")
 
 
 def buscar_coordenadas_por_direccion_raw(direccion: str) -> GoogleGeocodeResponseDTO:
@@ -115,8 +115,8 @@ def buscar_coordenadas_por_direccion_raw(direccion: str) -> GoogleGeocodeRespons
         data = response.json()
         return GoogleGeocodeResponseDTO.model_validate(data)
     except Exception as e:
-        logger.error(f"[RAW] Error en geocodificación directa: {e}")
-        raise e
+        logger.error("[RAW] Error en geocodificación directa: %s", e)
+        return GoogleGeocodeResponseDTO(status="ERROR")
 
 
 def obtener_mapa_estatico_raw(

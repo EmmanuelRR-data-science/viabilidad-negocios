@@ -23,6 +23,9 @@ from reportlab.platypus import (
 
 logger = logging.getLogger("reports")
 
+# Assets viven en app/services/assets/ (no junto a v0/reports tras el split de capas).
+_ASSETS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "assets"))
+
 # Nombres legibles (con acentos) de los rubros del catálogo para textos del reporte
 RUBRO_DISPLAY = {
     "cafeteria": "Cafetería",
@@ -75,7 +78,7 @@ def _estilo_tabla_pdf(*, header_dark: bool = True, zebra: bool = True) -> list:
 
 def _tabla_larga(
     data,
-    colWidths,
+    col_widths,
     *,
     repeat_rows: int = 1,
     header_dark: bool = True,
@@ -83,7 +86,7 @@ def _tabla_larga(
     extra_commands: list | None = None,
 ):
     """Tabla con encabezado repetido y saltos de página limpios (LongTable)."""
-    table = LongTable(data, colWidths=colWidths, repeatRows=repeat_rows, splitByRow=1)
+    table = LongTable(data, colWidths=col_widths, repeatRows=repeat_rows, splitByRow=1)
     style = TableStyle(_estilo_tabla_pdf(header_dark=header_dark, zebra=zebra))
     if extra_commands:
         for cmd in extra_commands:
@@ -590,7 +593,6 @@ def _interpretacion_distribucion_poblacional(
 
     pob0_14 = int(segmentacion.get("pob0_14", 0))
     pob15_64 = int(segmentacion.get("pob15_64", 0))
-    pob65 = int(segmentacion.get("pob65_mas", 0))
     pea = int(segmentacion.get("pea", 0))
     pct_15_64 = _pct_poblacion(pob15_64, pob_total)
     pct_ninos = _pct_poblacion(pob0_14, pob_total)
@@ -621,7 +623,8 @@ def _interpretacion_distribucion_poblacional(
     elif "farma" in rubro_l:
         giro_txt = (
             f"Familias ({pct_ninos}% menores de 15) y adultos mayores en la pirámide definen demanda de medicamentos "
-            f"de primera necesidad; un radio con PEA de {pea:,} personas también aporta compras de paso en jornada laboral."
+            f"de primera necesidad; un radio con PEA de {pea:,} personas también aporta "
+            f"compras de paso en jornada laboral."
         )
     elif "gym" in rubro_l or "gimnasio" in rubro_l:
         giro_txt = (
@@ -631,7 +634,8 @@ def _interpretacion_distribucion_poblacional(
         )
     elif "restaur" in rubro_l or "comida" in rubro_l:
         giro_txt = (
-            f"El {pct_15_64}% en edad laboral y la PEA de {pea:,} personas respaldan comidas de jornada y fines de semana; "
+            f"El {pct_15_64}% en edad laboral y la PEA de {pea:,} personas respaldan comidas "
+            f"de jornada y fines de semana; "
             f"compara la franja joven vs. adulta para decidir menú, ticket promedio y horario de mayor afluencia."
         )
     else:
@@ -642,7 +646,10 @@ def _interpretacion_distribucion_poblacional(
         )
 
     if tier == "basico":
-        plan_txt = " En el reporte Básico ves tres franjas etarias; en los reportes Pro y Premium la pirámide y segmentos afinan el nicho."
+        plan_txt = (
+            " En el reporte Básico ves tres franjas etarias; en los reportes Pro y Premium "
+            "la pirámide y segmentos afinan el nicho."
+        )
     elif tier == "pro":
         plan_txt = " La pirámide detallada permite detectar si tu público objetivo es joven, familiar o mixto."
     else:
@@ -705,7 +712,7 @@ class NumberedCanvas(canvas.Canvas):
 
         # --- PÁGINAS SUCESIVAS: CABECERA Y PIE DE PÁGINA ---
         else:
-            logo_path = os.path.join(os.path.dirname(__file__), "assets", "phiqus_logo_positivo.png")
+            logo_path = os.path.join(_ASSETS_DIR, "phiqus_logo_positivo.png")
             has_logo = os.path.exists(logo_path)
 
             if has_logo:
@@ -775,12 +782,12 @@ def dibujar_portada_background(canvas_obj, doc):
     canvas_obj.rect(0, 0, 612, 792, fill=1, stroke=0)
 
     # 2. Dibujar la imagen de fondo con la espiral Fibonacci de Phiqus
-    bg_path = os.path.join(os.path.dirname(__file__), "assets", "cover_bg.png")
+    bg_path = os.path.join(_ASSETS_DIR, "cover_bg.png")
     if os.path.exists(bg_path):
         canvas_obj.drawImage(bg_path, 0, 0, width=612, height=792, mask="auto")
 
     # 3. Dibujar el logotipo blanco en la esquina superior izquierda
-    logo_path = os.path.join(os.path.dirname(__file__), "assets", "cover_logo.png")
+    logo_path = os.path.join(_ASSETS_DIR, "cover_logo.png")
     if os.path.exists(logo_path):
         canvas_obj.drawImage(logo_path, 54, 700, width=110, height=30, preserveAspectRatio=True, mask="auto")
 
@@ -1028,8 +1035,10 @@ class ReportLabGenerator:
         story.append(
             Paragraph(
                 f"Este reporte ejecutivo proporciona un diagnóstico cuantitativo y estratégico de geomarketing "
-                f"para evaluar la apertura o expansión de tu negocio en <b>{localidad}</b>. A continuación se presentan los indicadores clave "
-                f"calculados a partir de los datos geodésicos del Censo de Población de INEGI y el motor analítico de la plataforma.",
+                f"para evaluar la apertura o expansión de tu negocio en <b>{localidad}</b>. "
+                f"A continuación se presentan los indicadores clave "
+                f"calculados a partir de los datos geodésicos del Censo de Población de INEGI "
+                f"y el motor analítico de la plataforma.",
                 s_body,
             )
         )
@@ -1190,7 +1199,8 @@ class ReportLabGenerator:
         if pob_tot == 0:
             story.append(
                 Paragraph(
-                    "<font color='#dc2626'><b>Aviso:</b></font> No se detectaron Áreas Geostadísticas Básicas (AGEBs) de INEGI "
+                    "<font color='#dc2626'><b>Aviso:</b></font> No se detectaron Áreas Geostadísticas "
+                    "Básicas (AGEBs) de INEGI "
                     "en el radio seleccionado. La zona consultada puede corresponder a un área rural no cartografiada, "
                     "zona de conservación o límite geográfico fuera del alcance del Censo Urbano 2020.",
                     s_body,
@@ -1399,7 +1409,8 @@ class ReportLabGenerator:
             Paragraph(
                 "Al intersectar el radio de influencia con los límites de las zonas habitacionales, "
                 "se aplica una ponderación de superficie proporcional al área interceptada de cada polígono. "
-                "Esto asegura que si una zona se encuentra parcialmente cruzada por el radio de influencia, únicamente se sume la fracción "
+                "Esto asegura que si una zona se encuentra parcialmente cruzada por el radio de influencia, "
+                "únicamente se sume la fracción "
                 "de población que reside físicamente en la sección interceptada, reduciendo estimaciones imprecisas.",
                 s_body,
             )
@@ -1495,7 +1506,8 @@ class ReportLabGenerator:
             bloque_foda.append(Paragraph(dictamen_txt, s_body_foda))
             _agregar_invitacion_profesional(
                 bloque_foda,
-                "Para aterrizar este dictamen en permisos, renta, proyección financiera o una segunda ubicación, consulta a",
+                "Para aterrizar este dictamen en permisos, renta, proyección financiera "
+                "o una segunda ubicación, consulta a",
                 s_invitacion,
             )
 
@@ -1526,7 +1538,8 @@ class ReportLabGenerator:
             Paragraph(
                 "<b>Fuentes de Información Oficiales:</b><br/>"
                 "Todos los datos demográficos provienen del Instituto Nacional de Estadística y Geografía "
-                "<b>(INEGI)</b>, recopilados en el Censo de Población y Vivienda 2020. Las zonas comerciales son mapeadas en tiempo "
+                "<b>(INEGI)</b>, recopilados en el Censo de Población y Vivienda 2020. "
+                "Las zonas comerciales son mapeadas en tiempo "
                 "real y los patrones de tráfico peatonal por hora se obtienen de medición en la zona.",
                 s_body,
             )
@@ -1566,19 +1579,23 @@ class ReportLabGenerator:
         bloque_metodologia.append(Paragraph("<b>Conceptos Clave de Localización:</b>", s_h2))
         bloque_metodologia.append(
             Paragraph(
-                "• <b>Zona Habitacional:</b> Agrupaciones geográficas definidas por el INEGI que agrupan conjuntos de manzanas con características demográficas homogéneas.",
+                "• <b>Zona Habitacional:</b> Agrupaciones geográficas definidas por el INEGI que agrupan "
+                "conjuntos de manzanas con características demográficas homogéneas.",
                 s_bullet,
             )
         )
         bloque_metodologia.append(
             Paragraph(
-                "• <b>Radio de Influencia:</b> Área geográfica circular en torno a la ubicación seleccionada para estimar el mercado y sus características demográficas. La distancia se mide en metros lineales.",
+                "• <b>Radio de Influencia:</b> Área geográfica circular en torno a la ubicación seleccionada "
+                "para estimar el mercado y sus características demográficas. "
+                "La distancia se mide en metros lineales.",
                 s_bullet,
             )
         )
         bloque_metodologia.append(
             Paragraph(
-                "• <b>Modelo de Atracción Comercial:</b> Herramienta analítica que evalúa la probabilidad de éxito en función de la capacidad de captación del punto de venta y su cercanía geográfica.",
+                "• <b>Modelo de Atracción Comercial:</b> Herramienta analítica que evalúa la probabilidad "
+                "de éxito en función de la capacidad de captación del punto de venta y su cercanía geográfica.",
                 s_bullet,
             )
         )
@@ -1589,9 +1606,11 @@ class ReportLabGenerator:
             Paragraph(
                 "GeoViabilidad Hook es una aplicación desarrollada por PhiQus que integra modelos de análisis avanzado "
                 "basados en información estadística y fuentes oficiales gubernamentales en México. "
-                "Los resultados presentados constituyen una herramienta de apoyo para la toma de decisiones y no representan una "
+                "Los resultados presentados constituyen una herramienta de apoyo para la toma de decisiones "
+                "y no representan una "
                 "garantía de rentabilidad, éxito comercial o validación de uso de suelo. "
-                "Parte de los análisis puede ser generada mediante modelos de Inteligencia Artificial (IA). En caso de requerir un análisis más profundo, "
+                "Parte de los análisis puede ser generada mediante modelos de Inteligencia Artificial (IA). "
+                "En caso de requerir un análisis más profundo, "
                 "recomendamos contactar directamente los servicios de consultoría de "
                 f"{_enlaces_consultoria_html()}.",
                 s_body,
@@ -1618,15 +1637,6 @@ class ReportLabGenerator:
         # SECCIÓN 3: ANÁLISIS DE COMPETENCIA (Pro y Premium)
         # =====================================================================
         from app.services.presentation.charts import generar_grafica_competidores
-
-        s_quadrant_title = ParagraphStyle(
-            "QuadrantTitle",
-            fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=11,
-            textColor=colors.HexColor("#0f172a"),
-            spaceAfter=2,
-        )
 
         story.append(PageBreak())
         story.append(Paragraph("3. ANÁLISIS DE COMPETENCIA", s_h1))
@@ -2132,7 +2142,8 @@ class ReportLabGenerator:
         story.append(
             Paragraph(
                 "El Índice de Atracción de Tráfico (IAT) mapea los puntos de interés que actúan como "
-                "magnetos de flujo de personas en la zona (ej. estaciones de metro, paradas de autobús, bancos y escuelas).",
+                "magnetos de flujo de personas en la zona (ej. estaciones de metro, paradas de autobús, "
+                "bancos y escuelas).",
                 s_body,
             )
         )

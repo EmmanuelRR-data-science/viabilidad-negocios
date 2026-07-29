@@ -233,9 +233,17 @@ function restoreGoogleSession() {
     }
     try {
         const data = JSON.parse(raw);
-        if (data?.token && data?.email) {
-            if (isGoogleTokenExpired(data.token)) {
-                logger("Sesión Google guardada expirada; se pedirá iniciar sesión de nuevo.");
+        // Perfil de UI solamente; la auth real va en cookie HttpOnly (gv_session).
+        if (data?.email) {
+            if (data.session_expires_at && Date.now() >= data.session_expires_at - 90_000) {
+                logger("Sesión de app guardada expirada; se pedirá iniciar sesión de nuevo.");
+                localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+                sessionStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+                return;
+            }
+            // Migración: si aún hay un token Google antiguo en storage, no lo uses.
+            if (data.token && !data.token.startsWith("mock") && data.token.split(".").length === 3 && !data.access_token) {
+                logger("Sesión antigua con ID token de Google detectada; se limpia por seguridad.");
                 localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
                 sessionStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
                 return;
@@ -244,6 +252,7 @@ function restoreGoogleSession() {
             state.googleUser = data;
             state.currentUserRole = "user";
             updateUserChip(data.user || data);
+            void verifyAppSessionInBackground();
         }
     } catch (err) {
         logger("Sesión Google almacenada inválida:", err);
@@ -252,34 +261,48 @@ function restoreGoogleSession() {
     }
 }
 
-function isGoogleTokenExpired(token, leewaySec = 90) {
-    if (!token || typeof token !== "string") return true;
-    if (token.startsWith("mock")) return false;
+async function verifyAppSessionInBackground() {
+    if (!state.googleAuthEnabled) return;
     try {
-        const part = token.split(".")[1];
-        if (!part) return true;
-        const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
-        if (!payload.exp) return true;
-        return Date.now() / 1000 >= payload.exp - leewaySec;
-    } catch (_err) {
-        return true;
+        const resp = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
+        if (resp.status === 401) {
+            logger("Cookie de sesión inválida; limpiando perfil local.");
+            clearGoogleSession({ skipLogoutRequest: true });
+        }
+    } catch (err) {
+        logger("No se pudo verificar sesión de app:", err);
     }
+}
+
+function isSessionExpired(session, leewaySec = 90) {
+    if (!session) return true;
+    if (session.session_expires_at) {
+        return Date.now() >= session.session_expires_at - leewaySec * 1000;
+    }
+    // Compat: tokens mock legacy en storage
+    const token = session.access_token || session.token;
+    if (token && String(token).startsWith("mock")) return false;
+    return false;
 }
 
 function googleSessionValid() {
     return Boolean(
         state.googleAuthenticated &&
-        state.googleUser?.token &&
-        !isGoogleTokenExpired(state.googleUser.token)
+        state.googleUser?.email &&
+        !isSessionExpired(state.googleUser)
     );
 }
 
-function clearGoogleSession() {
+function clearGoogleSession(options = {}) {
+    const { skipLogoutRequest = false } = options;
     state.googleAuthenticated = false;
     state.googleUser = null;
     localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
     sessionStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
     updateUserChip(null);
+    if (!skipLogoutRequest && state.googleAuthEnabled) {
+        void fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    }
 }
 
 async function ensurePaymentsConfig() {
@@ -1002,13 +1025,15 @@ function updateUserChip(user) {
 }
 
 function persistGoogleSession(data) {
+    const expiresInSec = Number(data.expires_in) || 3600;
     const session = {
-        token: data.token,
+        // Solo perfil de UI. Auth = cookie HttpOnly gv_session (no guardar ID token de Google).
         email: data.user.email,
         nombre: data.user.nombre,
         google_sub: data.user.google_sub,
         avatar_url: data.user.avatar_url,
         user: data.user,
+        session_expires_at: Date.now() + expiresInSec * 1000,
     };
     sessionStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(session));
     localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -1072,10 +1097,24 @@ function prepareGoogleSignInUi(options = {}) {
         const baseHint = options.analyzeFlow
             ? "Elige tu cuenta de Google para continuar con el análisis."
             : "Selecciona tu cuenta de Google para continuar.";
-        hint.innerHTML =
-            `${baseHint}<br><br>` +
-            `<strong>Origen actual:</strong> <code style="font-size:11px;">${originActual}</code><br>` +
-            `Si ves <em>origin_mismatch</em>, agrega exactamente esa URL en Google Cloud → Credenciales → Orígenes JavaScript autorizados.`;
+        hint.replaceChildren();
+        hint.appendChild(document.createTextNode(baseHint));
+        hint.appendChild(document.createElement("br"));
+        hint.appendChild(document.createElement("br"));
+        const strong = document.createElement("strong");
+        strong.textContent = "Origen actual:";
+        hint.appendChild(strong);
+        hint.appendChild(document.createTextNode(" "));
+        const code = document.createElement("code");
+        code.style.fontSize = "11px";
+        code.textContent = originActual;
+        hint.appendChild(code);
+        hint.appendChild(document.createElement("br"));
+        hint.appendChild(
+            document.createTextNode(
+                "Si ves origin_mismatch, agrega exactamente esa URL en Google Cloud → Credenciales → Orígenes JavaScript autorizados."
+            )
+        );
     }
 
     if (!googleSignInInitialized) {
@@ -1109,6 +1148,7 @@ async function handleGoogleCredentialResponse(response) {
         const authResponse = await fetch("/api/auth/google", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ credential: response.credential }),
         });
         if (!authResponse.ok) {
@@ -1684,6 +1724,7 @@ async function refreshGuiadoSugerencias() {
         const response = await fetch("/api/analizar/aliados/sugerir", {
             method: "POST",
             headers,
+            credentials: "include",
             body: JSON.stringify({
                 rubro,
                 perfil_cliente: perfiles,
@@ -1843,39 +1884,43 @@ function setupMapSearchBox() {
         try {
             const response = await fetch(
                 `/api/analizar/buscar-direccion?direccion=${encodeURIComponent(query)}`,
-                { method: "GET" }
+                { method: "GET", headers: getAuthHeaders(), credentials: "include" }
             );
             
             if (response.ok) {
                 const data = await response.json();
                 const resultados = data.resultados || [];
-                
+                searchResults.replaceChildren();
+
                 if (resultados.length === 0) {
-                    searchResults.innerHTML = '<p style="cursor: default; text-align: center; color: var(--text-secondary);">Sin resultados en México</p>';
+                    const empty = document.createElement("p");
+                    empty.style.cursor = "default";
+                    empty.style.textAlign = "center";
+                    empty.style.color = "var(--text-secondary)";
+                    empty.textContent = "Sin resultados en México";
+                    searchResults.appendChild(empty);
                 } else {
-                    searchResults.innerHTML = resultados.map(item => `
-                        <p data-lat="${item.latitud}" data-lng="${item.longitud}" title="${item.direccion}">${item.direccion}</p>
-                    `).join("");
-                    
-                    // Agregar event listeners a cada opción
-                    searchResults.querySelectorAll("p[data-lat]").forEach(p => {
+                    resultados.forEach((item) => {
+                        const p = document.createElement("p");
+                        p.dataset.lat = String(item.latitud ?? "");
+                        p.dataset.lng = String(item.longitud ?? "");
+                        const address = String(item.direccion || "");
+                        p.title = address;
+                        p.textContent = address;
                         p.addEventListener("click", (e) => {
-                            const lat = parseFloat(e.target.getAttribute("data-lat"));
-                            const lng = parseFloat(e.target.getAttribute("data-lng"));
-                            const address = e.target.textContent;
-                            
-                            logger(`Ubicación seleccionada en buscador: ${address} en (${lat}, ${lng})`);
-                            
-                            // Centrar mapa
+                            const lat = parseFloat(e.currentTarget.getAttribute("data-lat"));
+                            const lng = parseFloat(e.currentTarget.getAttribute("data-lng"));
+                            const selected = e.currentTarget.textContent;
+
+                            logger(`Ubicación seleccionada en buscador: ${selected} en (${lat}, ${lng})`);
+
                             state.map.setView([lat, lng], 16);
-                            
-                            // Invocar al click handler estándar
                             handleMapClick(lat, lng);
-                            
-                            // Actualizar input y ocultar dropdown
-                            searchInput.value = address;
+
+                            searchInput.value = selected;
                             searchResults.classList.add("hidden");
                         });
+                        searchResults.appendChild(p);
                     });
                 }
                 searchResults.classList.remove("hidden");
@@ -1985,6 +2030,8 @@ async function handleMapClick(lat, lng) {
     try {
         const response = await fetch(`/api/analizar/geocodificar?lat=${lat}&lng=${lng}`, {
             method: "GET",
+            headers: getAuthHeaders(),
+            credentials: "include",
         });
         
         if (response.ok) {
@@ -2023,17 +2070,15 @@ function drawBufferCircle() {
     }).addTo(state.map);
 }
 
-// --- CABECERAS DE AUTENTICACIÓN (Google ID token o mock de pruebas) ---
+// --- CABECERAS DE AUTENTICACIÓN (sesión app vía cookie; mock Bearer en DEMO) ---
 function getAuthHeaders() {
     const headers = {};
     if (state.googleAuthEnabled) {
-        if (googleSessionValid()) {
-            headers.Authorization = `Bearer ${state.googleUser.token}`;
-        }
+        // Cookie HttpOnly `gv_session` viaja sola (same-origin). No reenviar ID token de Google.
         return headers;
     }
-    if (state.googleUser?.token && !isGoogleTokenExpired(state.googleUser.token)) {
-        headers.Authorization = `Bearer ${state.googleUser.token}`;
+    if (state.googleUser?.access_token && String(state.googleUser.access_token).startsWith("mock")) {
+        headers.Authorization = `Bearer ${state.googleUser.access_token}`;
         return headers;
     }
     const token = state.currentUserRole === "admin" ? "mock-jwt-admin" : "mock-jwt-user";
@@ -2047,7 +2092,11 @@ async function fetchWithGoogleAuth(url, options = {}) {
         ...(options.headers || {}),
     });
 
-    let response = await fetch(url, { ...options, headers: mergeHeaders() });
+    let response = await fetch(url, {
+        ...options,
+        credentials: "include",
+        headers: mergeHeaders(),
+    });
 
     const shouldSkipAuthModal =
         options.skipAuthModal || state.postPaymentFlow;
@@ -2060,15 +2109,18 @@ async function fetchWithGoogleAuth(url, options = {}) {
         const hadValidSession = googleSessionValid();
         if (!hadValidSession || response.status === 401) {
             try {
-                clearGoogleSession();
+                clearGoogleSession({ skipLogoutRequest: true });
                 await ensureGoogleAuthenticated({ showModal: true, forceRefresh: true });
-                response = await fetch(url, { ...options, headers: mergeHeaders() });
+                response = await fetch(url, {
+                    ...options,
+                    credentials: "include",
+                    headers: mergeHeaders(),
+                });
             } catch (authErr) {
                 logger("Reautenticación Google fallida:", authErr);
             }
         }
     }
-
     return response;
 }
 
@@ -2352,7 +2404,12 @@ async function runPreviewAnalysis() {
         if (err?.message?.includes("Google") || err?.message?.includes("sesión")) {
             alert(err.message);
         } else {
-            alert("Error de red al analizar la ubicación. Verifica tu conexión e intenta de nuevo.");
+            const detail = err?.message || String(err);
+            alert(
+                `No se pudo completar el análisis (${detail}). ` +
+                "Si la zona tarda mucho (BestTime/Places), espera e intenta de nuevo; " +
+                "también revisa la consola (F12) por si hay un error de render."
+            );
         }
     } finally {
         restoreAnalyzeButton(btn);
@@ -2661,6 +2718,7 @@ async function openPaymentModal(tier) {
         const response = await fetch("/api/pagos/preferencia", {
             method: "POST",
             headers: headers,
+            credentials: "include",
             body: JSON.stringify(payload),
         });
 
@@ -2747,7 +2805,8 @@ async function processSimulatedPayment() {
     try {
         const response = await fetch("/api/pagos/webhook-mock", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+            credentials: "include",
             body: JSON.stringify({
                 checkout_id: state.activeCheckoutId,
                 estado_pago: paymentStatus
@@ -3658,7 +3717,10 @@ async function savePdfFromUrl(downloadUrl, fallbackFilename = "Reporte_Viabilida
         absoluteUrl = `${window.location.origin}${downloadUrl.startsWith("/") ? downloadUrl : `/${downloadUrl}`}`;
     }
 
-    const fileResponse = await fetch(absoluteUrl);
+    const fileResponse = await fetch(absoluteUrl, {
+        headers: getAuthHeaders(),
+        credentials: "include",
+    });
     if (!fileResponse.ok) {
         throw new Error(await parseApiErrorMessage(fileResponse));
     }
@@ -3693,6 +3755,7 @@ async function fetchPdfDownloadUrl(ordenId, { retries = 20, delayMs = 2000, onWa
         const response = await fetch(`/api/reportes/pdf/${ordenId}`, {
             method: "GET",
             headers,
+            credentials: "include",
         });
 
         if (response.ok) {
@@ -3827,8 +3890,8 @@ function ensureGoogleAuthenticated(options = {}) {
     if (!forceRefresh && googleSessionValid()) {
         return Promise.resolve();
     }
-    if (forceRefresh || isGoogleTokenExpired(state.googleUser?.token)) {
-        clearGoogleSession();
+    if (forceRefresh || isSessionExpired(state.googleUser)) {
+        clearGoogleSession({ skipLogoutRequest: true });
     }
     if (state.googleAuthPromise) {
         return state.googleAuthPromise;

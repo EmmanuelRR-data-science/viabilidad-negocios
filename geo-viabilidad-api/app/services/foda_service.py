@@ -55,7 +55,10 @@ def _fortalezas_respaldo_detalladas(datos_entorno: dict) -> list[str]:
 
     borrador = [
         f"Base demográfica de {poblacion:,} personas ({densidad:,.1f} hab/km² en el radio analizado).",
-        f"NSE {nse_etiqueta} con escolaridad promedio de {float(metricas.get('escolaridad_promedio', 0) or 0):.1f} años.",
+        (
+            f"NSE {nse_etiqueta} con escolaridad promedio de "
+            f"{float(metricas.get('escolaridad_promedio', 0) or 0):.1f} años."
+        ),
     ]
     if competencia == 0:
         borrador.append("Sin competidores directos detectados en el radio de influencia contratado.")
@@ -134,7 +137,10 @@ def foda_respaldo_cuantitativo(
         "oportunidades": [],
         "consideraciones_apertura": generar_consideraciones_apertura(datos_entorno),
         "conclusion": conclusion_larga,
-        "segmentacion_nicho": f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}' y NSE predominante {nse_etiqueta}.",
+        "segmentacion_nicho": (
+            f"Población de {poblacion:,} habitantes en {direcc} con afinidad al giro '{rubro}' "
+            f"y NSE predominante {nse_etiqueta}."
+        ),
         "dictamen_final": f"Dictamen {veredicto_dictamen} para '{rubro}' en {direcc}, basado en datos INEGI y Places.",
         "top_quejas_competidores": quejas_reales,
     }

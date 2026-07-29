@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SugerirAliadosRequest(BaseModel):
@@ -16,6 +16,10 @@ class GeocodificarResponse(BaseModel):
 
 
 class VistaPreviaResponse(BaseModel):
+    """Contrato OpenAPI de la vista previa (campos adicionales se permiten)."""
+
+    model_config = ConfigDict(extra="allow")
+
     status: str
     coordenadas: dict
     radio_metros: int
@@ -40,7 +44,25 @@ class VistaPreviaResponse(BaseModel):
 
 
 class ResultadoAnalisisResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     status: str
     orden: dict
     metricas: dict
     analisis_estrategico_ia: dict
+
+
+class BuscarDireccionResponse(BaseModel):
+    status: str
+    resultados: list[dict]
+
+
+class SugerirAliadosResponse(BaseModel):
+    status: str
+    sugerencias: list | dict
+
+
+class DebugCuantitativoResponse(BaseModel):
+    status: str
+    nota: str
+    metricas: dict

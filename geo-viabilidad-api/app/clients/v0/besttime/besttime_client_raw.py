@@ -34,7 +34,7 @@ def solicitar_forecast_besttime_raw(venue_name: str, venue_address: str) -> Best
     }
 
     try:
-        response = requests.post(url, params=query_params, timeout=10)
+        response = requests.post(url, params=query_params, timeout=5)
         response.raise_for_status()
         data = response.json()
         return BestTimeForecastDTO.model_validate(data)

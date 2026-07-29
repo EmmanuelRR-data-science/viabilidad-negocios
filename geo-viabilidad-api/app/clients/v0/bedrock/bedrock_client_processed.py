@@ -115,20 +115,29 @@ def generar_consideraciones_apertura(datos_entorno: dict) -> list[str]:
     afl = datos_entorno.get("afluencia_peatonal") or {}
 
     if sva < 50:
-        c_sva = "El Score SVA es bajo: define una propuesta de valor claramente diferenciada antes de comprometer inversión."
+        c_sva = (
+            "El Score SVA es bajo: define una propuesta de valor claramente diferenciada "
+            "antes de comprometer inversión."
+        )
     elif sva < 80:
         c_sva = "Viabilidad moderada (SVA intermedio): compite por experiencia y servicio, no solo por precio."
     else:
         c_sva = "Aun con SVA favorable, valida costos reales de operación y renta con tu plan de negocio."
 
     if competencia == 0:
-        c_comp = "Sin competidores directos en el radio: establece un estándar de servicio antes de que entren nuevos players."
+        c_comp = (
+            "Sin competidores directos en el radio: establece un estándar de servicio "
+            "antes de que entren nuevos players."
+        )
     elif competencia >= 5:
         c_comp = (
             f"Hay {competencia} competidores activos: visita locales cercanos y contrasta tu oferta con la de ellos."
         )
     else:
-        c_comp = f"Con {competencia} competidor(es) en la zona, revisa precios, horarios y reseñas para ubicar tu diferenciador."
+        c_comp = (
+            f"Con {competencia} competidor(es) en la zona, revisa precios, horarios y reseñas "
+            "para ubicar tu diferenciador."
+        )
 
     if score_demog < 50 or densidad < 500:
         c_extra = (
