@@ -1,0 +1,11 @@
+{% macro estado_badge(estado) -%}
+    {% if estado == "approved" %}
+        <span class="badge text-bg-success">Aprobado</span>
+    {% elif estado == "pending" %}
+        <span class="badge text-bg-warning">Pendiente</span>
+    {% elif estado == "rejected" %}
+        <span class="badge text-bg-danger">Rechazado</span>
+    {% else %}
+        <span class="badge text-bg-secondary">{{ estado }}</span>
+    {% endif %}
+{%- endmacro %}

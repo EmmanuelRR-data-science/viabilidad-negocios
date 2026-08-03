@@ -1,0 +1,40 @@
+[project]
+name = "geo-viabilidad-admin"
+version = "1.0.0"
+description = "Panel Flask de administración — dashboard, órdenes, leads e ingesta INEGI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0.0",
+    "geo-viabilidad-data",
+    "openpyxl>=3.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+]
+
+[tool.uv]
+package = false
+link-mode = "copy"
+
+[tool.uv.sources]
+geo-viabilidad-data = { path = "../geo-viabilidad-data", editable = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  geo-db:
+    image: postgis/postgis:16-3.4
+    container_name: geo-analisis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-geoanalisis}
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin_password_safe}
+    ports:
+      - "${DB_PORT:-5435}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - geo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-geoanalisis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  admin-app:
+    build:
+      context: .
+      dockerfile: geo-viabilidad-admin/Dockerfile
+    container_name: geo-viabilidad-admin
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
+      - DB_HOST=geo-analisis-db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-geoanalisis}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-PhiQus}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-viabilidad-negocios}
+      - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY:-dev-admin-secret-change-me}
+      - FUENTES_DIR=/app/fuentes
+      - ADMIN_MAX_UPLOAD_MB=${ADMIN_MAX_UPLOAD_MB:-600}
+      - FLASK_DEBUG=${FLASK_DEBUG:-1}
+    volumes:
+      - ./geo-viabilidad-admin/admin:/app/admin
+      - ./geo-viabilidad-admin/fuentes:/app/fuentes
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      geo-db:
+        condition: service_healthy
+    networks:
+      - geo-network
+    restart: always
+
+  web-api:
+    build:
+      context: .
+      dockerfile: geo-viabilidad-api/Dockerfile
+    container_name: geo-viabilidad-api
+    entrypoint: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8001:8000"
+    environment:
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin_password_safe}
+      - DB_HOST=geo-analisis-db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-geoanalisis}
+      - DEV_MODE=${DEV_MODE:-true}
+      - PAYMENTS_MOCK=${PAYMENTS_MOCK:-true}
+      - REPORTS_LOCAL_STORAGE=${REPORTS_LOCAL_STORAGE:-true}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_REPORTS_BUCKET=${S3_REPORTS_BUCKET:-viabilidad-hook-informes}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-meta.llama3-70b-instruct-v1:0}
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
+      - MERCADOPAGO_PUBLIC_KEY=${MERCADOPAGO_PUBLIC_KEY:-}
+      - MERCADOPAGO_SANDBOX=${MERCADOPAGO_SANDBOX:-true}
+      - MERCADOPAGO_TEST_BUYER_EMAIL=${MERCADOPAGO_TEST_BUYER_EMAIL:-}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-}
+      - SESSION_SECRET=${SESSION_SECRET:-dev-insecure-session-secret-change-me}
+      - SESSION_TTL_SECONDS=${SESSION_TTL_SECONDS:-3600}
+      - DOWNLOAD_TOKEN_TTL_SECONDS=${DOWNLOAD_TOKEN_TTL_SECONDS:-600}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - MERCADOPAGO_WEBHOOK_SECRET=${MERCADOPAGO_WEBHOOK_SECRET:-}
+      - BESTTIME_API_KEY=${BEST_TIME_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_MODEL=${GROQ_MODEL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-}
+    volumes:
+      - ./geo-viabilidad-api/app:/app/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      geo-db:
+        condition: service_healthy
+    networks:
+      - geo-network
+    restart: always
+
+  web-spa:
+    image: nginx:alpine
+    container_name: geo-viabilidad-web
+    ports:
+      - "8000:80"
+    volumes:
+      - ./geo-viabilidad-web:/usr/share/nginx/html:ro
+      - ./geo-viabilidad-web/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web-api
+    networks:
+      - geo-network
+    restart: always
+
+volumes:
+  postgres_data:
+    name: geoanalisis-sdd_postgres_data
+
+networks:
+  geo-network:
+    name: geoanalisis-sdd_geo-network
