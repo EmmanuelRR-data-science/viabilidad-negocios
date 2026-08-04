@@ -14,12 +14,13 @@ from app.clients.v0.bedrock.bedrock_client_raw import (
     invocar_groq_foda_raw,
     verificar_guardrail_groq_raw,
 )
-from app.core.config import (
-    AWS_ENABLED,
-    BEDROCK_MODEL_ID,
-    DEV_MODE,
-    GROQ_API_KEY,
-    GROQ_MODEL,
+from app.core.config import settings
+#
+    # settings.AWS_ENABLED,
+    # settings.BEDROCK_MODEL_ID,
+    # settings.DEV_MODE,
+    # settings.GROQ_API_KEY,
+    # settings.GROQ_MODEL,
 )
 
 logger = logging.getLogger("bedrock_client_processed")
@@ -49,7 +50,7 @@ _MALICIOUS_PATTERNS = [
     re.compile(r"prompt\s+de\s+sistema", re.IGNORECASE),
     re.compile(r"variables?\s+de\s+entorno", re.IGNORECASE),
     re.compile(r"env[_\s]*vars?", re.IGNORECASE),
-    re.compile(r"GROQ_API_KEY", re.IGNORECASE),
+    re.compile(r"settings.GROQ_API_KEY", re.IGNORECASE),
     re.compile(r"AWS_ACCESS_KEY", re.IGNORECASE),
     re.compile(r"DATABASE_URL", re.IGNORECASE),
     re.compile(r"MERCADOPAGO", re.IGNORECASE),
@@ -159,12 +160,12 @@ def invocar_foda_llm_raw(datos_entorno: dict) -> dict | None:
     rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
     rubro = sanitizar_input_usuario(rubro_raw, field="rubro") or "Negocio general"
 
-    groq_disponible = bool(GROQ_API_KEY) and not GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in GROQ_API_KEY
+    groq_disponible = bool(settings.GROQ_API_KEY) and not settings.GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in settings.GROQ_API_KEY
     if not groq_disponible:
         return None
 
     texto_a_guardar = f"Rubro: {rubro}"
-    es_seguro, _ = verificar_guardrail_groq(texto_a_guardar, GROQ_API_KEY)
+    es_seguro, _ = verificar_guardrail_groq(texto_a_guardar, settings.GROQ_API_KEY)
     if not es_seguro:
         logger.warning("[GUARDRAIL] Input bloqueado por Llama Guard.")
         return None
@@ -204,7 +205,7 @@ def invocar_foda_llm_raw(datos_entorno: dict) -> dict | None:
         f"Genera fortalezas y oportunidades del punto para el giro '{rubro}' en México."
     )
 
-    raw_response = invocar_groq_foda_raw(system_prompt, user_prompt, GROQ_API_KEY, GROQ_MODEL)
+    raw_response = invocar_groq_foda_raw(system_prompt, user_prompt, # settings.GROQ_API_KEY, settings.GROQ_MODEL)
     if raw_response:
         try:
             foda_raw = json.loads(raw_response)
@@ -212,10 +213,10 @@ def invocar_foda_llm_raw(datos_entorno: dict) -> dict | None:
         except Exception as e:
             logger.error("[LLM] Error parseando Groq JSON: %s", e)
 
-    if DEV_MODE or not AWS_ENABLED:
+    if settings.DEV_MODE or not settings.AWS_ENABLED:
         return None
 
-    raw_response = invocar_bedrock_foda_raw(system_prompt, user_prompt, BEDROCK_MODEL_ID)
+    raw_response = invocar_bedrock_foda_raw(system_prompt, user_prompt, settings.BEDROCK_MODEL_ID)
     if raw_response:
         try:
             start_idx = raw_response.find("{")
@@ -300,21 +301,21 @@ def determinar_categorias_ia(
     partes_usuario.append("Determina categorías de competidores y aliados.")
     user_prompt = "\n".join(partes_usuario)
 
-    groq_disponible = bool(GROQ_API_KEY) and not GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in GROQ_API_KEY
+    groq_disponible = bool(settings.GROQ_API_KEY) and not settings.GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in settings.GROQ_API_KEY
     if groq_disponible:
         try:
-            raw_content = invocar_groq_foda_raw(system_prompt, user_prompt, GROQ_API_KEY, GROQ_MODEL)
+            raw_content = invocar_groq_foda_raw(system_prompt, user_prompt, # settings.GROQ_API_KEY, settings.GROQ_MODEL)
             if raw_content:
                 res = json.loads(raw_content)
                 return filtrar_y_validar_categorias(res, sugerencia_fallback)
         except Exception as e:
             logger.error("[GROQ-CATEGORIAS] Error: %s", e)
 
-    if DEV_MODE or not AWS_ENABLED:
+    if settings.DEV_MODE or not settings.AWS_ENABLED:
         return sugerencia_fallback
 
     try:
-        raw_content = invocar_bedrock_foda_raw(system_prompt, user_prompt, BEDROCK_MODEL_ID)
+        raw_content = invocar_bedrock_foda_raw(system_prompt, user_prompt, settings.BEDROCK_MODEL_ID)
         if raw_content:
             start_idx = raw_content.find("{")
             end_idx = raw_content.rfind("}")
