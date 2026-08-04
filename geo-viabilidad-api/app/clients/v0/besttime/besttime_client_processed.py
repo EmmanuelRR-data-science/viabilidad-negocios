@@ -6,7 +6,7 @@ from app.clients.v0.besttime.besttime_client_raw import (
     api_key_besttime_valida,
     solicitar_forecast_besttime_raw,
 )
-from app.core.config import DEV_MODE
+from app.core.config import settings
 from app.schemas.v0.besttime.besttime_domain_schemas import (
     AfluenciaDiaDomain,
     AfluenciaDomain,
@@ -176,8 +176,8 @@ def obtener_afluencia_simulada(rubro: str) -> AfluenciaDomain:
 def obtener_afluencia(lat: float, lng: float, rubro: str, competidores: list | None = None) -> dict:
     """Invoca la API de BestTime y procesa a la estructura del dominio."""
     if not api_key_besttime_valida():
-        if DEV_MODE:
-            logger.info("[DEV_MODE] BestTime key no configurada. Retornando curvas simuladas.")
+        if settings.DEV_MODE:
+            logger.info("[settings.DEV_MODE] BestTime key no configurada. Retornando curvas simuladas.")
             sim = obtener_afluencia_simulada(rubro)
             curva = [int(v) for v in sim.afluencia_horaria]
             return {

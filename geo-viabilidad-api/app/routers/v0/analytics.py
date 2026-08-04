@@ -72,7 +72,7 @@ def geocodificar_coordenadas(lat: float, lng: float):
         "**Body JSON opcional:** `competidores_seleccionados`, `aliados_seleccionados`, "
         "`intenciones`, `competidores_adicionales`, `aliados_adicionales`, "
         "`modo_analisis_aliados`, `config_aliados_guiados`.\n\n"
-        "Requiere Bearer (sesión real; `mock-token` solo con `DEV_MODE=true`)."
+        "Requiere Bearer (sesión real; `mock-token` solo con `settings.DEV_MODE=true`)."
     ),
 )
 async def obtener_vista_previa_gratuita(
@@ -90,8 +90,7 @@ async def obtener_vista_previa_gratuita(
 
     aliados_sel = None
 
-    intenciones = None
-
+    
     competidores_adicionales = None
 
     aliados_adicionales = None
@@ -106,8 +105,6 @@ async def obtener_vista_previa_gratuita(
         competidores_sel = body.get("competidores_seleccionados")
 
         aliados_sel = body.get("aliados_seleccionados")
-
-        intenciones = body.get("intenciones")
 
         competidores_adicionales = body.get("competidores_adicionales")
 
@@ -131,7 +128,6 @@ async def obtener_vista_previa_gratuita(
         rubro,
         competidores_sel=competidores_sel,
         aliados_sel=aliados_sel,
-        intenciones=intenciones,
         competidores_adicionales=competidores_adicionales,
         aliados_adicionales=aliados_adicionales,
         modo_aliados=modo_aliados,
@@ -186,7 +182,7 @@ def buscar_direccion(direccion: str):
     include_in_schema=True,
     summary="[DEV] Dump JSON cuantitativo sin IA",
     description=(
-        "**Solo `DEV_MODE=true`.** Ejecuta el motor cuantitativo y devuelve el JSON de métricas "
+        "**Solo `settings.DEV_MODE=true`.** Ejecuta el motor cuantitativo y devuelve el JSON de métricas "
         "**sin FODA/LLM y sin PDF**. Requiere Bearer.\n\n"
         "Sirve para validar población, NSE, competencia, SVA, etc. antes de tratar el LLM "
         "como caja negra.\n\n"
@@ -205,10 +201,10 @@ def debug_cuantitativo(
 ):
     _ = user
 
-    from app.core.config import DEV_MODE
+    from app.core.config import settings
 
-    if not DEV_MODE:
-        raise ValidationUserError("Este endpoint solo está disponible en modo desarrollo (DEV_MODE=true).")
+    if not settings.DEV_MODE:
+        raise ValidationUserError("Este endpoint solo está disponible en modo desarrollo (settings.DEV_MODE=true).")
 
     from app.services.v0.analytics.analytics_service import procesar_calculo_analitico
 

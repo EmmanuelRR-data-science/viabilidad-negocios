@@ -7,7 +7,7 @@ import logging
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.core.config import AWS_REGION
+from app.core.config import settings
 from app.schemas.v0.s3.s3_dto_schemas import S3PresignedUrlDTO
 
 logger = logging.getLogger("s3_client_raw")
@@ -19,7 +19,7 @@ def generar_presigned_url(
     filename: str,
     expires_in: int = 600,
 ) -> S3PresignedUrlDTO:
-    client = boto3.client("s3", region_name=AWS_REGION)
+    client = boto3.client("s3", region_name=settings.AWS_REGION)
     url = client.generate_presigned_url(
         "get_object",
         Params={
@@ -42,7 +42,7 @@ def subir_objeto_s3(
 ) -> bool:
     """Sube un objeto a S3 con encriptación server-side. Retorna True si fue exitoso."""
     try:
-        client = boto3.client("s3", region_name=AWS_REGION)
+        client = boto3.client("s3", region_name=settings.AWS_REGION)
         client.put_object(
             Bucket=bucket,
             Key=key,
@@ -60,7 +60,7 @@ def subir_objeto_s3(
 def generar_presigned_url_simple(bucket: str, key: str, expires_in: int = 86400) -> str | None:
     """Genera URL pre-firmada sin ResponseContentDisposition."""
     try:
-        client = boto3.client("s3", region_name=AWS_REGION)
+        client = boto3.client("s3", region_name=settings.AWS_REGION)
         return client.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket, "Key": key},

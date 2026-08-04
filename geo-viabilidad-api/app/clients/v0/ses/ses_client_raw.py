@@ -8,7 +8,7 @@ import os
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.core.config import AWS_REGION, SES_SENDER_EMAIL
+from app.core.config import settings
 
 logger = logging.getLogger("ses_client_raw")
 
@@ -16,9 +16,9 @@ logger = logging.getLogger("ses_client_raw")
 def enviar_email_ses_raw(destinatario: str, subject: str, html_body: str) -> bool:
     """Envía un correo HTML vía Amazon SES. Retorna True si fue exitoso."""
     try:
-        ses = boto3.client("ses", region_name=AWS_REGION)
+        ses = boto3.client("ses", region_name=settings.AWS_REGION)
         ses.send_email(
-            Source=SES_SENDER_EMAIL,
+            Source=settings.SES_SENDER_EMAIL,
             Destination={"ToAddresses": [destinatario]},
             Message={
                 "Subject": {"Data": subject, "Charset": "UTF-8"},

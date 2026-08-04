@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Geo Viabilidad Negocios â€” levantar stack local (Linux / macOS / WSL)
 set -euo pipefail
 
@@ -21,13 +21,8 @@ echo "Levantando PostGIS, SPA (8000), API (8001) y Admin (8501)..."
 docker compose up -d
 
 echo "========================================================="
-echo " Listo"
-echo " SPA:    http://localhost:8000"
-echo " API:    http://localhost:8001/docs"
-echo " Health: http://localhost:8001/health"
-echo " Admin:  http://localhost:8501/admin/login"
-echo " Gate:   usuario PhiQus / viabilidad-negocios"
+echo " Listo - Se ha intentado levantar el stack de Docker"
+echo " Ejecuta 'docker compose ps' para verificar el estado de los servicios."
+echo " Datos demográficos (primera vez): ./setup_local.sh"
+echo " Runbook completo y puertos por defecto: README.md"
 echo "========================================================="
-echo " Datos demográficos (primera vez): ./setup_local.sh o"
-echo "   bash geo-viabilidad-api/scripts/demografia/restore_demografia_docker.sh"
-echo " Runbook completo: README.md (raíz del monorepo)"

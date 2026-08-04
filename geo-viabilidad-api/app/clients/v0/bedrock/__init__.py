@@ -7,7 +7,6 @@ from app.clients.v0.bedrock.bedrock_client_processed import (
     invocar_foda_llm_raw,
     sanitizar_input_usuario,
     validar_schema_foda,
-    verificar_guardrail_groq,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     "invocar_foda_llm_raw",
     "sanitizar_input_usuario",
     "validar_schema_foda",
-    "verificar_guardrail_groq",
 ]

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.clients.v0.database import OrdenPago
 from app.clients.v0.s3.s3_client_processed import obtener_url_descarga
-from app.core.config import DEV_MODE, LOCAL_REPORTS_DIR, REPORTS_LOCAL_STORAGE, S3_REPORTS_BUCKET
+from app.core.config import settings
 from app.core.download_tokens import crear_download_token, verificar_download_token
 from app.exceptions import ForbiddenError, NotFoundError, PaymentRequiredError, ValidationUserError
 from app.schemas.v0.reports_schemas import DescargaPDFResponse
@@ -68,7 +68,7 @@ def obtener_url_descarga_pdf(
 
     filename = _construir_nombre_archivo(orden.rubro)
 
-    if REPORTS_LOCAL_STORAGE or DEV_MODE:
+    if settings.REPORTS_LOCAL_STORAGE or settings.DEV_MODE:
         token, validez = crear_download_token(orden_id=orden.id, cognito_user_id=cognito_user_id)
         if ruta_descarga_local:
             url = ruta_descarga_local
@@ -77,7 +77,7 @@ def obtener_url_descarga_pdf(
         logger.info("[REPORTS SERVICE] URL local con token de descarga (TTL=%ss).", validez)
     else:
         logger.info("[REPORTS SERVICE] Generando URL presignada de S3.")
-        descarga = obtener_url_descarga(S3_REPORTS_BUCKET, orden.s3_key_reporte, filename)
+        descarga = obtener_url_descarga(settings.S3_REPORTS_BUCKET, orden.s3_key_reporte, filename)
         url = descarga.url
         validez = descarga.validez_segundos
 
@@ -101,9 +101,9 @@ def obtener_pdf_local_path(
 
     Autorización: token de descarga firmado (preferente) o sesión + ownership.
     """
-    if not REPORTS_LOCAL_STORAGE:
+    if not settings.REPORTS_LOCAL_STORAGE:
         raise ValidationUserError(
-            "La descarga directa local solo está disponible con REPORTS_LOCAL_STORAGE.",
+            "La descarga directa local solo está disponible con settings.REPORTS_LOCAL_STORAGE.",
         )
 
     token_sub: str | None = None
@@ -133,7 +133,7 @@ def obtener_pdf_local_path(
         )
 
     rubro_slug = re.sub(r"[^a-zA-Z0-9_]+", "_", orden.rubro.lower()).strip("_")
-    local_pdf_path = f"{LOCAL_REPORTS_DIR}/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
+    local_pdf_path = f"{settings.LOCAL_REPORTS_DIR}/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
 
     if not os.path.exists(local_pdf_path):
         raise NotFoundError(

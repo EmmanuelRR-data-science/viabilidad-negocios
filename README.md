@@ -20,16 +20,18 @@ chmod +x setup_local.sh
 ./setup_local.sh
 ```
 
-**Windows (PowerShell):**
+**Windows (Git Bash / WSL):**
 
-```powershell
+```bash
+# Abre Git Bash (instalado con Git para Windows) o la terminal de WSL
 git clone https://github.com/PhiQus-DS/pq-edm-viabilidad.git
 cd pq-edm-viabilidad
 git checkout PR-v1
-./setup_local.ps1
+chmod +x setup_local.sh
+./setup_local.sh
 ```
 
-`setup_local.*` hace, en orden: copia `.env` si falta → `git lfs pull` (dump ~67 MB) → `docker compose build` + `up -d` → restaura `agebs_demografia` **dentro del contenedor PostGIS** (no necesitas `psql` en el host).
+`setup_local.sh` hace, en orden: copia `.env` si falta → `git lfs pull` (dump ~67 MB) → `docker compose build` + `up -d` → restaura `agebs_demografia` **dentro del contenedor PostGIS** (no necesitas `psql` en el host).
 
 Comprueba:
 
@@ -55,7 +57,7 @@ cp .env.example .env && git lfs install && git lfs pull
 bash geo-viabilidad-api/scripts/demografia/restore_demografia_docker.sh
 ```
 
-En Windows nativo: sustituye `./run_local.sh` por `./run_local.ps1` y el restore por `./setup_local.ps1` (incluye el paso de dump) o ejecuta el bloque PowerShell de la sección [Windows](#windows-powershell--equivalentes).
+En Windows: se recomienda usar Git Bash o WSL para ejecutar `./run_local.sh` y `./setup_local.sh` directamente, asegurando compatibilidad nativa con el stack Linux de contenedores.
 
 > **Requisito:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) + [Git LFS](https://git-lfs.com/). La primera build puede tardar varios minutos (GDAL en la imagen API).
 

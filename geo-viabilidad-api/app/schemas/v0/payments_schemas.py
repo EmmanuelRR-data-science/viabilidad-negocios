@@ -19,7 +19,7 @@ class PreferenciaCreate(BaseModel):
     radio_metros: int = Field(..., description="Radio de cobertura en metros", ge=100, le=5000)
     rubro: str = Field(..., description="Giro comercial o nicho del negocio (ej. Cafetería, Gimnasio)")
     tier_adquirido: str = Field(..., description="Tier de visualización y análisis ('basico', 'pro', 'premium')")
-    intenciones: str | None = Field(None, description="Intenciones o ideas de negocio adicionales en lenguaje natural")
+    negocio_type: str | None = Field(None, description="Clasificación interna (Places API Type)")
     competidores_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para competidores")
     aliados_seleccionados: list[str] | None = Field(None, description="Tipos de Google Places para aliados")
     competidores_adicionales: str | None = Field(None, description="Marcas o competidores específicos de texto libre")

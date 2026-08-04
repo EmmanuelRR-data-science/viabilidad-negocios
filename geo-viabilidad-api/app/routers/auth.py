@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Header, Query, Request, Response
 
-from app.core.config import SESSION_COOKIE_NAME
+from app.core.config import settings
 from app.core.deps import DbDep, UserDep
 from app.core.session_tokens import cookie_kwargs, revoke_session_token
 from app.schemas.auth_schemas import (
@@ -91,7 +91,7 @@ def obtener_usuario_actual(user: UserDep):
     description="Revoca el jti de la sesión (si aplica) y elimina la cookie HttpOnly.",
 )
 def cerrar_sesion(request: Request, response: Response):
-    token = request.cookies.get(SESSION_COOKIE_NAME)
+    token = request.cookies.get(settings.SESSION_COOKIE_NAME)
     auth = request.headers.get("Authorization") or ""
     if auth.lower().startswith("bearer "):
         token = auth.split(" ", 1)[1].strip() or token

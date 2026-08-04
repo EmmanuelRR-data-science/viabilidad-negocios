@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Request, status
 
-from app.core.config import PAYMENTS_MOCK
+from app.core.config import settings
 from app.core.deps import DbDep, UserDep
 from app.exceptions import ExternalDependencyError
 from app.schemas.v0.payments_schemas import (
@@ -123,7 +123,7 @@ async def recibir_notificacion_pago(
     background_tasks: BackgroundTasks,
     db: DbDep,
 ):
-    if PAYMENTS_MOCK:
+    if settings.PAYMENTS_MOCK:
         return WebhookAckResponse(status="ignored", detail="Notificación recibida.")
 
     payment_id = await payment_service.extraer_payment_id_desde_webhook(request)
@@ -159,7 +159,7 @@ async def recibir_notificacion_pago(
         ) from err
 
 
-if PAYMENTS_MOCK:
+if settings.PAYMENTS_MOCK:
 
     @router.post(
         "/webhook-mock",

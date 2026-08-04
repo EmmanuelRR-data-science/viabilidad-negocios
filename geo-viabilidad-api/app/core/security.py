@@ -6,7 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.clients.v0.google.google_auth import es_token_mock, google_auth_habilitado
-from app.core.config import DEV_MODE, SESSION_COOKIE_NAME
+from app.core.config import settings
 from app.core.session_tokens import verificar_session_token
 
 logger = logging.getLogger("auth")
@@ -40,7 +40,7 @@ def _extraer_bearer_o_cookie(
 ) -> str | None:
     if credentials and credentials.credentials:
         return credentials.credentials
-    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
+    cookie_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
     if cookie_token:
         return cookie_token
     return None
@@ -64,11 +64,11 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Tokens mock solo en desarrollo local / demos. En producción (DEV_MODE=false) se rechazan.
+    # Tokens mock solo en desarrollo local / demos. En producción (settings.DEV_MODE=false) se rechazan.
     if es_token_mock(token):
-        if DEV_MODE:
+        if settings.DEV_MODE:
             return _contexto_mock(token)
-        logger.warning("Se rechazó token mock con DEV_MODE=false.")
+        logger.warning("Se rechazó token mock con settings.DEV_MODE=false.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Autenticación mock no disponible fuera de desarrollo.",

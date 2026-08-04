@@ -8,7 +8,7 @@ import logging
 
 from fastapi import Request
 
-from app.core.config import DEV_MODE, MERCADOPAGO_WEBHOOK_SECRET
+from app.core.config import settings
 
 logger = logging.getLogger("mercadopago_webhook_sig")
 
@@ -29,16 +29,13 @@ def _parse_x_signature(header: str) -> tuple[str | None, str | None]:
 def validar_firma_webhook_mp(request: Request) -> bool:
     """Valida x-signature según especificación de Mercado Pago.
 
-    Si no hay `MERCADOPAGO_WEBHOOK_SECRET`:
-    - en DEV_MODE se acepta (con warning) para demos locales;
+    Si no hay `settings.MERCADOPAGO_WEBHOOK_SECRET`:
+    - en settings.DEV_MODE se acepta (con warning) para demos locales;
     - en producción se rechaza.
     """
-    secret = MERCADOPAGO_WEBHOOK_SECRET
+    secret = settings.MERCADOPAGO_WEBHOOK_SECRET
     if not secret:
-        if DEV_MODE:
-            logger.warning("MERCADOPAGO_WEBHOOK_SECRET no configurado; se omite validación de firma (solo DEV).")
-            return True
-        logger.error("Webhook MP rechazado: falta MERCADOPAGO_WEBHOOK_SECRET en producción.")
+        logger.error("Webhook MP rechazado: falta settings.MERCADOPAGO_WEBHOOK_SECRET.")
         return False
 
     x_signature = request.headers.get("x-signature") or request.headers.get("X-Signature")

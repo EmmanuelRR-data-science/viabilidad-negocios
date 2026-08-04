@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 
 from app.clients.v0.google.google_client_raw import (
     _google_api_disponible,
@@ -11,20 +10,13 @@ from app.clients.v0.google.google_client_raw import (
     obtener_direccion_raw,
     obtener_mapa_estatico_raw,
 )
-from app.core.config import GOOGLE_MAPS_API_KEY
+from app.core.config import settings
 from app.schemas.v0.google.google_domain_schemas import (
     DireccionFisicaDomain,
     LugarDomain,
 )
 
 logger = logging.getLogger("google_client_processed")
-
-_MOCK_RESEÑAS = [
-    "Buen servicio en general, aunque los tiempos de espera suben en horario pico.",
-    "Precios algo elevados para la zona, pero la atención al cliente es amable.",
-    "Ubicación conveniente; el local se siente saturado los fines de semana.",
-    "Productos de calidad aceptable; podrían mejorar la limpieza del espacio.",
-]
 
 
 def _truncar_texto(texto: str, *, max_len: int = 220) -> str:
@@ -41,20 +33,7 @@ def obtener_detalle_lugar(place_id: str, *, max_reseñas: int = 3) -> dict:
         return vacio
 
     if not _google_api_disponible():
-        ahora = int(time.time())
-        return {
-            "business_status": "OPERATIONAL",
-            "reseñas_google": [
-                {
-                    "texto": _MOCK_RESEÑAS[i % len(_MOCK_RESEÑAS)],
-                    "rating": 4 - (i % 2),
-                    "autor": f"Cliente Google {i + 1}",
-                    "fecha_relativa": f"hace {i + 1} meses",
-                    "time": ahora - (30 * (i + 1) * 86400),
-                }
-                for i in range(min(max_reseñas, 2))
-            ],
-        }
+        return vacio
 
     # Como detalle del lugar involucra llamadas a API details,
     # usamos requests directo en processed (o raw delegada)
@@ -66,7 +45,7 @@ def obtener_detalle_lugar(place_id: str, *, max_reseñas: int = 3) -> dict:
         "fields": "business_status,reviews",
         "reviews_sort": "newest",
         "language": "es",
-        "key": GOOGLE_MAPS_API_KEY,
+        "key": settings.GOOGLE_MAPS_API_KEY,
     }
 
     try:
@@ -162,37 +141,11 @@ def enriquecer_competidores_con_reseñas(
 def obtener_direccion(lat: float, lng: float) -> dict:
     """Mapea geocodificación a formato DireccionFisicaDomain."""
     response_dto = obtener_direccion_raw(lat, lng)
-    if response_dto.status == "DEV_MODE":
-        # Mock fallback
-        domain = DireccionFisicaDomain(
-            calle="Plaza de la Constitución",
-            numero="S/N",
-            colonia="Centro Histórico de la Cdad. de México",
-            codigo_postal="06000",
-            localidad="Ciudad de México",
-            estado="Ciudad de México",
-            formato_completo=(
-                "Plaza de la Constitución S/N, Centro Histórico de la Cdad. de México, 06000 Cuauhtémoc, CDMX, México"
-            ),
-        )
+    if response_dto.status != "OK":
+        domain = DireccionFisicaDomain()
         res = domain.model_dump()
-        res["municipio"] = "Cuauhtémoc"
-        res["pais"] = "México"
-        return res
-
-    if response_dto.status == "ERROR" or not response_dto.results:
-        domain = DireccionFisicaDomain(
-            calle="",
-            numero="",
-            colonia="",
-            codigo_postal="",
-            localidad="",
-            estado="",
-            formato_completo="",
-        )
-        res = domain.model_dump()
-        res["municipio"] = ""
-        res["pais"] = ""
+        res["municipio"] = None
+        res["pais"] = None
         return res
 
     result = response_dto.results[0]
@@ -259,21 +212,7 @@ def buscar_competidores(
     """Mapea Nearby Search raw a list de LugarDomain dicts con filtros."""
     raw_list = buscar_lugares_raw(lat, lng, radio, google_type, keyword)
     if not raw_list:
-        # Mock fallback
-        display_name = keyword.capitalize() if keyword else google_type.capitalize()
-        return [
-            {
-                "place_id": f"plc_mock_10{i}",
-                "nombre": f"Competidor {display_name} Simulado {i + 1}",
-                "latitud": lat + (0.001 * (i + 1) * (-1 if i % 2 == 0 else 1)),
-                "longitud": lng + (0.001 * (i + 2) * (1 if i % 2 == 0 else -1)),
-                "direccion": f"Av. Principal #{100 * (i + 1)}, Colonia Centro",
-                "rating": round(3.5 + (0.2 * i), 1),
-                "user_ratings_total": 10 * (i + 3),
-                "google_types": [google_type],
-            }
-            for i in range(4)
-        ]
+        return []
 
     tipos_genericos = {"establishment", "store", "point_of_interest"}
     competidores = []
@@ -326,19 +265,8 @@ def buscar_competidores_por_proximidad(lat: float, lng: float, google_type: str)
 
 def buscar_coordenadas_por_direccion(direccion: str) -> list[dict]:
     response_dto = buscar_coordenadas_por_direccion_raw(direccion)
-    if response_dto.status == "DEV_MODE" or not response_dto.results:
-        return [
-            {
-                "direccion": f"{direccion}, Ciudad de México, México",
-                "latitud": 19.432608,
-                "longitud": -99.133208,
-            },
-            {
-                "direccion": f"Av. Benito Juárez, {direccion}, Guadalajara, Jal., México",
-                "latitud": 20.659698,
-                "longitud": -103.349609,
-            },
-        ]
+    if response_dto.status != "OK":
+        return []
 
     resultados = []
     for result in response_dto.results:

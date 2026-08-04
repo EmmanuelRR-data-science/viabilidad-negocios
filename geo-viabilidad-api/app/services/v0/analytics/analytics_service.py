@@ -11,7 +11,7 @@ from app.clients.v0.google.google_client_processed import (
     enriquecer_lugares_con_vigencia,
 )
 from app.clients.v0.google.google_giro_filter import filtrar_competidores_por_giro
-from app.core.config import DEV_MODE
+from app.core.config import settings
 from app.domain.competencia_busqueda import (
     contexto_giro_completo,
     keywords_busqueda_places,
@@ -79,7 +79,6 @@ def buscar_competidores_unificado(
     google_type: str,
     *,
     rubro: str,
-    intenciones: str | None = None,
     competidores_adicionales: str | None = None,
 ) -> list:
     """Orquesta búsqueda HTTP via Google client + merge puro (domain)."""
@@ -89,7 +88,6 @@ def buscar_competidores_unificado(
     kws = keywords_busqueda_places(
         rubro,
         google_type=google_type,
-        intenciones=intenciones,
         competidores_adicionales=competidores_adicionales,
     )
     lotes: list[list[dict]] = [_buscar(lat, lng, radio, google_type, keyword=kw) for kw in kws]
@@ -307,7 +305,6 @@ def procesar_calculo_analitico(
     aliados_seleccionados: list[str] | None = None,
     competidores_adicionales: str | None = None,
     aliados_adicionales: str | None = None,
-    intenciones: str | None = None,
     modo_analisis_aliados: str = "automatico",
     config_aliados_guiados: dict | None = None,
 ) -> dict:
@@ -328,7 +325,7 @@ def procesar_calculo_analitico(
     pob_total = demog["poblacion_ponderada"]
 
     try:
-        nse = calcular_nse(db, lat, lng, radio, permitir_fallback_sin_censo=DEV_MODE)
+        nse = calcular_nse(db, lat, lng, radio, permitir_fallback_sin_censo=settings.DEV_MODE)
     except Exception as nse_err:
         logger.error("No se pudo calcular NSE: %s", nse_err)
         from app.domain.nse import construir_nse_fallback
@@ -386,7 +383,6 @@ def procesar_calculo_analitico(
 
             categorias_ia = determinar_categorias_ia(
                 rubro,
-                intenciones=intenciones,
                 google_type=google_type,
                 categoria=categoria,
                 competidores_adicionales=competidores_adicionales,
@@ -406,9 +402,8 @@ def procesar_calculo_analitico(
         categorias_ia=categorias_ia,
     )
     tipos_aliados, ia_aliados_activa, fuente_aliados = resolver_tipos_aliados_busqueda(
-        aliados_sel_orig if modo_aliados != "guiado" else None,
+        aliados_sel_orig,
         rubro=rubro,
-        intenciones=intenciones if modo_aliados != "guiado" else None,
         modo_analisis_aliados=modo_aliados,
         config_aliados_guiados=config_guiada if modo_aliados == "guiado" else None,
     )
@@ -417,7 +412,7 @@ def procesar_calculo_analitico(
     if ia_aliados_activa:
         ia_autodetect_aliados = True
 
-    contexto_giro = contexto_giro_completo(rubro, intenciones)
+    contexto_giro = contexto_giro_completo(rubro)
 
     if tier in ["basico", "pro", "premium"]:
         if tipos_competidores:
@@ -439,7 +434,6 @@ def procesar_calculo_analitico(
                     float(radio),
                     custom_type,
                     rubro=rubro,
-                    intenciones=intenciones,
                     competidores_adicionales=extra_kw,
                 )
                 for comp in found:
@@ -455,7 +449,6 @@ def procesar_calculo_analitico(
                 float(radio),
                 google_type,
                 rubro=rubro,
-                intenciones=intenciones,
                 competidores_adicionales=competidores_adicionales,
             )
             competidores = []
@@ -656,8 +649,7 @@ def procesar_calculo_analitico(
         "aliados_fuente_busqueda": fuente_aliados,
         "modo_analisis_aliados": modo_aliados,
         "config_aliados_guiados": config_guiada if modo_aliados == "guiado" else None,
-        "intenciones": intenciones,
-    }
+        }
 
 
 def obtener_resultado_reporte(
@@ -729,7 +721,6 @@ def obtener_resultado_reporte(
             aliados_seleccionados=aliados_sel,
             competidores_adicionales=orden.competidores_adicionales,
             aliados_adicionales=orden.aliados_adicionales,
-            intenciones=orden.intenciones,
             modo_analisis_aliados=modo_aliados,
             config_aliados_guiados=config_guiada,
         )
@@ -742,7 +733,7 @@ def obtener_resultado_reporte(
 
         if strategy.uses_bedrock():
             try:
-                foda_inteligente = generar_analisis_foda(analisis_cuant, orden.intenciones)
+                foda_inteligente = generar_analisis_foda(analisis_cuant)
             except Exception as foda_err:
                 logger.error("FODA no disponible para orden %s: %s. Usando respaldo.", orden_id, foda_err)
                 foda_inteligente = _foda_respaldo_cuantitativo(
@@ -868,7 +859,6 @@ def obtener_vista_previa_service(
         tier="premium",
         competidores_seleccionados=competidores_sel,
         aliados_seleccionados=aliados_sel,
-        intenciones=intenciones,
         competidores_adicionales=competidores_adicionales,
         aliados_adicionales=aliados_adicionales,
         modo_analisis_aliados=modo_aliados,

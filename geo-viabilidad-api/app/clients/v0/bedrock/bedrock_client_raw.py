@@ -3,7 +3,7 @@ import logging
 
 import requests
 
-from app.core.config import AWS_REGION
+from app.core.config import settings
 
 logger = logging.getLogger("bedrock_client_raw")
 
@@ -77,7 +77,7 @@ def invocar_bedrock_foda_raw(
     try:
         import boto3
 
-        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+        bedrock = boto3.client("bedrock-runtime", region_name=settings.AWS_REGION)
 
         full_prompt = (
             f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"

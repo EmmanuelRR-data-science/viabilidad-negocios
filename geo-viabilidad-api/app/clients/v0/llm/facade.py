@@ -1,7 +1,7 @@
 """Provider-agnostic LLM facade.
 
 Routes ``invocar_chat_json`` / ``invocar_foda_llm`` through the adapter
-selected by ``LLM_PROVIDER`` (groq | openai | bedrock).
+selected by ``settings.LLM_PROVIDER`` (groq | openai | bedrock).
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
-from app.core.config import LLM_PROVIDER
+from app.core.config import settings
 
 logger = logging.getLogger("llm_facade")
 
@@ -21,14 +21,10 @@ class LLMAdapter(Protocol):
         """Return raw JSON string from the model, or None on failure."""
         ...
 
-    def guardrail_check(self, texto: str) -> tuple[bool, str]:
-        """Return (is_safe, category)."""
-        ...
-
 
 def _get_adapter() -> LLMAdapter:
-    """Lazy-load the adapter matching ``LLM_PROVIDER``."""
-    provider = LLM_PROVIDER
+    """Lazy-load the adapter matching ``settings.LLM_PROVIDER``."""
+    provider = settings.LLM_PROVIDER
     if provider == "groq":
         from app.clients.v0.llm.adapter_groq import GroqAdapter
 
@@ -41,7 +37,7 @@ def _get_adapter() -> LLMAdapter:
         from app.clients.v0.llm.adapter_bedrock import BedrockAdapter
 
         return BedrockAdapter()
-    logger.warning("LLM_PROVIDER=%r not recognised; falling back to groq.", provider)
+    logger.warning("settings.LLM_PROVIDER=%r not recognised; falling back to groq.", provider)
     from app.clients.v0.llm.adapter_groq import GroqAdapter
 
     return GroqAdapter()
@@ -72,12 +68,6 @@ def invocar_foda_llm(datos_entorno: dict, intenciones: str) -> dict | None:
     intenciones = sanitizar_input_usuario(intenciones, field="intenciones") or "Sin intenciones especiales escritas."
 
     adapter = _get_adapter()
-
-    texto_a_guardar = f"Rubro: {rubro}. Intenciones: {intenciones}"
-    es_seguro, _ = adapter.guardrail_check(texto_a_guardar)
-    if not es_seguro:
-        logger.warning("[GUARDRAIL] Input bloqueado por moderación.")
-        return None
 
     poblacion = datos_entorno.get("poblacion_ponderada", 0)
     competencia = datos_entorno.get("competidores_conteo", 0)

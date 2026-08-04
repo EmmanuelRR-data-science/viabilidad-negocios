@@ -2,7 +2,7 @@ import logging
 
 import requests
 
-from app.core.config import GOOGLE_MAPS_API_KEY
+from app.core.config import settings
 from app.schemas.v0.google.google_dto_schemas import (
     GoogleGeocodeResponseDTO,
     GooglePlaceItemDTO,
@@ -13,7 +13,9 @@ logger = logging.getLogger("google_client_raw")
 
 def _google_api_disponible() -> bool:
     return bool(
-        GOOGLE_MAPS_API_KEY and not GOOGLE_MAPS_API_KEY.startswith("pega_tu") and "tu_token" not in GOOGLE_MAPS_API_KEY
+        settings.GOOGLE_MAPS_API_KEY
+        and not settings.GOOGLE_MAPS_API_KEY.startswith("pega_tu")
+        and "tu_token" not in settings.GOOGLE_MAPS_API_KEY
     )
 
 
@@ -30,7 +32,7 @@ def buscar_lugares_raw(
         return []
 
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-    params = {"location": f"{lat},{lng}", "radius": radio, "type": google_type, "key": GOOGLE_MAPS_API_KEY}
+    params = {"location": f"{lat},{lng}", "radius": radio, "type": google_type, "key": settings.GOOGLE_MAPS_API_KEY}
     if keyword:
         params["keyword"] = keyword
 
@@ -63,7 +65,7 @@ def buscar_por_proximidad_raw(
         "location": f"{lat},{lng}",
         "rankby": "distance",
         "type": google_type,
-        "key": GOOGLE_MAPS_API_KEY,
+        "key": settings.GOOGLE_MAPS_API_KEY,
     }
 
     try:
@@ -81,10 +83,10 @@ def buscar_por_proximidad_raw(
 def obtener_direccion_raw(lat: float, lng: float) -> GoogleGeocodeResponseDTO:
     """Geocodificación inversa mediante Google Geocoding API."""
     if not _google_api_disponible():
-        return GoogleGeocodeResponseDTO(status="DEV_MODE")
+        return GoogleGeocodeResponseDTO(status="REQUEST_DENIED")
 
     url = "https://maps.googleapis.com/maps/api/geocode/json"
-    params = {"latlng": f"{lat},{lng}", "key": GOOGLE_MAPS_API_KEY, "language": "es"}
+    params = {"latlng": f"{lat},{lng}", "key": settings.GOOGLE_MAPS_API_KEY, "language": "es"}
 
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -99,12 +101,12 @@ def obtener_direccion_raw(lat: float, lng: float) -> GoogleGeocodeResponseDTO:
 def buscar_coordenadas_por_direccion_raw(direccion: str) -> GoogleGeocodeResponseDTO:
     """Geocodificación directa mediante Google Geocoding API."""
     if not _google_api_disponible():
-        return GoogleGeocodeResponseDTO(status="DEV_MODE")
+        return GoogleGeocodeResponseDTO(status="REQUEST_DENIED")
 
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
         "address": direccion,
-        "key": GOOGLE_MAPS_API_KEY,
+        "key": settings.GOOGLE_MAPS_API_KEY,
         "language": "es",
         "components": "country:MX",
     }
@@ -170,7 +172,7 @@ def obtener_mapa_estatico_raw(
     style_query = "style=feature:poi.business|visibility:off"
     full_url = (
         f"{url}?center={lat},{lng}&zoom={zoom}&size=640x400&scale=2&maptype=roadmap"
-        f"&key={GOOGLE_MAPS_API_KEY}&{style_query}&{marker_query}"
+        f"&key={settings.GOOGLE_MAPS_API_KEY}&{style_query}&{marker_query}"
     )
 
     try:

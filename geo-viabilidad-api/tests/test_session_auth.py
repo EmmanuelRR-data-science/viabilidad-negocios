@@ -110,7 +110,7 @@ def _fake_request():
 
 def test_get_current_user_rejects_non_session_jwt_when_google_configured(monkeypatch):
     monkeypatch.setattr("app.core.security.google_auth_habilitado", lambda: True)
-    monkeypatch.setattr("app.core.security.DEV_MODE", False)
+    monkeypatch.setattr("app.core.config.settings.DEV_MODE", False)
 
     from fastapi import HTTPException
 
@@ -125,7 +125,7 @@ def test_get_current_user_rejects_non_session_jwt_when_google_configured(monkeyp
 
 
 def test_mock_tokens_rejected_when_dev_mode_false(monkeypatch):
-    monkeypatch.setattr("app.core.security.DEV_MODE", False)
+    monkeypatch.setattr("app.core.config.settings.DEV_MODE", False)
     monkeypatch.setattr("app.core.security.google_auth_habilitado", lambda: True)
 
     import pytest
@@ -142,7 +142,7 @@ def test_mock_tokens_rejected_when_dev_mode_false(monkeypatch):
 
 
 def test_mock_token_accepted_when_dev_mode_true(monkeypatch):
-    monkeypatch.setattr("app.core.security.DEV_MODE", True)
+    monkeypatch.setattr("app.core.config.settings.DEV_MODE", True)
 
     class Creds:
         credentials = "mock-token"
@@ -160,11 +160,11 @@ def test_webhook_signature_validation(monkeypatch):
 
     secret = "test_webhook_secret_value"
     monkeypatch.setattr(
-        "app.clients.v0.mercadopago.mercadopago_webhook_signature.MERCADOPAGO_WEBHOOK_SECRET",
+        "app.core.config.settings.MERCADOPAGO_WEBHOOK_SECRET",
         secret,
     )
     monkeypatch.setattr(
-        "app.clients.v0.mercadopago.mercadopago_webhook_signature.DEV_MODE",
+        "app.core.config.settings.DEV_MODE",
         False,
     )
 

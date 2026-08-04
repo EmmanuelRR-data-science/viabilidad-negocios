@@ -1,4 +1,4 @@
-"""LLM provider facade — dispatches on LLM_PROVIDER config.
+"""LLM provider facade — dispatches on settings.LLM_PROVIDER config.
 
 Providers:
 - groq: Groq Cloud API (default for local dev)
@@ -18,18 +18,8 @@ from app.clients.v0.llm.llm_client_raw import (
     invocar_bedrock_raw,
     invocar_groq_raw,
     invocar_openai_raw,
-    verificar_guardrail_groq_raw,
 )
-from app.core.config import (
-    AWS_ENABLED,
-    BEDROCK_MODEL_ID,
-    DEV_MODE,
-    GROQ_API_KEY,
-    GROQ_MODEL,
-    LLM_PROVIDER,
-    OPENAI_API_KEY,
-    OPENAI_MODEL,
-)
+from app.core.config import settings
 
 logger = logging.getLogger("llm_client_processed")
 
@@ -37,32 +27,36 @@ _PROVIDERS = ("groq", "openai", "bedrock")
 
 
 def _groq_disponible() -> bool:
-    return bool(GROQ_API_KEY) and not GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in GROQ_API_KEY
+    return (
+        bool(settings.GROQ_API_KEY)
+        and not settings.GROQ_API_KEY.startswith("pega_tu")
+        and "tu_token" not in settings.GROQ_API_KEY
+    )
 
 
 def _openai_disponible() -> bool:
-    return bool(OPENAI_API_KEY) and not OPENAI_API_KEY.startswith("pega_tu")
+    return bool(settings.OPENAI_API_KEY) and not settings.OPENAI_API_KEY.startswith("pega_tu")
 
 
 def _resolve_provider() -> str:
     """Return the effective provider name, falling back gracefully."""
-    prov = LLM_PROVIDER
+    prov = settings.LLM_PROVIDER
     if prov not in _PROVIDERS:
-        logger.warning("[LLM] LLM_PROVIDER=%r no reconocido; usando 'groq'.", prov)
+        logger.warning("[LLM] settings.LLM_PROVIDER=%r no reconocido; usando 'groq'.", prov)
         prov = "groq"
 
     if prov == "groq" and _groq_disponible():
         return "groq"
     if prov == "openai" and _openai_disponible():
         return "openai"
-    if prov == "bedrock" and AWS_ENABLED and not DEV_MODE:
+    if prov == "bedrock" and settings.AWS_ENABLED and not settings.DEV_MODE:
         return "bedrock"
 
     if _groq_disponible():
         return "groq"
     if _openai_disponible():
         return "openai"
-    if AWS_ENABLED and not DEV_MODE:
+    if settings.AWS_ENABLED and not settings.DEV_MODE:
         return "bedrock"
 
     return "none"
@@ -74,21 +68,14 @@ def invocar_chat_json(system_prompt: str, user_prompt: str) -> str | None:
     logger.info("[LLM] Usando provider: %s", provider)
 
     if provider == "groq":
-        return invocar_groq_raw(system_prompt, user_prompt, GROQ_API_KEY, GROQ_MODEL)
+        return invocar_groq_raw(system_prompt, user_prompt, settings.GROQ_API_KEY, settings.GROQ_MODEL)
     elif provider == "openai":
-        return invocar_openai_raw(system_prompt, user_prompt, OPENAI_API_KEY, OPENAI_MODEL)
+        return invocar_openai_raw(system_prompt, user_prompt, settings.OPENAI_API_KEY, settings.OPENAI_MODEL)
     elif provider == "bedrock":
-        return invocar_bedrock_raw(system_prompt, user_prompt, BEDROCK_MODEL_ID)
+        return invocar_bedrock_raw(system_prompt, user_prompt, settings.BEDROCK_MODEL_ID)
 
     logger.warning("[LLM] Sin provider disponible.")
     return None
-
-
-def verificar_guardrail(texto_usuario: str) -> tuple[bool, str]:
-    """Content moderation — uses Groq guardrail when available, otherwise passes."""
-    if _groq_disponible():
-        return verificar_guardrail_groq_raw(texto_usuario, GROQ_API_KEY)
-    return True, "safe"
 
 
 def invocar_foda_llm_raw(datos_entorno: dict, intenciones: str) -> dict | None:
@@ -108,12 +95,6 @@ def invocar_foda_llm_raw(datos_entorno: dict, intenciones: str) -> dict | None:
 
     provider = _resolve_provider()
     if provider == "none":
-        return None
-
-    texto_a_guardar = f"Rubro: {rubro}. Intenciones: {intenciones}"
-    es_seguro, _ = verificar_guardrail(texto_a_guardar)
-    if not es_seguro:
-        logger.warning("[GUARDRAIL] Input bloqueado por moderación.")
         return None
 
     poblacion = datos_entorno.get("poblacion_ponderada", 0)

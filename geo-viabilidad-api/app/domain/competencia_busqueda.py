@@ -30,13 +30,13 @@ _TIPOS_CON_BUSQUEDA_PROXIMIDAD = frozenset(
 )
 
 
-def contexto_giro_completo(rubro: str, intenciones: str | None = None) -> str:
+def contexto_giro_completo(
+    rubro: str,
+) -> str:
     """Texto unificado para filtrar relevancia de giro (rubro + intenciones)."""
     r = (rubro or "").strip()
-    i = (intenciones or "").strip()
-    if r and i:
-        return f"{r}. {i}"
-    return r or i
+
+    return r
 
 
 def _categorias_manuales(seleccion: list[str] | None) -> list[str]:
@@ -81,7 +81,6 @@ def keywords_busqueda_places(
     rubro: str,
     *,
     google_type: str = "store",
-    intenciones: str | None = None,
     competidores_adicionales: str | None = None,
 ) -> list[str | None]:
     """
@@ -97,7 +96,7 @@ def keywords_busqueda_places(
     canon = list(_RUBRO_KEYWORDS_CANONICOS.get(clave, []))
 
     humano = (rubro or "").replace("_", " ").strip()
-    extra = _intenciones_utiles_para_keyword(intenciones)
+    extra = ""
 
     if not canon and google_type == "restaurant":
         canon = ["restaurante"]
@@ -125,7 +124,6 @@ def keywords_busqueda_places(
 def keyword_places_para_ia(
     rubro: str,
     *,
-    intenciones: str | None = None,
     competidores_adicionales: str | None = None,
     google_type: str = "store",
 ) -> str | None:
@@ -137,7 +135,7 @@ def keyword_places_para_ia(
 
     clave = _normalizar_clave_rubro(rubro)
     humano = (rubro or "").strip()
-    extra = _intenciones_utiles_para_keyword(intenciones)
+    extra = ""
 
     if extra and humano:
         humano_norm = humano.lower()
@@ -156,7 +154,6 @@ def keyword_places_para_ia(
     for kw in keywords_busqueda_places(
         rubro,
         google_type=google_type,
-        intenciones=intenciones,
         competidores_adicionales=competidores_adicionales,
     ):
         if kw:
@@ -239,7 +236,6 @@ def resolver_tipos_aliados_busqueda(
     aliados_seleccionados: list[str] | None,
     *,
     rubro: str,
-    intenciones: str | None = None,
     modo_analisis_aliados: str = "automatico",
     config_aliados_guiados: dict | None = None,
 ) -> tuple[list[str] | None, bool, str]:
@@ -259,7 +255,9 @@ def resolver_tipos_aliados_busqueda(
     if ia_auto:
         from app.domain.aliados_deterministico import resolver_aliados_por_rubro
 
-        tipos = resolver_aliados_por_rubro(rubro, intenciones=intenciones)
+        tipos = resolver_aliados_por_rubro(
+            rubro,
+        )
         return tipos, True, "matriz_rubro"
 
     return None, False, "atractores_default"

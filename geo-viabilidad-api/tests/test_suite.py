@@ -1,6 +1,7 @@
 import os
 import sys
 from decimal import Decimal
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -24,6 +25,29 @@ from app.services.v0.analytics.analytics_service import (
     resolver_competidores_destacados_para_reporte,
     resolver_google_type,
 )
+
+
+# Endpoints dinámicos de simulación de errores para pruebas del middleware
+@app.get("/error-test-db")
+def route_error_db():
+    from sqlalchemy.exc import OperationalError
+
+    raise OperationalError("SELECT 1", {}, Exception("Database Connection refused (Simulated)"))
+
+
+@app.get("/error-test-aws")
+def route_error_aws():
+    from botocore.exceptions import ClientError
+
+    raise ClientError(
+        {"Error": {"Code": "AccessDeniedException", "Message": "Simulated Bedrock Access Denied"}}, "InvokeModel"
+    )
+
+
+@app.get("/error-test-unexpected")
+def route_error_unexpected():
+    raise Exception("Fallo lógico no controlado en memoria (Simulado)")
+
 
 client = TestClient(app)
 
@@ -61,7 +85,7 @@ def test_exception_middleware_db():
     Test that database connection errors (OperationalError) are caught by the
     UserFriendlyExceptionMiddleware and translated to a user-friendly message.
     """
-    response = client.get("/error-test?tipo=db", headers={"Authorization": "Bearer mock-token"})
+    response = client.get("/error-test-db")
     assert response.status_code == 500
     data = response.json()
     assert data["status"] == "error"
@@ -75,7 +99,7 @@ def test_exception_middleware_aws():
     Test that AWS client/sdk errors (ClientError) are caught by the
     UserFriendlyExceptionMiddleware and translated to a user-friendly message.
     """
-    response = client.get("/error-test?tipo=aws", headers={"Authorization": "Bearer mock-token"})
+    response = client.get("/error-test-aws")
     assert response.status_code == 500
     data = response.json()
     assert data["status"] == "error"
@@ -89,7 +113,7 @@ def test_exception_middleware_unexpected():
     Test that unexpected runtime errors are caught by the
     UserFriendlyExceptionMiddleware and translated to a user-friendly message.
     """
-    response = client.get("/error-test?tipo=unexpected", headers={"Authorization": "Bearer mock-token"})
+    response = client.get("/error-test-unexpected")
     assert response.status_code == 500
     data = response.json()
     assert data["status"] == "error"
@@ -185,7 +209,7 @@ def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
 
     kw = keyword_places_para_ia(
         "accesorios para mascotas",
-        intenciones="tienda de collares y juguetes para perros",
+        
         google_type="store",
     )
     assert kw is not None
@@ -225,7 +249,7 @@ def test_keyword_ia_no_duplica_rubro_en_intenciones():
 
     kw = keyword_places_para_ia(
         "florería",
-        intenciones="florería que venda al público en general",
+        
         google_type="store",
     )
     assert kw == "florería que venda al público en general"
@@ -236,7 +260,7 @@ def test_keyword_ia_ignora_intenciones_placeholder_y_usa_rubro():
 
     kw = keyword_places_para_ia(
         "florería",
-        intenciones="Evaluación comercial del giro en la zona residencial mexicana.",
+        
         google_type="store",
     )
     assert kw == "florería"
@@ -296,7 +320,7 @@ def test_resolver_aliados_intenciones_reordenan_sin_agregar():
     base = resolver_aliados_por_rubro("cafetería")
     con_escuela = resolver_aliados_por_rubro(
         "cafetería",
-        intenciones="cerca de escuela primaria y colegio",
+        
     )
     assert set(con_escuela) == set(base)
     assert con_escuela[0] == "school"
@@ -521,7 +545,7 @@ def test_resolver_aliados_matriz_floreria():
 
     con_hospital = resolver_aliados_por_rubro(
         "florería",
-        intenciones="arreglos para hospital y condolencias",
+        
     )
     assert con_hospital[0] == "doctor"
     assert set(con_hospital) == set(tipos)
@@ -759,7 +783,7 @@ def test_webhook_processing_and_mock():
             longitud=Decimal("-99.133208"),
             radio_metros=1000,
             rubro="cafeteria",
-            intenciones="Cafetería gourmet",
+            
         )
         db.add(orden)
         db.commit()
@@ -1000,7 +1024,7 @@ def test_obtener_resultado_analisis_cache_api():
             longitud=Decimal("-99.133208"),
             radio_metros=1000,
             rubro="cafeteria",
-            intenciones="Cafetería gourmet",
+            
             resultado_json=json.dumps(cached_resultado),
             foda_json=json.dumps(cached_foda),
         )
@@ -1049,7 +1073,7 @@ def test_descargar_pdf_local_endpoint():
             longitud=Decimal("-99.133208"),
             radio_metros=1000,
             rubro="floreria",
-            intenciones="Florería premium",
+            
             s3_key_reporte=f"informes/usr_mock_123/{checkout_id}_reporte_floreria.pdf",
         )
         db.add(orden)
@@ -1109,12 +1133,40 @@ def test_descargar_pdf_local_endpoint():
         db.close()
 
 
-def test_procesar_calculo_analitico_aliados_adicionales():
+@patch("app.clients.v0.google.google_client_processed.buscar_competidores")
+@patch("app.clients.v0.google.google_client_processed.buscar_competidores_por_proximidad")
+@patch("app.clients.v0.google.google_client_processed.obtener_direccion")
+def test_procesar_calculo_analitico_aliados_adicionales(mock_direccion, mock_prox, mock_nearby):
     """
     Test that procesar_calculo_analitico handles text-input additional allies (aliados_adicionales)
     by performing keyword-based Places searches and enriching the allies list.
     """
     from app.services.v0.analytics.analytics_service import procesar_calculo_analitico
+
+    mock_nearby.side_effect = lambda lat, lng, radio, google_type, keyword=None: [
+        {
+            "place_id": f"plc_{google_type}_1",
+            "nombre": f"Mock {google_type.capitalize()}",
+            "latitud": lat + 0.0001,
+            "longitud": lng + 0.0001,
+            "direccion": f"Dirección {google_type}",
+            "rating": 4.5,
+            "user_ratings_total": 50,
+            "google_types": [google_type],
+        }
+    ]
+    mock_prox.return_value = []
+    mock_direccion.return_value = {
+        "calle": "Calle Falsa",
+        "numero": "123",
+        "colonia": "Colonia Centro",
+        "codigo_postal": "06000",
+        "localidad": "CDMX",
+        "estado": "CDMX",
+        "formato_completo": "Calle Falsa 123, Colonia Centro, CDMX, México",
+        "municipio": "Cuauhtémoc",
+        "pais": "México",
+    }
 
     db = SessionLocal()
     try:
@@ -1147,11 +1199,24 @@ def test_procesar_calculo_analitico_aliados_adicionales():
         db.close()
 
 
-def test_buscar_direccion_api():
+@patch("app.clients.v0.google.google_client_processed.buscar_coordenadas_por_direccion")
+def test_buscar_direccion_api(mock_buscar):
     """
     Test that the search endpoint `/api/analizar/buscar-direccion` works
     correctly and returns mock coordinates in DEV_MODE.
     """
+    mock_buscar.return_value = [
+        {
+            "direccion": "Reforma 222, Ciudad de México, México",
+            "latitud": 19.432608,
+            "longitud": -99.133208,
+        },
+        {
+            "direccion": "Av. Benito Juárez, Reforma 222, Guadalajara, Jal., México",
+            "latitud": 20.659698,
+            "longitud": -103.349609,
+        },
+    ]
     headers = {"Authorization": "Bearer mock-token"}
     response = client.get("/api/analizar/buscar-direccion?direccion=Reforma%20222", headers=headers)
     assert response.status_code == 200

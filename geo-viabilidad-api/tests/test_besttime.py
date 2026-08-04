@@ -177,7 +177,7 @@ def test_construir_filas_horas_pico_desde_curvas_reales():
     assert "15:00" in filas[1][1]
 
 
-@patch("app.clients.v0.besttime.besttime_client_processed.DEV_MODE", False)
+@patch("app.core.config.settings.DEV_MODE", False)
 @patch("app.clients.v0.besttime.besttime_client_raw.api_key_besttime_valida", return_value=False)
 def test_obtener_afluencia_rechaza_clave_publica(mock_valid):
     with patch("app.clients.v0.besttime.besttime_client_raw.solicitar_forecast_besttime_raw") as mock_forecast:

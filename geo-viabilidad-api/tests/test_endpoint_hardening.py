@@ -11,7 +11,6 @@ client = TestClient(app, raise_server_exceptions=False)
 AUTH = {"Authorization": "Bearer mock-token"}
 
 PROTECTED_GET = [
-    "/error-test?tipo=db",
     "/api/analizar/debug/cuantitativo?lat=19.43&lng=-99.13",
     "/api/analizar/resultado/1",
     "/api/pagos/orden/1/estado",
@@ -70,11 +69,6 @@ def test_openapi_response_models_are_objects_not_bare_string():
         if "$ref" in ref_or_schema:
             continue
         assert ref_or_schema.get("type") != "string", f"{method.upper()} {path} still typed as string"
-
-
-def test_error_test_requires_auth_even_in_dev():
-    assert client.get("/error-test").status_code == 401
-    assert client.get("/error-test?tipo=db", headers=AUTH).status_code == 500
 
 
 def test_map_geocode_and_search_are_public():

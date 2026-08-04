@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from geo_viabilidad_data.ingest_censo_helpers import ENSURE_SEGMENTO_COLUMNS_SQL
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+from admin.exceptions import SchemaInitError
 
 
 def init_db_schemas(engine: Engine) -> tuple[bool, str | None]:
@@ -60,51 +65,25 @@ def init_db_schemas(engine: Engine) -> tuple[bool, str | None]:
 
             cnt = conn.execute(text("SELECT count(*) FROM categorias_cruce")).scalar() or 0
             if cnt == 0:
-                conn.execute(
-                    text("""
+                # Resolver la ruta de categorias_cruce.json de forma segura
+                current_dir = Path(__file__).resolve().parent
+                resources_dir = current_dir.parent / "resources"
+                json_path = resources_dir / "categorias_cruce.json"
+
+                with open(json_path, encoding="utf-8") as f:
+                    seed_data = json.load(f)
+
+                insert_stmt = text("""
                     INSERT INTO categorias_cruce (
                         codigo_scian, nombre_scian, google_place_type,
                         categoria_negocio, peso_competencia
                     )
-                    VALUES
-                        ('722515', 'Cafeterías y fuentes de sodas', 'cafe', 'cafeteria', 1.0),
-                        (
-                            '722511',
-                            'Restaurantes con servicio de preparación de alimentos a la carta',
-                            'restaurant', 'restaurante_carta', 1.0
-                        ),
-                        (
-                            '722513',
-                            'Restaurantes que preparan alimentos de consumo inmediato '
-                            '(pizzas, hamburguesas)',
-                            'fast_food', 'comida_rapida', 1.0
-                        ),
-                        ('464111', 'Farmacias con venta de medicamentos', 'pharmacy', 'farmacia', 0.8),
-                        (
-                            '461110',
-                            'Comercio al por menor en tiendas de abarrotes, '
-                            'ultramarinos y misceláneas',
-                            'convenience_store', 'abarrotes', 0.5
-                        ),
-                        (
-                            '713940',
-                            'Gimnasios y centros de acondicionamiento físico del sector privado',
-                            'gym', 'gimnasio', 1.2
-                        ),
-                        (
-                            '611110',
-                            'Escuelas de educación preescolar y primaria del sector privado',
-                            'school', 'escuela', 0.5
-                        ),
-                        (
-                            '812110',
-                            'Salones de belleza, peluquerías y clínicas de belleza',
-                            'beauty_salon', 'estetica', 1.0
-                        ),
-                        ('812210', 'Tintorerías y lavanderías del sector privado', 'laundry', 'lavanderia', 1.0),
-                        ('621111', 'Consultorios médicos del sector privado', 'doctor', 'consultorio_medico', 0.7);
+                    VALUES (
+                        :codigo_scian, :nombre_scian, :google_place_type,
+                        :categoria_negocio, :peso_competencia
+                    )
                 """)
-                )
+                conn.execute(insert_stmt, seed_data)
 
             conn.execute(
                 text("""
@@ -179,7 +158,6 @@ def init_db_schemas(engine: Engine) -> tuple[bool, str | None]:
         import logging
 
         logging.getLogger("admin.schema_init").exception("Error inicializando esquema: %s", err)
-        return False, (
-            "No se pudo inicializar o verificar el esquema de la base de datos. "
-            "Revisa permisos de la BD y vuelve a abrir la página de ingesta."
-        )
+
+        friendly_error = SchemaInitError()
+        return False, f"{friendly_error.message} {friendly_error.suggested_action or ''}".strip()

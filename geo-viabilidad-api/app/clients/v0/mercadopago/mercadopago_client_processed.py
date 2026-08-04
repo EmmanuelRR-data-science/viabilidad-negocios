@@ -14,7 +14,7 @@ from app.clients.v0.mercadopago.mercadopago_client_raw import (
     obtener_pago_raw,
 )
 from app.clients.v0.mercadopago.mercadopago_webhook_signature import validar_firma_webhook_mp
-from app.core.config import MERCADOPAGO_SANDBOX
+from app.core.config import settings
 from app.exceptions import ExternalDependencyError, ForbiddenError
 
 logger = logging.getLogger("mercadopago_client_processed")
@@ -51,11 +51,11 @@ def crear_preferencia_checkout(
         preference_data["auto_return"] = "approved"
     else:
         logger.warning(
-            "PUBLIC_APP_URL=%s no es HTTPS público; omitiendo back_urls/auto_return.",
+            "settings.PUBLIC_APP_URL=%s no es HTTPS público; omitiendo back_urls/auto_return.",
             base,
         )
 
-    if MERCADOPAGO_SANDBOX:
+    if settings.MERCADOPAGO_SANDBOX:
         preference_data["payment_methods"] = {
             "installments": 1,
             "default_installments": 1,
@@ -74,7 +74,7 @@ def crear_preferencia_checkout(
             detail = f"{detail} ({mp_message})"
         raise ExternalDependencyError(detail, suggested_action="Intenta de nuevo en unos minutos.")
 
-    if MERCADOPAGO_SANDBOX:
+    if settings.MERCADOPAGO_SANDBOX:
         init_point = response_body.get("sandbox_init_point")
         if not init_point:
             raise ExternalDependencyError(

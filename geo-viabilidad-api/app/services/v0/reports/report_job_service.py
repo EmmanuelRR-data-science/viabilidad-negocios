@@ -7,12 +7,7 @@ from sqlalchemy.orm import Session
 from app.clients.v0.database import OrdenPago, SessionLocal
 from app.clients.v0.s3.s3_client_raw import generar_presigned_url_simple, subir_objeto_s3
 from app.clients.v0.ses import enviar_email_html
-from app.core.config import (
-    LOCAL_REPORTS_DIR,
-    PUBLIC_APP_URL,
-    REPORTS_LOCAL_STORAGE,
-    S3_REPORTS_BUCKET,
-)
+from app.core.config import settings
 from app.services.tiers import get_tier_strategy
 from app.services.v0.analytics.analytics_service import procesar_calculo_analitico
 from app.services.v0.reports.report_pdf_service import ReportLabGenerator
@@ -71,7 +66,6 @@ def generar_informe_task(orden_id: int):
             aliados_seleccionados=aliados_sel,
             competidores_adicionales=orden.competidores_adicionales,
             aliados_adicionales=orden.aliados_adicionales,
-            intenciones=orden.intenciones,
             modo_analisis_aliados=modo_aliados,
             config_aliados_guiados=config_guiada,
         )
@@ -154,7 +148,7 @@ def generar_informe_task(orden_id: int):
 
         if strategy.uses_bedrock():
             try:
-                analysis_result = generar_analisis_foda(resultado, orden.intenciones)
+                analysis_result = generar_analisis_foda(resultado)
                 logger.info("[TASK] Diagnóstico estratégico generado exitosamente.")
             except Exception as foda_err:
                 logger.error(f"[TASK] Error al generar diagnóstico estratégico: {foda_err}")
@@ -186,22 +180,22 @@ def generar_informe_task(orden_id: int):
         rubro_slug = re.sub(r"[^a-zA-Z0-9_]+", "_", orden.rubro.lower()).strip("_")
         s3_key = f"informes/{orden.cognito_user_id}/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
 
-        if REPORTS_LOCAL_STORAGE:
+        if settings.REPORTS_LOCAL_STORAGE:
             logger.info("[TASK] Guardando PDF en almacenamiento local...")
-            os.makedirs(LOCAL_REPORTS_DIR, exist_ok=True)
-            local_pdf_path = f"{LOCAL_REPORTS_DIR}/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
+            os.makedirs(settings.LOCAL_REPORTS_DIR, exist_ok=True)
+            local_pdf_path = f"{settings.LOCAL_REPORTS_DIR}/{orden.checkout_id}_reporte_{rubro_slug}.pdf"
             with open(local_pdf_path, "wb") as f:
                 f.write(pdf_bytes)
             logger.info("[TASK] PDF persistido en: %s", local_pdf_path)
 
-            app_base = (PUBLIC_APP_URL or "http://localhost:8000").rstrip("/")
+            app_base = (settings.PUBLIC_APP_URL or "http://localhost:8000").rstrip("/")
             # Sin URL pública directa al PDF: el usuario descarga autenticado en la app.
             presigned_url = f"{app_base}/?orden_id={orden.id}"
         else:
-            logger.info(f"[TASK] Guardando reporte PDF en S3: s3://{S3_REPORTS_BUCKET}/{s3_key}")
-            if subir_objeto_s3(S3_REPORTS_BUCKET, s3_key, pdf_bytes):
+            logger.info(f"[TASK] Guardando reporte PDF en S3: s3://{settings.S3_REPORTS_BUCKET}/{s3_key}")
+            if subir_objeto_s3(settings.S3_REPORTS_BUCKET, s3_key, pdf_bytes):
                 presigned_url = (
-                    generar_presigned_url_simple(S3_REPORTS_BUCKET, s3_key)
+                    generar_presigned_url_simple(settings.S3_REPORTS_BUCKET, s3_key)
                     or "https://geoviabilidad.com/reportes/descarga-directa"
                 )
             else:

@@ -5,14 +5,14 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlparse
 
-from app.core.config import MERCADOPAGO_ACCESS_TOKEN, PUBLIC_APP_URL
+from app.core.config import settings
 from app.exceptions import ExternalDependencyError
 
 logger = logging.getLogger("mercadopago_client_raw")
 
 
 def get_sdk():
-    if not MERCADOPAGO_ACCESS_TOKEN:
+    if not settings.MERCADOPAGO_ACCESS_TOKEN:
         raise ExternalDependencyError(
             "Mercado Pago no está configurado en el servidor.",
             suggested_action="Contacta al administrador para habilitar los cobros.",
@@ -20,14 +20,14 @@ def get_sdk():
         )
     import mercadopago
 
-    return mercadopago.SDK(MERCADOPAGO_ACCESS_TOKEN)
+    return mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
 
 
 def app_base_url() -> str:
-    base = (PUBLIC_APP_URL or "").strip().rstrip("/")
+    base = (settings.PUBLIC_APP_URL or "").strip().rstrip("/")
     if not base:
         raise ExternalDependencyError(
-            "PUBLIC_APP_URL no está configurada. Requerida para Checkout Pro y webhooks.",
+            "settings.PUBLIC_APP_URL no está configurada. Requerida para Checkout Pro y webhooks.",
             suggested_action="Configura la URL pública HTTPS de la aplicación.",
             status_code=503,
         )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GoogleLocationDTO(BaseModel):
@@ -39,3 +39,9 @@ class GoogleGeocodeResultDTO(BaseModel):
 class GoogleGeocodeResponseDTO(BaseModel):
     status: str
     results: list[GoogleGeocodeResultDTO] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validar_resultados_vacios(self) -> GoogleGeocodeResponseDTO:
+        if self.status == "OK" and not self.results:
+            self.status = "ZERO_RESULTS"
+        return self

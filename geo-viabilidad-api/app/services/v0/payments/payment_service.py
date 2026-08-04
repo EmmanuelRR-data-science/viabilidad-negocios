@@ -16,7 +16,7 @@ from app.clients.v0.mercadopago import (
     extraer_payment_id_webhook,
     obtener_pago,
 )
-from app.core.config import MERCADOPAGO_PUBLIC_KEY, MERCADOPAGO_SANDBOX, PAYMENTS_MOCK, PUBLIC_APP_URL
+from app.core.config import settings
 from app.core.security import UserContext
 from app.exceptions import ExternalDependencyError
 from app.schemas.v0.payments_schemas import (
@@ -46,13 +46,13 @@ _MP_STATUS_TO_ESTADO = {
 
 
 def obtener_config_pagos() -> PagosConfigResponse:
-    base = (PUBLIC_APP_URL or "").strip().rstrip("/")
+    base = (settings.PUBLIC_APP_URL or "").strip().rstrip("/")
     return PagosConfigResponse(
-        payments_mock=PAYMENTS_MOCK,
-        checkout_pro=not PAYMENTS_MOCK,
-        sandbox=not PAYMENTS_MOCK and MERCADOPAGO_SANDBOX,
+        payments_mock=settings.PAYMENTS_MOCK,
+        checkout_pro=not settings.PAYMENTS_MOCK,
+        sandbox=not settings.PAYMENTS_MOCK and settings.MERCADOPAGO_SANDBOX,
         sandbox_buyer_configured=False,
-        public_key=MERCADOPAGO_PUBLIC_KEY or None,
+        public_key=settings.MERCADOPAGO_PUBLIC_KEY or None,
         public_return_url_configured=checkout_return_base_valid(base) if base else False,
     )
 
@@ -153,7 +153,6 @@ def crear_preferencia_cobro(
             longitud=payload.longitud,
             radio_metros=payload.radio_metros,
             rubro=payload.rubro,
-            intenciones=payload.intenciones,
             competidores_seleccionados=json.dumps(payload.competidores_seleccionados)
             if payload.competidores_seleccionados
             else None,
@@ -167,7 +166,7 @@ def crear_preferencia_cobro(
         db.commit()
         db.refresh(nueva_orden)
 
-        if PAYMENTS_MOCK:
+        if settings.PAYMENTS_MOCK:
             init_point = f"https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=mock_{checkout_id}"
             logger.info("Pagos MOCK: enlace simulado creado para checkout %s", checkout_id)
         else:
@@ -347,7 +346,7 @@ def disparar_webhook_simulado(
     db: Session,
     user: UserContext,
 ) -> dict:
-    if not PAYMENTS_MOCK:
+    if not settings.PAYMENTS_MOCK:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Este endpoint de pruebas no está disponible en este entorno.",

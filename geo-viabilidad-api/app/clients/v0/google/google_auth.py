@@ -11,7 +11,7 @@ from typing import Any
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
-from app.core.config import GOOGLE_OAUTH_CLIENT_ID
+from app.core.config import settings
 
 logger = logging.getLogger("google_auth")
 
@@ -19,7 +19,7 @@ _MOCK_TOKENS = frozenset({"mock-token", "mock-jwt-user", "mock-jwt-admin"})
 
 
 def google_auth_habilitado() -> bool:
-    return bool(GOOGLE_OAUTH_CLIENT_ID)
+    return bool(settings.GOOGLE_OAUTH_CLIENT_ID)
 
 
 def es_token_mock(token: str | None) -> bool:
@@ -28,12 +28,12 @@ def es_token_mock(token: str | None) -> bool:
 
 def verificar_id_token_google(token: str) -> dict[str, Any]:
     """Valida un ID token emitido por Google y devuelve los claims."""
-    if not GOOGLE_OAUTH_CLIENT_ID:
-        raise ValueError("GOOGLE_OAUTH_CLIENT_ID no configurado")
+    if not settings.GOOGLE_OAUTH_CLIENT_ID:
+        raise ValueError("settings.GOOGLE_OAUTH_CLIENT_ID no configurado")
     idinfo = id_token.verify_oauth2_token(
         token,
         google_requests.Request(),
-        GOOGLE_OAUTH_CLIENT_ID,
+        settings.GOOGLE_OAUTH_CLIENT_ID,
         clock_skew_in_seconds=120,
     )
     if idinfo.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):

@@ -151,20 +151,19 @@ def generar_consideraciones_apertura(datos_entorno: dict) -> list[str]:
     return [c_sva, c_comp, c_extra]
 
 
-def invocar_foda_llm_raw(datos_entorno: dict, intenciones: str) -> dict | None:
+def invocar_foda_llm_raw(datos_entorno: dict) -> dict | None:
     """Invoca Groq/Bedrock y retorna el JSON sanitizado del LLM, o None si falla.
 
     NO aplica enrichment ni narrativa — eso lo hace foda_service.
     """
     rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
     rubro = sanitizar_input_usuario(rubro_raw, field="rubro") or "Negocio general"
-    intenciones = sanitizar_input_usuario(intenciones, field="intenciones") or "Sin intenciones especiales escritas."
 
     groq_disponible = bool(GROQ_API_KEY) and not GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in GROQ_API_KEY
     if not groq_disponible:
         return None
 
-    texto_a_guardar = f"Rubro: {rubro}. Intenciones: {intenciones}"
+    texto_a_guardar = f"Rubro: {rubro}"
     es_seguro, _ = verificar_guardrail_groq(texto_a_guardar, GROQ_API_KEY)
     if not es_seguro:
         logger.warning("[GUARDRAIL] Input bloqueado por Llama Guard.")
@@ -201,8 +200,7 @@ def invocar_foda_llm_raw(datos_entorno: dict, intenciones: str) -> dict | None:
         f"Densidad en el radio: {densidad_ctx:,.1f} hab/km²\n"
         f"Número de competidores directos: {competencia} comercios\n"
         f"Score SVA de Viabilidad General: {sva}/100\n"
-        f"Nivel socioeconómico (NSE) del radio: {nse_etiqueta_ctx}\n"
-        f"Intenciones del emprendedor: {intenciones}\n\n"
+        f"Nivel socioeconómico (NSE) del radio: {nse_etiqueta_ctx}\n\n"
         f"Genera fortalezas y oportunidades del punto para el giro '{rubro}' en México."
     )
 
@@ -236,13 +234,11 @@ def invocar_foda_llm_raw(datos_entorno: dict, intenciones: str) -> dict | None:
 def determinar_categorias_ia(
     rubro: str,
     *,
-    intenciones: str | None = None,
     google_type: str | None = None,
     categoria: str | None = None,
     competidores_adicionales: str | None = None,
 ) -> dict:
     rub_sanitizado = sanitizar_input_usuario(rubro, field="rubro") or rubro
-    int_sanitizado = sanitizar_input_usuario(intenciones, field="intenciones")
     rub_lower = rub_sanitizado.lower()
 
     fallbacks = {
@@ -299,8 +295,6 @@ def determinar_categorias_ia(
         f"Giro comercial del usuario: '{rub_sanitizado}'",
         f"Mapeo interno sugerido del sistema: tipo '{google_type or 'N/D'}' / categoría '{categoria or 'N/D'}'",
     ]
-    if int_sanitizado:
-        partes_usuario.append(f"Intenciones y contexto del negocio: '{int_sanitizado}'")
     if competidores_adicionales:
         partes_usuario.append(f"Marcas o competidores mencionados por el usuario: '{competidores_adicionales}'")
     partes_usuario.append("Determina categorías de competidores y aliados.")

@@ -4,13 +4,13 @@ from pydantic import BaseModel, Field
 
 
 class DireccionFisicaDomain(BaseModel):
-    formato_completo: str
-    calle: str
-    numero: str
-    colonia: str
-    codigo_postal: str
-    localidad: str
-    estado: str
+    formato_completo: str | None = None
+    calle: str | None = None
+    numero: str | None = None
+    colonia: str | None = None
+    codigo_postal: str | None = None
+    localidad: str | None = None
+    estado: str | None = None
 
 
 class LugarDomain(BaseModel):

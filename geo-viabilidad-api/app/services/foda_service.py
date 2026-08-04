@@ -10,6 +10,7 @@ import logging
 from app.clients.v0.bedrock.bedrock_client_processed import (
     generar_consideraciones_apertura,
     recortar_lista_texto,
+    sanitizar_input_usuario,
 )
 from app.clients.v0.google.google_giro_filter import competidor_es_relevante_al_giro
 from app.clients.v0.llm import invocar_foda_llm as _invocar_foda_llm
@@ -40,8 +41,8 @@ def conclusion_foda_detallada(
     return generar_conclusion_detallada(analisis, rubro, tier=tier, radio_metros=radio_metros)
 
 
-def _desc_aliados_matriz(rubro: str, intenciones: str | None = None) -> str:
-    tipos = resolver_aliados_por_rubro(rubro, intenciones=intenciones)
+def _desc_aliados_matriz(rubro: str) -> str:
+    tipos = resolver_aliados_por_rubro(rubro)
     return f"Matriz de geomarketing por rubro ({etiquetas_aliados_legibles(tipos)})"
 
 
@@ -172,13 +173,11 @@ def _aplicar_politica_honesta_foda(
     return resultado
 
 
-def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
+def generar_analisis_foda(datos_entorno: dict) -> dict:
     """Orquesta: bedrock client (LLM raw) → enrichment narrativo.
 
     Retorna el diagnóstico FODA completo listo para el PDF/API.
     """
-    from app.clients.v0.bedrock.bedrock_client_processed import sanitizar_input_usuario
-
     rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
     rubro = sanitizar_input_usuario(rubro_raw, field="rubro") or "Negocio general"
     datos_entorno_sanitizado = {**datos_entorno, "rubro": rubro}
@@ -186,7 +185,7 @@ def generar_analisis_foda(datos_entorno: dict, intenciones: str) -> dict:
     comp_adicionales = datos_entorno.get("competidores_adicionales")
     aliados_adicionales = datos_entorno.get("aliados_adicionales")
 
-    foda_llm = _invocar_foda_llm(datos_entorno_sanitizado, intenciones)
+    foda_llm = _invocar_foda_llm(datos_entorno_sanitizado)
     if foda_llm is None:
         return foda_respaldo_cuantitativo(
             datos_entorno_sanitizado,

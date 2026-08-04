@@ -12,44 +12,44 @@ from app.clients.v0.llm.llm_client_processed import _resolve_provider, invocar_c
 class TestProviderResolution:
     def test_groq_default_in_dev(self):
         with (
-            patch("app.clients.v0.llm.llm_client_processed.LLM_PROVIDER", "groq"),
-            patch("app.clients.v0.llm.llm_client_processed.GROQ_API_KEY", "valid_key"),
-            patch("app.clients.v0.llm.llm_client_processed.DEV_MODE", True),
+            patch("app.core.config.settings.LLM_PROVIDER", "groq"),
+            patch("app.core.config.settings.GROQ_API_KEY", "valid_key"),
+            patch("app.core.config.settings.DEV_MODE", True),
         ):
             assert _resolve_provider() == "groq"
 
     def test_openai_when_configured(self):
         with (
-            patch("app.clients.v0.llm.llm_client_processed.LLM_PROVIDER", "openai"),
-            patch("app.clients.v0.llm.llm_client_processed.OPENAI_API_KEY", "sk-test"),
-            patch("app.clients.v0.llm.llm_client_processed.GROQ_API_KEY", ""),
+            patch("app.core.config.settings.LLM_PROVIDER", "openai"),
+            patch("app.core.config.settings.OPENAI_API_KEY", "sk-test"),
+            patch("app.core.config.settings.GROQ_API_KEY", ""),
         ):
             assert _resolve_provider() == "openai"
 
     def test_bedrock_in_prod(self):
         with (
-            patch("app.clients.v0.llm.llm_client_processed.LLM_PROVIDER", "bedrock"),
-            patch("app.clients.v0.llm.llm_client_processed.AWS_ENABLED", True),
-            patch("app.clients.v0.llm.llm_client_processed.DEV_MODE", False),
-            patch("app.clients.v0.llm.llm_client_processed.GROQ_API_KEY", ""),
+            patch("app.core.config.settings.LLM_PROVIDER", "bedrock"),
+            patch("app.core.config.settings.AWS_ENABLED", True),
+            patch("app.core.config.settings.DEV_MODE", False),
+            patch("app.core.config.settings.GROQ_API_KEY", ""),
         ):
             assert _resolve_provider() == "bedrock"
 
     def test_fallback_to_groq_when_openai_unavailable(self):
         with (
-            patch("app.clients.v0.llm.llm_client_processed.LLM_PROVIDER", "openai"),
-            patch("app.clients.v0.llm.llm_client_processed.OPENAI_API_KEY", ""),
-            patch("app.clients.v0.llm.llm_client_processed.GROQ_API_KEY", "valid_key"),
+            patch("app.core.config.settings.LLM_PROVIDER", "openai"),
+            patch("app.core.config.settings.OPENAI_API_KEY", ""),
+            patch("app.core.config.settings.GROQ_API_KEY", "valid_key"),
         ):
             assert _resolve_provider() == "groq"
 
     def test_none_when_no_provider_available(self):
         with (
-            patch("app.clients.v0.llm.llm_client_processed.LLM_PROVIDER", "groq"),
-            patch("app.clients.v0.llm.llm_client_processed.GROQ_API_KEY", ""),
-            patch("app.clients.v0.llm.llm_client_processed.OPENAI_API_KEY", ""),
-            patch("app.clients.v0.llm.llm_client_processed.AWS_ENABLED", False),
-            patch("app.clients.v0.llm.llm_client_processed.DEV_MODE", True),
+            patch("app.core.config.settings.LLM_PROVIDER", "groq"),
+            patch("app.core.config.settings.GROQ_API_KEY", ""),
+            patch("app.core.config.settings.OPENAI_API_KEY", ""),
+            patch("app.core.config.settings.AWS_ENABLED", False),
+            patch("app.core.config.settings.DEV_MODE", True),
         ):
             assert _resolve_provider() == "none"
 

@@ -129,14 +129,14 @@ def _reordenar_por_intenciones(tipos: list[str], intenciones: str | None) -> lis
     return prioridad + resto
 
 
-def resolver_aliados_por_rubro(rubro: str, *, intenciones: str | None = None) -> list[str]:
+def resolver_aliados_por_rubro(rubro: str) -> list[str]:
     """
     Devuelve tipos de Google Places para buscar aliados según matriz cerrada.
     Las intenciones solo reordenan prioridades, nunca agregan categorías nuevas.
     """
     clave = _clave_matriz_para_rubro(rubro)
     base = list(_MATRIZ_ALIADOS.get(clave, _ALIADOS_DEFAULT)) if clave else list(_ALIADOS_DEFAULT)
-    tipos = _validar_tipos(_reordenar_por_intenciones(base, intenciones))
+    tipos = _validar_tipos(base)
     return tipos or list(_ALIADOS_DEFAULT)
 
 

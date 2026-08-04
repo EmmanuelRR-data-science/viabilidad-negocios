@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.clients.v0.database import AppUsuario
 from app.clients.v0.google.google_auth import google_auth_habilitado, verificar_id_token_google
-from app.core.config import GOOGLE_OAUTH_CLIENT_ID, PUBLIC_APP_URL, SESSION_TTL_SECONDS
+from app.core.config import settings
 from app.core.session_tokens import crear_session_token
 from app.schemas.auth_schemas import AuthConfigResponse, AuthUserResponse, GoogleAuthResponse
 
@@ -20,8 +20,8 @@ logger = logging.getLogger("auth_service")
 def obtener_config_auth() -> AuthConfigResponse:
     return AuthConfigResponse(
         enabled=google_auth_habilitado(),
-        client_id=GOOGLE_OAUTH_CLIENT_ID or None,
-        public_app_url=PUBLIC_APP_URL or None,
+        client_id=settings.GOOGLE_OAUTH_CLIENT_ID or None,
+        public_app_url=settings.PUBLIC_APP_URL or None,
     )
 
 
@@ -95,7 +95,7 @@ def autenticar_con_google(credential: str, db: Session) -> GoogleAuthResponse:
     return GoogleAuthResponse(
         access_token=access_token,
         token_type="bearer",
-        expires_in=expires_in or SESSION_TTL_SECONDS,
+        expires_in=expires_in or settings.SESSION_TTL_SECONDS,
         user=AuthUserResponse(
             google_sub=usuario.google_sub,
             email=usuario.email,
