@@ -649,7 +649,7 @@ def procesar_calculo_analitico(
         "aliados_fuente_busqueda": fuente_aliados,
         "modo_analisis_aliados": modo_aliados,
         "config_aliados_guiados": config_guiada if modo_aliados == "guiado" else None,
-        }
+    }
 
 
 def obtener_resultado_reporte(

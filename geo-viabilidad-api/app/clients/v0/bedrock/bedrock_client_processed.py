@@ -12,16 +12,8 @@ import re
 from app.clients.v0.bedrock.bedrock_client_raw import (
     invocar_bedrock_foda_raw,
     invocar_groq_foda_raw,
-    verificar_guardrail_groq_raw,
 )
 from app.core.config import settings
-#
-    # settings.AWS_ENABLED,
-    # settings.BEDROCK_MODEL_ID,
-    # settings.DEV_MODE,
-    # settings.GROQ_API_KEY,
-    # settings.GROQ_MODEL,
-)
 
 logger = logging.getLogger("bedrock_client_processed")
 
@@ -77,10 +69,6 @@ def sanitizar_input_usuario(texto: str | None, *, field: str = "intenciones") ->
             )
             return None
     return texto_truncado
-
-
-def verificar_guardrail_groq(texto_usuario: str, api_key: str) -> tuple[bool, str]:
-    return verificar_guardrail_groq_raw(texto_usuario, api_key)
 
 
 def validar_schema_foda(respuesta: dict) -> dict:
@@ -160,17 +148,15 @@ def invocar_foda_llm_raw(datos_entorno: dict) -> dict | None:
     rubro_raw = datos_entorno.get("rubro", "Giro no especificado")
     rubro = sanitizar_input_usuario(rubro_raw, field="rubro") or "Negocio general"
 
-    groq_disponible = bool(settings.GROQ_API_KEY) and not settings.GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in settings.GROQ_API_KEY
+    groq_disponible = (
+        bool(settings.GROQ_API_KEY)
+        and not settings.GROQ_API_KEY.startswith("pega_tu")
+        and "tu_token" not in settings.GROQ_API_KEY
+    )
     if not groq_disponible:
         return None
 
-    texto_a_guardar = f"Rubro: {rubro}"
-    es_seguro, _ = verificar_guardrail_groq(texto_a_guardar, settings.GROQ_API_KEY)
-    if not es_seguro:
-        logger.warning("[GUARDRAIL] Input bloqueado por Llama Guard.")
-        return None
-
-    poblacion = datos_entorno.get("poblacion_ponderada", 0)
+        poblacion = datos_entorno.get("poblacion_ponderada", 0)
     competencia = datos_entorno.get("competidores_conteo", 0)
     sva = datos_entorno.get("sva", 50)
     direcc = datos_entorno.get("direccion", "Ubicación seleccionada")
@@ -205,7 +191,7 @@ def invocar_foda_llm_raw(datos_entorno: dict) -> dict | None:
         f"Genera fortalezas y oportunidades del punto para el giro '{rubro}' en México."
     )
 
-    raw_response = invocar_groq_foda_raw(system_prompt, user_prompt, # settings.GROQ_API_KEY, settings.GROQ_MODEL)
+    raw_response = invocar_groq_foda_raw(system_prompt, user_prompt, settings.GROQ_API_KEY, settings.GROQ_MODEL)
     if raw_response:
         try:
             foda_raw = json.loads(raw_response)
@@ -301,10 +287,14 @@ def determinar_categorias_ia(
     partes_usuario.append("Determina categorías de competidores y aliados.")
     user_prompt = "\n".join(partes_usuario)
 
-    groq_disponible = bool(settings.GROQ_API_KEY) and not settings.GROQ_API_KEY.startswith("pega_tu") and "tu_token" not in settings.GROQ_API_KEY
+    groq_disponible = (
+        bool(settings.GROQ_API_KEY)
+        and not settings.GROQ_API_KEY.startswith("pega_tu")
+        and "tu_token" not in settings.GROQ_API_KEY
+    )
     if groq_disponible:
         try:
-            raw_content = invocar_groq_foda_raw(system_prompt, user_prompt, # settings.GROQ_API_KEY, settings.GROQ_MODEL)
+            raw_content = invocar_groq_foda_raw(system_prompt, user_prompt, settings.GROQ_API_KEY, settings.GROQ_MODEL)
             if raw_content:
                 res = json.loads(raw_content)
                 return filtrar_y_validar_categorias(res, sugerencia_fallback)

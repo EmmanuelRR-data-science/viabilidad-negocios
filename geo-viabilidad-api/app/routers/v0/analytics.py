@@ -90,7 +90,6 @@ async def obtener_vista_previa_gratuita(
 
     aliados_sel = None
 
-    
     competidores_adicionales = None
 
     aliados_adicionales = None

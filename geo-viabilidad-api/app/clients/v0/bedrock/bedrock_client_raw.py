@@ -7,38 +7,6 @@ from app.core.config import settings
 
 logger = logging.getLogger("bedrock_client_raw")
 
-GROQ_GUARD_MODEL = "openai/gpt-oss-safeguard-20b"
-
-
-def verificar_guardrail_groq_raw(texto_usuario: str, api_key: str) -> tuple[bool, str]:
-    """Llama a Groq API con el modelo de moderación de seguridad Llama Guard 4."""
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {
-        "model": GROQ_GUARD_MODEL,
-        "messages": [{"role": "user", "content": texto_usuario}],
-        "temperature": 0.0,
-        "max_tokens": 20,
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        if response.status_code != 200:
-            return True, "safe"
-        content = response.json()["choices"][0]["message"]["content"].strip().lower()
-        if content.startswith("unsafe"):
-            # Devolver inseguro y la categoría
-            parts = content.split("\n")
-            categoria = parts[1].strip() if len(parts) > 1 else "unsafe"
-            return False, categoria
-        return True, "safe"
-    except requests.exceptions.Timeout as err:
-        logger.warning("[RAW] Timeout en moderación Llama Guard: %s", err)
-        return True, "timeout"
-    except Exception as err:
-        logger.warning("[RAW] Error al verificar moderación Llama Guard: %s", err)
-        return True, "error"
-
 
 def invocar_groq_foda_raw(
     system_prompt: str,

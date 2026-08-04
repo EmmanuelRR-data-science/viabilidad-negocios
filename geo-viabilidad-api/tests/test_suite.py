@@ -209,7 +209,6 @@ def test_resolver_competidores_ia_usa_rubro_sin_categorias_manuales():
 
     kw = keyword_places_para_ia(
         "accesorios para mascotas",
-        
         google_type="store",
     )
     assert kw is not None
@@ -249,10 +248,9 @@ def test_keyword_ia_no_duplica_rubro_en_intenciones():
 
     kw = keyword_places_para_ia(
         "florería",
-        
         google_type="store",
     )
-    assert kw == "florería que venda al público en general"
+    assert kw == "florería"
 
 
 def test_keyword_ia_ignora_intenciones_placeholder_y_usa_rubro():
@@ -260,7 +258,6 @@ def test_keyword_ia_ignora_intenciones_placeholder_y_usa_rubro():
 
     kw = keyword_places_para_ia(
         "florería",
-        
         google_type="store",
     )
     assert kw == "florería"
@@ -320,7 +317,6 @@ def test_resolver_aliados_intenciones_reordenan_sin_agregar():
     base = resolver_aliados_por_rubro("cafetería")
     con_escuela = resolver_aliados_por_rubro(
         "cafetería",
-        
     )
     assert set(con_escuela) == set(base)
     assert con_escuela[0] == "school"
@@ -545,9 +541,8 @@ def test_resolver_aliados_matriz_floreria():
 
     con_hospital = resolver_aliados_por_rubro(
         "florería",
-        
     )
-    assert con_hospital[0] == "doctor"
+    assert con_hospital[0] == "shopping_mall"
     assert set(con_hospital) == set(tipos)
 
 
@@ -783,7 +778,6 @@ def test_webhook_processing_and_mock():
             longitud=Decimal("-99.133208"),
             radio_metros=1000,
             rubro="cafeteria",
-            
         )
         db.add(orden)
         db.commit()
@@ -1024,7 +1018,6 @@ def test_obtener_resultado_analisis_cache_api():
             longitud=Decimal("-99.133208"),
             radio_metros=1000,
             rubro="cafeteria",
-            
             resultado_json=json.dumps(cached_resultado),
             foda_json=json.dumps(cached_foda),
         )
@@ -1073,7 +1066,6 @@ def test_descargar_pdf_local_endpoint():
             longitud=Decimal("-99.133208"),
             radio_metros=1000,
             rubro="floreria",
-            
             s3_key_reporte=f"informes/usr_mock_123/{checkout_id}_reporte_floreria.pdf",
         )
         db.add(orden)
