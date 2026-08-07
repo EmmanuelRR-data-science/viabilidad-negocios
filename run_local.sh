@@ -20,6 +20,9 @@ docker compose build
 echo "Levantando PostGIS, SPA (8000), API (8001) y Admin (8501)..."
 docker compose up -d
 
+# Recargar nginx para que re-resuelva web-api (evita 502 tras rebuild de la API).
+docker compose restart web-spa 2>/dev/null || true
+
 echo "========================================================="
 echo " Listo - Se ha intentado levantar el stack de Docker"
 echo " Ejecuta 'docker compose ps' para verificar el estado de los servicios."

@@ -2,13 +2,11 @@
 
 Monorepo del producto **GeoViabilidad**: análisis de viabilidad comercial geoespacial para México.
 
-Este README describe cómo levantar, probar y validar el stack sin depender de AWS.
-
 ---
 
 ## Despliegue rápido tras `git clone`
 
-### Opción A — un solo script (recomendado)
+### Opción A — un solo script
 
 **Linux / macOS / WSL:**
 
@@ -47,7 +45,7 @@ curl http://localhost:8001/health
 | Admin | http://localhost:8501/admin/login |
 | Gate PhiQus | usuario `PhiQus` / contraseña `viabilidad-negocios` |
 
-### Opción B — pasos manuales (4 comandos)
+### Opción B — pasos manuales
 
 ```bash
 git clone https://github.com/PhiQus-DS/pq-edm-viabilidad.git
@@ -71,9 +69,9 @@ En Windows: se recomienda usar Git Bash o WSL para ejecutar `./run_local.sh` y `
 | **bash** | `./run_local.sh` (Linux / macOS / WSL) |
 | **uv** ([instalar](https://docs.astral.sh/uv/)) | Tests / desarrollo Python fuera de Docker |
 
-Opcional para flujo “completo” en local: claves `GOOGLE_MAPS` / `GOOGLE_OAUTH`, `GROQ_API_KEY`. Con `PAYMENTS_MOCK=true` **no** hace falta Mercado Pago ni AWS.
+Opcional para flujo “completo” en local: claves `GOOGLE_MAPS` / `GOOGLE_OAUTH`, `GROQ_API_KEY`. Con `PAYMENTS_MODE=mock` **no** hace falta Mercado Pago ni AWS.
 
-> **Windows nativo:** puedes usar `./run_local.ps1` o WSL + `./run_local.sh`. Los scripts de demografía/INEGI son solo `.sh`.
+> **Windows:** usa Git Bash o WSL con `./run_local.sh` y `./setup_local.sh` (mismo stack Linux que Docker).
 
 ---
 
@@ -107,7 +105,7 @@ Valores **recomendados para local** (ya vienen en `.env.example`):
 | Variable | Valor local | Nota |
 |----------|-------------|------|
 | `DEV_MODE` | `true` | Sin AWS obligatorio |
-| `PAYMENTS_MOCK` | `true` | Checkout simulado |
+| `PAYMENTS_MODE` | `mock` | Checkout simulado (`mock` \| `sandbox` \| `live`) |
 | `REPORTS_LOCAL_STORAGE` | `true` | PDF en disco |
 | `LLM_PROVIDER` | `groq` | Alternativas: `openai`, `bedrock` |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `PhiQus` / `viabilidad-negocios` | Gate SPA + Admin |
@@ -177,7 +175,7 @@ Detalle de scripts: [`geo-viabilidad-api/scripts/README.md`](geo-viabilidad-api/
 
 1. http://localhost:8000 → login PhiQus.
 2. Marcar un punto en CDMX, elegir giro (ej. Cafetería), **Analizar**.
-3. Con `PAYMENTS_MOCK=true`, comprar un plan y validar que el PDF se genera / descarga.
+3. Con `PAYMENTS_MODE=mock`, comprar un plan y validar que el PDF se genera / descarga.
 4. Alternativa solo API: usar Swagger en `:8001/docs` (health, pagos/config, endpoints de análisis según contrato).
 
 

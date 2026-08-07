@@ -12,8 +12,9 @@ Arquitectura por capas: [`rfcs/rfc-api-layers.md`](../rfcs/rfc-api-layers.md) ·
 
 Desde la raíz del monorepo (`geo-viabilidad-negocios/`):
 
-```powershell
-./run_local.ps1
+```bash
+./run_local.sh      # build + up (Linux / macOS / WSL / Git Bash)
+./setup_local.sh    # incluye restore del dump demográfico
 ```
 
 Eso levanta (típico) PostGIS, API y web vía Docker Compose.
@@ -30,7 +31,7 @@ Eso levanta (típico) PostGIS, API y web vía Docker Compose.
 | Variable | Uso |
 |----------|-----|
 | `DEV_MODE` | `true` en local (Groq / mocks de AWS) |
-| `PAYMENTS_MOCK` | `true` para checkout simulado sin MP real |
+| `PAYMENTS_MODE` | `mock` \| `sandbox` \| `live` — modo de cobro (config de despliegue) |
 | `REPORTS_LOCAL_STORAGE` | `true` → PDF en `scratch/reports` |
 | `LLM_PROVIDER` | `groq` \| `openai` \| `bedrock` (default: `groq`) |
 | `GROQ_API_KEY` | Clave de API Groq (desarrollo local) |
@@ -108,7 +109,7 @@ Detalle: `../rfcs/rfc-api-layers.md`.
 ```powershell
 cd geo-viabilidad-api
 $env:PYTHONPATH = (Get-Location).Path
-uv run pytest tests/ -q --ignore=tests/security
+uv run pytest tests/ -q
 ```
 
 Incluye `tests/test_architecture_layers.py` (fronteras routers/domain/clients) y `tests/test_llm_provider.py` (registry + mocks).

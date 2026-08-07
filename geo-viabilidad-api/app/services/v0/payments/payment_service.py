@@ -48,9 +48,10 @@ _MP_STATUS_TO_ESTADO = {
 def obtener_config_pagos() -> PagosConfigResponse:
     base = (settings.PUBLIC_APP_URL or "").strip().rstrip("/")
     return PagosConfigResponse(
+        payments_mode=settings.PAYMENTS_MODE,
         payments_mock=settings.PAYMENTS_MOCK,
-        checkout_pro=not settings.PAYMENTS_MOCK,
-        sandbox=not settings.PAYMENTS_MOCK and settings.MERCADOPAGO_SANDBOX,
+        checkout_pro=settings.PAYMENTS_MODE in ("sandbox", "live"),
+        sandbox=settings.PAYMENTS_MODE == "sandbox",
         sandbox_buyer_configured=False,
         public_key=settings.MERCADOPAGO_PUBLIC_KEY or None,
         public_return_url_configured=checkout_return_base_valid(base) if base else False,
@@ -166,7 +167,7 @@ def crear_preferencia_cobro(
         db.commit()
         db.refresh(nueva_orden)
 
-        if settings.PAYMENTS_MOCK:
+        if settings.PAYMENTS_MODE == "mock":
             init_point = f"https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=mock_{checkout_id}"
             logger.info("Pagos MOCK: enlace simulado creado para checkout %s", checkout_id)
         else:
@@ -346,7 +347,7 @@ def disparar_webhook_simulado(
     db: Session,
     user: UserContext,
 ) -> dict:
-    if not settings.PAYMENTS_MOCK:
+    if settings.PAYMENTS_MODE != "mock":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Este endpoint de pruebas no está disponible en este entorno.",

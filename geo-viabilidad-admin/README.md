@@ -14,7 +14,7 @@ uv run flask --app admin.app:app run --host 0.0.0.0 --port 8501
 
 URL local: http://localhost:8501/admin/login
 
-Con Docker Compose desde la raíz del monorepo: `./run_local.ps1` (servicio admin en `:8501`).
+Con Docker Compose desde la raíz del monorepo: `./run_local.sh` o `./setup_local.sh` (servicio admin en `:8501`).
 
 ## Dependencias (`uv`)
 

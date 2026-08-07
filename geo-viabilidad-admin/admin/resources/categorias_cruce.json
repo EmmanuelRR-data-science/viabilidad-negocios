@@ -1,0 +1,72 @@
+[
+  {
+    "codigo_scian": "722515",
+    "nombre_scian": "Cafeterías y fuentes de sodas",
+    "google_place_type": "cafe",
+    "categoria_negocio": "cafeteria",
+    "peso_competencia": 1.0
+  },
+  {
+    "codigo_scian": "722511",
+    "nombre_scian": "Restaurantes con servicio de preparación de alimentos a la carta",
+    "google_place_type": "restaurant",
+    "categoria_negocio": "restaurante_carta",
+    "peso_competencia": 1.0
+  },
+  {
+    "codigo_scian": "722513",
+    "nombre_scian": "Restaurantes que preparan alimentos de consumo inmediato (pizzas, hamburguesas)",
+    "google_place_type": "fast_food",
+    "categoria_negocio": "comida_rapida",
+    "peso_competencia": 1.0
+  },
+  {
+    "codigo_scian": "464111",
+    "nombre_scian": "Farmacias con venta de medicamentos",
+    "google_place_type": "pharmacy",
+    "categoria_negocio": "farmacia",
+    "peso_competencia": 0.8
+  },
+  {
+    "codigo_scian": "461110",
+    "nombre_scian": "Comercio al por menor en tiendas de abarrotes, ultramarinos y misceláneas",
+    "google_place_type": "convenience_store",
+    "categoria_negocio": "abarrotes",
+    "peso_competencia": 0.5
+  },
+  {
+    "codigo_scian": "713940",
+    "nombre_scian": "Gimnasios y centros de acondicionamiento físico del sector privado",
+    "google_place_type": "gym",
+    "categoria_negocio": "gimnasio",
+    "peso_competencia": 1.2
+  },
+  {
+    "codigo_scian": "611110",
+    "nombre_scian": "Escuelas de educación preescolar y primaria del sector privado",
+    "google_place_type": "school",
+    "categoria_negocio": "escuela",
+    "peso_competencia": 0.5
+  },
+  {
+    "codigo_scian": "812110",
+    "nombre_scian": "Salones de belleza, peluquerías y clínicas de belleza",
+    "google_place_type": "beauty_salon",
+    "categoria_negocio": "estetica",
+    "peso_competencia": 1.0
+  },
+  {
+    "codigo_scian": "812210",
+    "nombre_scian": "Tintorerías y lavanderías del sector privado",
+    "google_place_type": "laundry",
+    "categoria_negocio": "lavanderia",
+    "peso_competencia": 1.0
+  },
+  {
+    "codigo_scian": "621111",
+    "nombre_scian": "Consultorios médicos del sector privado",
+    "google_place_type": "doctor",
+    "categoria_negocio": "consultorio_medico",
+    "peso_competencia": 0.7
+  }
+]

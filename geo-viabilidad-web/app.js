@@ -313,15 +313,16 @@ async function ensurePaymentsConfig() {
             return false;
         }
         const data = await response.json();
-        state.paymentsMock = Boolean(data.payments_mock);
+        state.paymentsMode = data.payments_mode || (data.payments_mock ? "mock" : "live");
+        state.paymentsMock = state.paymentsMode === "mock";
         state.checkoutProEnabled = Boolean(data.checkout_pro);
-        state.mercadoPagoSandbox = Boolean(data.sandbox);
+        state.mercadoPagoSandbox = state.paymentsMode === "sandbox";
         state.sandboxBuyerConfigured = Boolean(data.sandbox_buyer_configured);
         state.publicReturnUrlConfigured = Boolean(data.public_return_url_configured);
         state.paymentsConfigLoaded = true;
         applyPaymentsUIMode();
         logger(
-            `Pagos: ${state.paymentsMock ? "MOCK (modal simulado)" : "Checkout Pro Mercado Pago"}.`
+            `Pagos: ${state.paymentsMode.toUpperCase()}${state.paymentsMock ? " (modal simulado)" : " (Checkout Pro Mercado Pago)"}.`
         );
         return true;
     } catch (err) {
@@ -2028,23 +2029,28 @@ async function handleMapClick(lat, lng) {
     addressText.textContent = "Resolviendo dirección postal mexicana...";
     
     try {
+        // Endpoint público (sin Bearer); la cookie de sesión no es necesaria aquí.
         const response = await fetch(`/api/analizar/geocodificar?lat=${lat}&lng=${lng}`, {
             method: "GET",
-            headers: getAuthHeaders(),
             credentials: "include",
         });
         
         if (response.ok) {
             const data = await response.json();
-            const formattedAddress = data.direccion.formato_completo;
+            const dir = data?.direccion || {};
+            const formattedAddress =
+                dir.formato_completo ||
+                [dir.calle, dir.numero, dir.colonia, dir.localidad, dir.estado].filter(Boolean).join(", ") ||
+                `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
             addressText.textContent = formattedAddress;
             logger("Geocodificación resuelta con éxito:", formattedAddress);
         } else {
-            addressText.textContent = "Ubicación en México detectada.";
+            logger("Geocodificador respondió HTTP", response.status);
+            addressText.textContent = `Punto seleccionado: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
     } catch (err) {
         logger("Falla de red en geocodificador inverso:", err);
-        addressText.textContent = "Ubicación detectada (Sin red).";
+        addressText.textContent = `Punto seleccionado: ${lat.toFixed(5)}, ${lng.toFixed(5)} (sin conexión al servidor)`;
     }
     
     // Centrar mapa suavemente

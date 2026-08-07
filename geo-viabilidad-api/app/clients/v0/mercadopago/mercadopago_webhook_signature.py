@@ -29,9 +29,7 @@ def _parse_x_signature(header: str) -> tuple[str | None, str | None]:
 def validar_firma_webhook_mp(request: Request) -> bool:
     """Valida x-signature según especificación de Mercado Pago.
 
-    Si no hay `settings.MERCADOPAGO_WEBHOOK_SECRET`:
-    - en settings.DEV_MODE se acepta (con warning) para demos locales;
-    - en producción se rechaza.
+    Si no hay `settings.MERCADOPAGO_WEBHOOK_SECRET`, rechaza el webhook.
     """
     secret = settings.MERCADOPAGO_WEBHOOK_SECRET
     if not secret:

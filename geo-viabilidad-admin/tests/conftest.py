@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 os.environ.setdefault("DEV_MODE", "true")
+os.environ.setdefault("PAYMENTS_MODE", "mock")
 os.environ.setdefault("PAYMENTS_MOCK", "true")
 
 ADMIN_ROOT = Path(__file__).resolve().parents[1]

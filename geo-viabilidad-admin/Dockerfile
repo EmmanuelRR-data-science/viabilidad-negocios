@@ -23,7 +23,8 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project \
+    && uv pip install --python /opt/venv/bin/python --reinstall /src/geo-viabilidad-data
 
 FROM python:3.11-slim-bookworm
 

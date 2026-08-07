@@ -100,6 +100,7 @@ class PreferenciaResponse(BaseModel):
 class PagosConfigResponse(BaseModel):
     """Configuración pública del flujo de pagos para el frontend."""
 
+    payments_mode: str = Field(..., description="mock | sandbox | live")
     payments_mock: bool
     checkout_pro: bool
     sandbox: bool = False

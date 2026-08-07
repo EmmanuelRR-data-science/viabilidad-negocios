@@ -4,6 +4,7 @@ import os
 import sys
 
 os.environ["DEV_MODE"] = "true"
+os.environ["PAYMENTS_MODE"] = "mock"
 os.environ["PAYMENTS_MOCK"] = "true"
 os.environ["REPORTS_LOCAL_STORAGE"] = "true"
 os.environ["GOOGLE_OAUTH_CLIENT_ID"] = ""

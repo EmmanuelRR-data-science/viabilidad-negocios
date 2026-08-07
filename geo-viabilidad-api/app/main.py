@@ -38,7 +38,7 @@ _OPENAPI_TAGS = [
         "name": "Transacciones y Pagos",
         "description": (
             "Preferencias de cobro, estado de órdenes, webhooks de Mercado Pago y "
-            "webhook simulado cuando `settings.PAYMENTS_MOCK=true`."
+            "webhook simulado cuando `PAYMENTS_MODE=mock`."
         ),
     },
     {

@@ -123,7 +123,7 @@ async def recibir_notificacion_pago(
     background_tasks: BackgroundTasks,
     db: DbDep,
 ):
-    if settings.PAYMENTS_MOCK:
+    if settings.PAYMENTS_MODE == "mock":
         return WebhookAckResponse(status="ignored", detail="Notificación recibida.")
 
     payment_id = await payment_service.extraer_payment_id_desde_webhook(request)
@@ -159,7 +159,7 @@ async def recibir_notificacion_pago(
         ) from err
 
 
-if settings.PAYMENTS_MOCK:
+if settings.PAYMENTS_MODE == "mock":
 
     @router.post(
         "/webhook-mock",

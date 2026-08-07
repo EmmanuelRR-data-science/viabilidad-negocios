@@ -67,6 +67,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-geoanalisis}
       - DEV_MODE=${DEV_MODE:-true}
+      - PAYMENTS_MODE=${PAYMENTS_MODE:-}
       - PAYMENTS_MOCK=${PAYMENTS_MOCK:-true}
       - REPORTS_LOCAL_STORAGE=${REPORTS_LOCAL_STORAGE:-true}
       - AWS_REGION=${AWS_REGION:-us-east-1}
